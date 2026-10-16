@@ -1,0 +1,9 @@
+id: alpha
+name: Alpha
+category: package-manager
+select: radio
+summary: A package manager for tests
+conflicts: [beta]
+snippet:
+  rule: Install with Alpha.
+  why: Tests need a package manager.

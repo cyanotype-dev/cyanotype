@@ -1,0 +1,9 @@
+id: beta
+name: Beta
+category: package-manager
+select: radio
+summary: Another package manager for tests
+conflicts: [alpha]
+snippet:
+  rule: Install with Beta.
+  why: Tests need a package manager.

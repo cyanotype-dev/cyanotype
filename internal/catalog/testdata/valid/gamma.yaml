@@ -1,0 +1,13 @@
+# Comments and a leading document marker are fine.
+---
+id: gamma
+name: Gamma
+category: framework
+select: radio
+summary: A framework for tests
+conflicts: [beta]
+snippet:
+  rule: |
+    Build pages with Gamma.
+    Keep one component per file.
+  why: Tests need a framework.

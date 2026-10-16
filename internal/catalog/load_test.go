@@ -1,0 +1,194 @@
+package catalog
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestLoadValid(t *testing.T) {
+	c, err := Load(os.DirFS(filepath.Join("testdata", "valid")))
+	if err != nil {
+		t.Fatalf("Load() error:\n%v", err)
+	}
+
+	want := []Entry{
+		{
+			ID:       "alpha",
+			Name:     "Alpha",
+			Category: "language",
+			Select:   SelectCheckbox,
+			URL:      "https://alpha.example.org",
+			Summary:  "A language for tests",
+			Level:    LevelBeginner,
+			Topic:    "style",
+			Snippet:  Snippet{Rule: "Write Alpha.", Why: "Tests need a language."},
+			Detect:   &Detect{Files: []string{"alpha.mod"}},
+		},
+		{
+			ID:        "beta",
+			Name:      "Beta",
+			Category:  "database",
+			Select:    SelectRadio,
+			Summary:   "A database for tests",
+			Requires:  []string{"alpha"},
+			Conflicts: []string{"gamma"},
+			Snippet:   Snippet{Rule: "Store data in Beta.", Why: "Tests need a database."},
+			Enforce:   &Enforce{Claude: &ClaudeEnforce{Deny: []string{"Bash(other-db:*)"}}},
+		},
+		{
+			ID:        "gamma",
+			Name:      "Gamma",
+			Category:  "framework",
+			Select:    SelectRadio,
+			Summary:   "A framework for tests",
+			Conflicts: []string{"beta"},
+			Snippet:   Snippet{Rule: "Build pages with Gamma.\nKeep one component per file.\n", Why: "Tests need a framework."},
+		},
+	}
+	if got := c.Entries(); !reflect.DeepEqual(got, want) {
+		t.Errorf("Entries() =\n%+v\nwant\n%+v", got, want)
+	}
+
+	if got, ok := c.Get("beta"); !ok || got.Name != "Beta" {
+		t.Errorf(`Get("beta") = %+v, %v; want entry named Beta, true`, got, ok)
+	}
+	if _, ok := c.Get("missing"); ok {
+		t.Error(`Get("missing") ok = true, want false`)
+	}
+
+	// Entries returns a copy: changing it must not change the catalog.
+	c.Entries()[0] = Entry{}
+	if got := c.Entries()[0].ID; got != "alpha" {
+		t.Errorf("after modifying the returned slice, first entry id = %q, want %q", got, "alpha")
+	}
+}
+
+func TestLoadInvalid(t *testing.T) {
+	// want lists every expected problem in order; msg is matched as a substring.
+	type wantErr struct{ file, field, msg string }
+	tests := []struct {
+		dir  string
+		want []wantErr
+	}{
+		{"missing-fields", []wantErr{
+			{"alpha.yaml", "name", "is required"},
+			{"alpha.yaml", "summary", "is required"},
+			{"alpha.yaml", "snippet.why", "is required"},
+		}},
+		{"bad-enums", []wantErr{
+			{"alpha.yaml", "select", `must be "radio" or "checkbox", got "dropdown"`},
+			{"alpha.yaml", "level", `got "expert"`},
+		}},
+		{"bad-format", []wantErr{
+			{"Alpha_One.yaml", "id", "must be kebab-case"},
+			{"Alpha_One.yaml", "category", "must be kebab-case"},
+			{"Alpha_One.yaml", "topic", "must be kebab-case"},
+			{"Alpha_One.yaml", "url", "must be an absolute https URL"},
+		}},
+		{"filename-mismatch", []wantErr{
+			{"alpha.yaml", "id", "rename the file to beta.yaml"},
+		}},
+		{"duplicate-id", []wantErr{
+			{"alpha-copy.yaml", "id", "does not match the file name"},
+			{"alpha.yaml", "id", `"alpha" is already used by alpha-copy.yaml`},
+		}},
+		{"unknown-references", []wantErr{
+			{"alpha.yaml", "requires[0]", `unknown entry "ghost"`},
+			{"alpha.yaml", "conflicts[0]", `unknown entry "phantom"`},
+		}},
+		{"reference-lists", []wantErr{
+			{"alpha.yaml", "requires[3]", "is empty"},
+			{"alpha.yaml", "requires[1]", "cannot reference itself"},
+			{"alpha.yaml", "requires[2]", `"beta" is listed twice`},
+			{"alpha.yaml", "conflicts[0]", `"beta" is also listed in requires`},
+		}},
+		{"asymmetric-conflict", []wantErr{
+			{"beta.yaml", "conflicts", `missing "alpha": alpha.yaml declares a conflict`},
+		}},
+		{"same-radio-category", []wantErr{
+			{"alpha.yaml", "conflicts[0]", `same radio category "package-manager"`},
+			{"beta.yaml", "conflicts[0]", `same radio category "package-manager"`},
+		}},
+		{"blank-list-items", []wantErr{
+			{"alpha.yaml", "enforce.claude.deny[1]", "is empty"},
+			{"alpha.yaml", "detect.files[0]", "is empty"},
+		}},
+		{"unknown-fields", []wantErr{
+			{"alpha.yaml", "", `line 6: unknown field "tags"`},
+			{"alpha.yaml", "", `line 10: unknown field "notes"`},
+		}},
+		{"wrong-type", []wantErr{
+			{"alpha.yaml", "", "line 6: cannot unmarshal"},
+		}},
+		{"syntax-error", []wantErr{
+			{"alpha.yaml", "", "invalid YAML"},
+		}},
+		{"empty-file", []wantErr{
+			{"alpha.yaml", "", "file is empty"},
+		}},
+		{"multiple-documents", []wantErr{
+			{"alpha.yaml", "", "exactly one YAML document"},
+		}},
+		{"folder-layout", []wantErr{
+			{"README.md", "", "only .yaml files are allowed"},
+			{"alpha.yml", "", "only .yaml files are allowed"},
+			{"languages", "", "subfolders are not allowed"},
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.dir, func(t *testing.T) {
+			c, err := Load(os.DirFS(filepath.Join("testdata", "invalid", tt.dir)))
+			if err == nil {
+				t.Fatalf("Load() = %d entries, want error", len(c.Entries()))
+			}
+			if c != nil {
+				t.Errorf("Load() returned a catalog together with an error")
+			}
+
+			got := validationErrors(t, err)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d errors, want %d:\n%v", len(got), len(tt.want), err)
+			}
+			for i, w := range tt.want {
+				g := got[i]
+				if g.File != w.file || g.Field != w.field || !strings.Contains(g.Msg, w.msg) {
+					t.Errorf("error %d = %q\nwant file %q, field %q, message containing %q", i, g, w.file, w.field, w.msg)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadMissingFolder(t *testing.T) {
+	_, err := Load(os.DirFS(filepath.Join("testdata", "does-not-exist")))
+	if err == nil {
+		t.Fatal("Load() error = nil, want error")
+	}
+	var ve *ValidationError
+	if errors.As(err, &ve) {
+		t.Errorf("Load() error = %v, want an I/O error, not a validation error", err)
+	}
+}
+
+// validationErrors unpacks the errors joined by Load.
+func validationErrors(t *testing.T, err error) []*ValidationError {
+	t.Helper()
+	joined, ok := err.(interface{ Unwrap() []error })
+	if !ok {
+		t.Fatalf("error %v is not a joined error", err)
+	}
+	var out []*ValidationError
+	for _, e := range joined.Unwrap() {
+		var ve *ValidationError
+		if !errors.As(e, &ve) {
+			t.Fatalf("error %v is not a *ValidationError", e)
+		}
+		out = append(out, ve)
+	}
+	return out
+}

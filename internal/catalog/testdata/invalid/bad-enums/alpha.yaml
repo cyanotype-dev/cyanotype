@@ -1,0 +1,9 @@
+id: alpha
+name: Alpha
+category: language
+select: dropdown
+level: expert
+summary: A language for tests
+snippet:
+  rule: Write Alpha.
+  why: Tests need a language.

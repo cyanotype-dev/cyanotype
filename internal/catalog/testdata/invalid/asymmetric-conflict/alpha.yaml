@@ -1,0 +1,9 @@
+id: alpha
+name: Alpha
+category: framework
+select: radio
+summary: A framework for tests
+conflicts: [beta]
+snippet:
+  rule: Build with Alpha.
+  why: Tests need a framework.

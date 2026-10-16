@@ -1,0 +1,9 @@
+id: alpha
+name: Alpha
+category: language
+select: checkbox
+summary: A language for tests
+requires: beta
+snippet:
+  rule: Write Alpha.
+  why: Tests need a language.
