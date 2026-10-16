@@ -31,3 +31,10 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Cyanotype personal files (see docs/DESIGN.md, Team rules and personal rules)
+cyanotype.local.yaml
+.agents.local/
+
+# Build output
+dist/
