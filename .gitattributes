@@ -1,0 +1,2 @@
+# Normalize line endings so gofmt and golden files behave the same on every OS.
+* text=auto eol=lf
