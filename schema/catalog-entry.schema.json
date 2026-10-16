@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyanotype.dev/schema/catalog-entry.schema.json",
+  "title": "Cyanotype catalog entry",
+  "description": "One selectable technology or rule. Editor support only: the tool validates entries with its own Go code, which also checks references across entries. See the catalog section of docs/DESIGN.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "category", "select", "summary", "snippet"],
+  "properties": {
+    "id": {
+      "description": "Stable identifier, unique across the catalog. Must equal the file name without .yaml.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "name": {
+      "description": "Display name.",
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "description": "Group the entry appears in, such as language, framework or agent-safety.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "select": {
+      "description": "radio if exclusive within its category, checkbox if cumulative. Exclusivity inside a radio category is implicit.",
+      "enum": ["radio", "checkbox"]
+    },
+    "url": {
+      "description": "Target of the \"i\" icon. Expected for technologies.",
+      "type": "string",
+      "pattern": "^https://"
+    },
+    "summary": {
+      "description": "One-line tooltip.",
+      "type": "string",
+      "minLength": 1
+    },
+    "requires": {
+      "description": "Plain ids of entries that must also be selected.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "conflicts": {
+      "description": "Plain ids of incompatible entries in other categories. Must be declared on both sides; never list an entry of the same radio category.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "level": {
+      "description": "Lets simple mode prefer beginner-friendly entries.",
+      "enum": ["beginner", "intermediate", "advanced"]
+    },
+    "topic": {
+      "description": "Split file the snippet goes to when output is split, such as testing or tooling.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "snippet": {
+      "description": "The rule added to generated files and its reason.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "why"],
+      "properties": {
+        "rule": { "description": "The rule, concrete and actionable.", "type": "string", "minLength": 1 },
+        "why": { "description": "The reason behind the rule, in short form.", "type": "string", "minLength": 1 }
+      }
+    },
+    "enforce": {
+      "description": "Real constraints generated alongside the snippet.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "claude": {
+          "description": "Constraints written to Claude Code settings.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deny": {
+              "description": "Permission rules added to the deny list, such as \"Bash(yarn:*)\".",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "detect": {
+      "description": "What reveals the entry in an existing project.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "description": "Paths relative to the project root.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
