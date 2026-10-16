@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        # The race detector needs cgo; run it on Linux only to keep the other runners simple.
+        run: go test ${{ runner.os == 'Linux' && '-race' || '' }} ./...
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          # Keep in sync with the version in CONTRIBUTING.md.
+          version: v2.15.0

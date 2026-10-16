@@ -1,0 +1,29 @@
+version: "2"
+
+linters:
+  # standard = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - revive
+    - unconvert
+  settings:
+    misspell:
+      locale: US
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/cyanotype-dev/cyanotype

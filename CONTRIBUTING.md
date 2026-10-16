@@ -22,6 +22,12 @@ go test ./...
 golangci-lint run
 ```
 
+CI pins golangci-lint v2.15.0; install the same version locally:
+
+```sh
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+```
+
 ## Licensing of contributions
 
 - Code is licensed under Apache-2.0.
