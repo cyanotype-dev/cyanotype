@@ -1,0 +1,6 @@
+id: alpha
+category: language
+select: checkbox
+summary: "   "
+snippet:
+  rule: Write Alpha.

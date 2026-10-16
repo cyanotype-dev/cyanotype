@@ -1,0 +1,10 @@
+id: Alpha_One
+name: Alpha
+category: Programming Language
+select: checkbox
+url: http://alpha.example.org
+summary: A language for tests
+topic: code--style
+snippet:
+  rule: Write Alpha.
+  why: Tests need a language.

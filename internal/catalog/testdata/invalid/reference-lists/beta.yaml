@@ -1,0 +1,9 @@
+id: beta
+name: Beta
+category: database
+select: radio
+summary: A database for tests
+conflicts: [alpha]
+snippet:
+  rule: Store data in Beta.
+  why: Tests need a database.

@@ -50,7 +50,7 @@ The catalog is a folder of YAML files, one per entry: each selectable technology
 | `select` | yes | `radio` if exclusive within its group, `checkbox` if cumulative |
 | `url` | for technologies | Target of the "i" icon |
 | `summary` | yes | One-line tooltip |
-| `requires`, `conflicts` | no | Compatibility: disables incompatible entries and says why |
+| `requires`, `conflicts` | no | Compatibility: disables incompatible entries and says why. Plain entry ids |
 | `level` | no | Lets simple mode prefer beginner-friendly entries |
 | `topic` | no | Which split file the snippet goes to when output is split |
 | `snippet.rule`, `snippet.why` | yes | The rule and its reason |
@@ -66,8 +66,7 @@ category: package-manager
 select: radio
 url: https://pnpm.io
 summary: Fast, disk-efficient package manager for Node.js
-requires: [runtime:node]
-conflicts: [npm, yarn, bun]
+requires: [node]
 level: beginner
 topic: tooling
 snippet:
@@ -79,6 +78,10 @@ enforce:
 detect:
   files: [pnpm-lock.yaml]
 ```
+
+References in `requires` and `conflicts` are plain entry ids, never qualified by category. Ids are unique across the whole catalog, so a qualifier adds nothing, and moving an entry to another category must not break the entries that point to it.
+
+Exclusivity inside a `radio` category is implicit: selecting pnpm deselects npm without either entry saying so. `conflicts` is only for entries in different categories, such as a framework that does not work with a given database, and it must be declared on both sides. Listing an entry of the same radio category in `conflicts` is a validation error. Languages are `checkbox`, because many projects use more than one.
 
 An agent behavior entry:
 
@@ -94,24 +97,30 @@ snippet:
   why: A passing test suite is only meaningful if the tests stay honest.
 ```
 
-A learning entry, for users who want to learn the project's language while the agent works:
+Learning mode is for users who want to learn the project's languages while the agent works. It comes in three levels in the `learning` category, which is `radio`: the user picks at most one, and selecting none turns learning mode off.
+
+| Entry | The agent | The user |
+| --- | --- | --- |
+| `learning-explain` | Writes all the code and explains each new construct the first time it uses it | Reads and asks |
+| `learning-guided` | Explains, works in small steps, writes the complex parts | Writes the simple parts; the agent reviews |
+| `learning-hands-on` | Describes what to write and gives hints instead of solutions | Writes most of the code; the agent reviews |
 
 ```yaml
-id: learning-mode
-name: Learning mode
-category: agent-workflow
-select: checkbox
-summary: The agent teaches the language as it writes code
+id: learning-guided
+name: "Learning mode: guided"
+category: learning
+select: radio
+summary: The agent teaches as it works and lets the user write the simple parts
 topic: workflow
 snippet:
   rule: |
-    The user is learning {language}. The first time you use a construct or idiom, explain it in one or two sentences.
+    The user is learning {languages}. The first time you use a construct or idiom, explain it in one or two sentences.
     Work in small steps instead of writing whole modules at once.
     For simple parts, describe what to write and let the user write it, then review their code.
   why: The user wants to understand the code, not just receive it.
 ```
 
-`{language}` is filled from the selected language entry. Learning mode is slower by design, so simple mode suggests it but never turns it on by default.
+`{languages}` is filled with the `name` of every selected entry in the `language` category, joined as an English list: "Go", "Go and TypeScript", "Go, Python and TypeScript", in the order they appear in the spec's `selections`. Learning mode is slower by design, so simple mode suggests it but never turns it on by default.
 
 A GitHub Actions check validates every pull request to the catalog (schema, consistent `requires` and `conflicts`) and periodically verifies that every `url` still responds.
 
@@ -131,7 +140,7 @@ Phase 1 ships the bundled snapshot only; signed updates and additional catalogs 
 
 ### MVP entries
 
-The first release ships 38 entries: one solid choice per simple-mode project type, plus every agent safety and workflow rule, which work with any stack and carry the most value. Simple mode covers website, mobile app, API and script; desktop app and game appear as coming later.
+The first release ships 40 entries: one solid choice per simple-mode project type, plus every agent safety and workflow rule, which work with any stack and carry the most value. Simple mode covers website, mobile app, API and script; desktop app and game appear as coming later.
 
 | Category | Entries |
 | --- | --- |
@@ -145,7 +154,8 @@ The first release ships 38 entries: one solid choice per simple-mode project typ
 | Internationalization | Generic i18n rules, next-intl |
 | Git | Conventional Commits, one branch per task |
 | Agent safety | No destructive commands, no test tampering, secrets only in `.env`, no unrequested changes, new dependencies only with approval, no duplicate files |
-| Agent workflow | Plan before code, verifiable definition of done, small commits, rule maintenance, Learning mode |
+| Agent workflow | Plan before code, verifiable definition of done, small commits, rule maintenance |
+| Learning | Learning mode: explain, guided, hands-on |
 
 Starter presets built from these entries: Next.js + Supabase, Vite + React, Expo app, FastAPI + PostgreSQL, Python script with uv, Go command-line tool.
 
@@ -477,5 +487,9 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Name: Cyanotype, command cyanotype with the short alias cyty (checked free on Homebrew, Debian, Arch, AUR, PyPI, crates.io and npm). Available: GitHub organization cyanotype-dev and domain cyanotype.dev (cyanotype, cyanotype-ai and cyty are taken on GitHub; cyanotype.com, .io and .app are registered). Trademarks checked on TMview (6 results): none in classes 9 or 42 in the EU, Italy or the US; class 42 marks exist only in Japan (cyanotype) and the UK (Cyanotype Media). GitHub organization cyanotype-dev created; Go module path github.com/cyanotype-dev/cyanotype. Next step: register cyanotype.dev**.
 - [x] **License**: Apache-2.0 for the code, for its explicit patent grant and contribution terms; CC0-1.0 for the catalog, so generated files carry no license obligations. User blueprints use the license in their own manifest.
 - [x] **Catalog distribution**: bundled snapshot plus explicit, signed updates, pinned per project. See the catalog's Distribution section.
-- [x] **MVP catalog entries**: 38 entries and 6 starter presets. See the catalog's MVP entries section.
+- [x] **MVP catalog entries**: 40 entries and 6 starter presets. See the catalog's MVP entries section.
 - [x] **Topic folder**: `docs/agents/` by default, configurable per repo with `output.topic_dir`; personal topic files in `.agents.local/`, configurable per person. See Output and Team rules.
+- [x] **Catalog references**: `requires` and `conflicts` hold plain entry ids; exclusivity inside a radio category is implicit and `conflicts` only links entries of different categories. See The catalog.
+- [x] **Catalog layout**: one flat folder, `catalog/entries/<id>.yaml`, with the file name equal to the id. The category lives only in the entry.
+- [x] **Catalog YAML parsing**: `go.yaml.in/yaml/v3` with unknown fields rejected. The JSON Schema in `schema/` serves editor autocompletion; runtime validation is Go code, which also checks references across entries.
+- [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.

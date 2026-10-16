@@ -1,0 +1,10 @@
+# Requires an entry whose file fails to decode: no "unknown entry" error is expected.
+id: beta
+name: Beta
+category: database
+select: radio
+summary: A database for tests
+requires: [alpha]
+snippet:
+  rule: Store data in Beta.
+  why: Tests need a database.

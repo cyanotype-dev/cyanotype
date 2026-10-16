@@ -9,11 +9,13 @@
       "Bash(git push *--force*)",
       "Bash(git push -f*)",
       "Bash(git push * -f*)",
+      "Bash(gh repo delete*)",
       "PowerShell(Remove-Item *-Recurse*)",
       "PowerShell(git reset --hard*)",
       "PowerShell(git push *--force*)",
       "PowerShell(git push -f*)",
-      "PowerShell(git push * -f*)"
+      "PowerShell(git push * -f*)",
+      "PowerShell(gh repo delete*)"
     ]
   }
 }
