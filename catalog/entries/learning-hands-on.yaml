@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: learning-hands-on
+name: "Learning mode: hands-on"
+category: learning
+select: radio
+summary: The user writes most of the code while the agent guides and reviews
+topic: workflow
+snippet:
+  rule: |
+    The user is learning {languages} and writes most of the code. Describe what to write and why, and give hints instead of complete solutions.
+    Write code yourself only for boilerplate or when the user asks.
+    Review every change the user makes and explain each problem you find.
+  why: Writing the code is the fastest way to learn the language.

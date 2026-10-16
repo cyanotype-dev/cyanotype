@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: node
+name: Node.js
+category: runtime
+select: radio
+url: https://nodejs.org
+summary: JavaScript runtime for servers, tools and build pipelines
+level: beginner
+topic: tooling
+snippet:
+  rule: Use the Node.js version pinned in `.nvmrc` or in the `engines` field of package.json, never whatever version is installed globally.
+  why: Node.js versions differ in behavior and break native dependencies.
+detect:
+  files: [.nvmrc, .node-version, package.json]

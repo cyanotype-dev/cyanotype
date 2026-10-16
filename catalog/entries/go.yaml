@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: go
+name: Go
+category: language
+select: checkbox
+url: https://go.dev
+summary: Simple compiled language with fast builds and single-binary output
+level: beginner
+topic: style
+snippet:
+  rule: 'Format code with gofmt. Return errors instead of panicking, and wrap them with `fmt.Errorf("...: %w", err)`.'
+  why: gofmt ends style debates, and wrapped errors keep the context needed to debug a failure.
+detect:
+  files: [go.mod]

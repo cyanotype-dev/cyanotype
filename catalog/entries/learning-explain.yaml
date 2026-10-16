@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: learning-explain
+name: "Learning mode: explain"
+category: learning
+select: radio
+summary: The agent writes the code and explains each new construct
+topic: workflow
+snippet:
+  rule: |
+    The user is learning {languages}. The first time you use a construct or idiom, explain it in one or two sentences.
+    Write the code yourself, and keep explanations short so they do not slow the work down.
+  why: The user wants to understand the code without having to write it.
