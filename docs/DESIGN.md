@@ -513,6 +513,29 @@ A manual check of `secrets-in-env` with Claude Code 2.1.299 confirmed this; the 
 
 The other entries' deny rules go through the same procedure, and enforce-checks.md tracks which ones have been checked.
 
+#### Generating `.claude/settings.json`
+
+When `claude` is a target, the selected entries' `enforce.claude.deny` rules go to the `permissions.deny` list of `.claude/settings.json`, entries in selection order and each entry's rules in catalog order. `rule-maintenance-propose` also gets `Edit(/<topic_dir>/**)`, added by the renderer because the topic folder is configurable. CLAUDE.md then gets a Claude Code section saying the deny rules back the safety rules, and that a blocked action means stop and ask, not find another way; AGENTS.md stays agent-neutral.
+
+Order matters: a negated rule such as `Read(!.env.example)` only narrows the rules listed before it. So the merge keeps every entry's rules as a subsequence of the final list, in their catalog order. It walks each entry's rules with a cursor and reuses a rule already in the file only when it comes after the entry's previous rule; otherwise it appends the rule again. A user's list with `Read(!.env.example)` before `Read(.env)` therefore gets a second negation after the generated rules, at the cost of a duplicate. Merging twice changes nothing.
+
+An existing file is merged, never replaced. Its keys, their order and their exact values stay, unknown fields included, and the user's own deny rules stay first, in their order; only `permissions.deny` changes. When the merge adds nothing, the file comes back byte for byte; otherwise it is written with two-space indentation and without escaping characters such as `>` and `&`. A file that cannot be read safely is an error rather than a rewrite: invalid JSON, duplicate keys, a `permissions` that is not an object, or a `deny` that is not a list of strings. A new file starts with the schemastore `$schema`; with no rules and no existing file, none is generated.
+
+The merge is additive: deselecting an entry leaves its old rules in the file, because JSON has no comments to mark which rules cyanotype wrote. The `cyanotype.lock` open item in Decisions would solve this.
+
+#### The `.gitignore` block
+
+Personal files, `cyanotype.local.yaml` and `.agents.local/`, go into `.gitignore` inside a block cyanotype owns, whatever the targets:
+
+```gitignore
+# cyanotype:begin (generated from cyanotype.yaml; regeneration replaces this block)
+cyanotype.local.yaml
+.agents.local/
+# cyanotype:end
+```
+
+Regeneration replaces the block where it is and leaves the rest of the file byte for byte; a line starting with `# cyanotype:begin` opens it, so the explanation can change. Without a block, it is appended after a blank line. The block follows the file's line endings, CRLF when the file has any. Entries the user already lists outside the block are not removed or skipped, so the block never depends on the rest of the file. A second block, or a marker without its partner, is an error.
+
 ## Generated file quality
 
 The main file aims to stay under 80–100 lines, because the most common complaint ("it ignores my CLAUDE.md") almost always comes from files that are too long or too vague.
@@ -735,6 +758,7 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Main file layout**: each standard section has a fixed source, catalog topics map to sections, unknown topics get their own section, and each entry is one `rule Why: why` bullet. With both targets, CLAUDE.md imports AGENTS.md and adds only Claude-specific content. See The main file.
 - [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
 - [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
+- [x] **Generated constraints**: `.claude/settings.json` deny rules are merged into the existing file, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; the merge is additive. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place. See Real constraints.
 - [ ] **`ask` permissions in `enforce`**: `enforce.claude` only has `deny`, which blocks an action even after the user approves it. Some rules need "ask first" instead: `dependency-approval` would generate `ask` rules for install commands such as `npm install *`, `pnpm add *` and `uv add *`, and is the first entry to use it. Adding the field changes the JSON Schema, the catalog validation and the Claude renderer.
 - [ ] **Generated-state file**: a file such as `cyanotype.lock` recording the files and the deny rules cyanotype produced. Without it, generated output cannot be told apart from what people wrote, which leaves three known limits: deny rules of deselected entries stay in `.claude/settings.json`, topic files from an earlier split stay on disk, and `cyanotype check` cannot detect generated files edited by hand. One record solves all three. Not implemented yet.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
