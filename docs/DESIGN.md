@@ -124,6 +124,8 @@ snippet:
 
 `{languages}` is filled with the `name` of every selected entry in the `language` category, joined as an English list: "Go", "Go and TypeScript", "Go, Python and TypeScript", in the order they appear in the spec's `selections`. Learning mode is slower by design, so simple mode suggests it but never turns it on by default.
 
+`{languages}` is the only placeholder. Any other `{name}` in `snippet.rule` or `snippet.why` is a validation error, so a typo never reaches a generated file; text inside backticks is code and stays literal, so `` `{children}` `` in a JSX example is allowed. Placeholders are filled by `internal/resolve`, and selecting an entry whose placeholder the selection cannot fill, such as a learning mode with no language selected, is an error.
+
 A GitHub Actions check validates every pull request to the catalog (schema, consistent `requires` and `conflicts`) and periodically verifies that every `url` still responds.
 
 The catalog, including snippets and presets, is released under CC0-1.0, separately from the Apache-2.0 code. Snippets are copied into users' instruction files, and those files must carry no attribution or license notice.
@@ -139,6 +141,23 @@ The catalog ships inside every release and is updated only on explicit request, 
 5. **Additional catalogs.** Organizations can add their own catalog as a second source next to the official one, for internal rules and private presets.
 
 Phase 1 ships the bundled snapshot only; signed updates and additional catalogs arrive in Phase 2.
+
+The catalog's version lives in its own data, in `catalog/catalog.yaml`, rather than in the code, because a catalog downloaded on its own must carry its version with it:
+
+```yaml
+version: "2026.10"
+```
+
+The entries stay in `catalog/entries/`. When a spec's `catalog_version` differs from the loaded catalog:
+
+| Pin | Result | Why |
+| --- | --- | --- |
+| Missing | The loaded catalog is used | The spec has not pinned one yet |
+| Same as the catalog | Nothing to report | |
+| Older than the catalog | Warning: entries may have changed since the files were generated | The bundled catalog is the only one available; refusing it would make every spec unusable after an upgrade |
+| Newer than the catalog | Error: upgrade cyanotype | The spec may select entries this catalog does not have, as with a newer spec `version` |
+
+An unknown selection under a different pin says so, since the entry may have been renamed or removed. From Phase 2 the tool loads the pinned version when it has it, and this table applies only when it does not.
 
 ### MVP entries
 
@@ -254,6 +273,26 @@ Validation is split in two. `internal/spec` checks the file on its own: types, r
 ### Versioning
 
 `version` changes only for breaking changes: renaming, removing or changing the meaning of a field. New optional fields keep the version, so an older cyanotype rejects them as unknown fields and suggests upgrading. A file with a newer version than the tool supports is rejected. An older one is migrated on load, one version at a time, by steps that rewrite the YAML tree rather than Go types, so comments survive; the new version reaches the disk only when the spec is saved. Anchors, aliases and merge keys are not supported, because a shared value cannot be updated in one place only.
+
+### Resolving against the catalog
+
+`internal/resolve` combines a loaded catalog and a loaded spec into a resolved selection: the selected entries in the order of `selections`, with placeholders filled and locked entries marked, plus the spec with its defaults applied. Renderers read only this result.
+
+Problems that would produce wrong or inconsistent files are errors and block generation; the others are warnings. Both name the field and its line, such as `line 9: selections[3]: unknown entry "nextjs"; did you mean "next-js"?`.
+
+| Check | Kind | Example message |
+| --- | --- | --- |
+| Selection not in the catalog, with the closest id when one is close enough | Error | `unknown entry "pnpn"; did you mean "pnpm"?` |
+| Two entries of the same radio category | Error | `"npm" and "pnpm" (selections[1]) are both in radio category "package-manager"; keep only one` |
+| A requirement that is not selected | Error | `"vitest" requires "vite" and "node" (through "vite"), which are not selected` |
+| Two selected entries that conflict | Error | `"supabase" conflicts with "sqlite" (selections[0]); keep only one` |
+| A placeholder the selection cannot fill | Error | `"learning-guided" uses {languages}, but no entry of category "language" is selected` |
+| An `answers` key that matches no question | Error | `unknown question "domain_note"; did you mean "domain_notes"?` |
+| `catalog_version` newer or older than the catalog | Error or warning | See Distribution |
+
+`requires` is transitive: selecting an entry means needing everything its requirements need. Each selection reports all its missing requirements in one message, following only entries that are not selected, because a selected entry reports its own gaps. The resolver never adds entries by itself: the spec records the user's choices, and the interface offers the fix. An unknown selection is reported once and left out of the other checks, so a typo does not cause a cascade.
+
+Questions are not in the catalog yet, so the known `answers` keys are a list in the code, currently `domain_notes`. They move into the catalog together with category metadata.
 
 ### Writing the file back
 
@@ -562,4 +601,8 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Spec versioning**: an integer `version`, bumped only for breaking changes, with migrations on the YAML tree; newer versions are rejected.
 - [x] **Spec write-back**: merge into the original YAML tree to keep comments and order, then write a canonical layout (blank line between top-level keys, flow sequences over 80 characters as block lists).
 - [x] **Spec validation boundary**: `internal/spec` validates structure only; checks that need the catalog, and the merge with `cyanotype.local.yaml`, belong to `internal/resolve`.
+- [x] **Catalog version**: the bundled catalog's version lives in `catalog/catalog.yaml`, next to `catalog/entries/`. A spec pin older than the loaded catalog is a warning, a newer one an error. See Distribution.
+- [x] **Resolution**: unknown selections, radio clashes, missing `requires` (transitive), conflicts, unfillable placeholders and unknown `answers` keys are errors with field and line; warnings never block generation. Resolved entries keep the order of `selections`. See Resolving against the catalog.
+- [x] **Snippet placeholders**: `{languages}` is the only placeholder; other names are catalog validation errors, and text inside backticks is literal.
+- [ ] **Alternatives in `requires`**: `requires` can only say "all of these", but some MVP entries need "one of these": shadcn/ui works with Next.js or Vite + React, not only with one of them. A possible format lets an item of `requires` be a list of alternatives, satisfied when at least one is selected: `requires: [tailwind, [nextjs, vite-react]]`. The JSON Schema, the catalog checks (every alternative exists, none is the entry itself) and the resolver message, such as `"shadcn-ui" requires one of "nextjs" or "vite-react", and none is selected`, would change with it. Not implemented yet; decide before adding those entries.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
