@@ -171,8 +171,13 @@ Each project has an `cyanotype.yaml` at its root holding the user's choices, nev
 
 ```yaml
 version: 1
+
+catalog_version: "2026.10"
+
 targets: [claude, agents-md, cursor]
+
 mode: advanced
+
 project:
   name: recipe-box
   goal: Web app where families save, organize and share recipes.
@@ -183,23 +188,39 @@ project:
   out_of_scope:
     - Meal planning and shopping lists (later)
   brief: docs/PRODUCT.md
+
 languages:
   code: english
   comments: english
   docs: english
   commits: english
   agent_replies: italian
-selections: [typescript, nextjs, pnpm, postgres, vitest, i18n-next-intl,
-             conventional-commits, no-test-tampering, no-destructive-commands]
+
+selections:
+  - typescript
+  - nextjs
+  - pnpm
+  - postgres
+  - vitest
+  - i18n-next-intl
+  - conventional-commits
+  - no-test-tampering
+  - no-destructive-commands
+
+locked: [no-test-tampering, no-destructive-commands]
+
 i18n:
   default_locale: en
   locales: [en, it, es]
   translations_by: agent-draft
+
 answers:
   domain_notes: Private recipes never appear in search results.
+
 custom_rules:
   - rule: Store all quantities in metric units; convert only for display.
     why: Keeps scaling and conversion logic in one place.
+
 output:
   split: auto
   max_lines: 100
