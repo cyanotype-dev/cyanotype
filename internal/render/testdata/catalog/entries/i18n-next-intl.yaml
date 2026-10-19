@@ -1,0 +1,16 @@
+id: i18n-next-intl
+name: next-intl
+category: i18n-library
+select: radio
+url: https://next-intl.dev/docs
+summary: Internationalization for the Next.js App Router
+requires: [nextjs]
+level: intermediate
+topic: i18n
+snippet:
+  rule: |
+    Read every user-facing string through next-intl: `useTranslations` in Client Components and `await getTranslations()` in async Server Components.
+    Keep messages in one JSON file per locale under `messages/`, such as `messages/en.json`.
+  why: One API on both sides of the server boundary keeps every string translatable.
+detect:
+  files: [i18n/request.ts, src/i18n/request.ts]

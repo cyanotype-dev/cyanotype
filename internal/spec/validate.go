@@ -124,6 +124,7 @@ func validate(s Spec) []error {
 	enum(v, "mode", s.Mode, modes)
 	validateProject(v, s.Project)
 	validateLanguages(v, s.Languages)
+	validateCommands(v, s.Commands)
 
 	v.list("selections", s.Selections, func(f, id string) {
 		if !kebabCase.MatchString(id) {
@@ -186,6 +187,26 @@ func validateLanguages(v *validator, l Languages) {
 	for _, f := range fields {
 		if f.value != "" && !languageName.MatchString(f.value) {
 			v.add(f.field, "%q must be a lowercase language name such as \"english\"", f.value)
+		}
+	}
+}
+
+// validateCommands reports commands that are set but blank, or span several
+// lines: the main file lists each command as inline code on one line.
+func validateCommands(v *validator, c Commands) {
+	fields := []struct{ field, value string }{
+		{"commands.dev", c.Dev},
+		{"commands.build", c.Build},
+		{"commands.test", c.Test},
+		{"commands.lint", c.Lint},
+	}
+	for _, f := range fields {
+		switch {
+		case f.value == "":
+		case strings.TrimSpace(f.value) == "":
+			v.add(f.field, "is empty")
+		case strings.Contains(f.value, "\n"):
+			v.add(f.field, "must be a single line")
 		}
 	}
 }

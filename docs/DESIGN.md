@@ -253,6 +253,12 @@ languages:
   commits: english
   agent_replies: italian
 
+commands:
+  dev: pnpm dev
+  build: pnpm build
+  test: pnpm test
+  lint: pnpm lint
+
 selections:
   - typescript
   - nextjs
@@ -295,6 +301,7 @@ output:
 | `project.name`, `project.goal` | yes | — | Name on one line |
 | `project.users`, `core_features`, `out_of_scope`, `brief` | no | — | `brief` is a relative path with forward slashes |
 | `languages.*` | no | `english` | `code`, `comments`, `docs`, `commits`, `agent_replies`; lowercase language names |
+| `commands.*` | no | none | `dev`, `build`, `test`, `lint`; each a shell command on one line, listed in the main file's Commands section |
 | `selections` | no | none | Catalog entry ids, kebab-case, no duplicates. Order matters, as in `{languages}` |
 | `locked` | no | none | Selected ids a local file may not weaken; see Team rules |
 | `i18n.default_locale` | yes, if `i18n` is present | — | BCP 47 tag such as `en` or `pt-BR` |
@@ -379,7 +386,7 @@ From these answers the tool picks a preset, shows it with a short explanation of
 - **Project goal fields**: goal, users, core features, out of scope.
 - **Domain notes**: business rules no catalog can know.
 - **Custom rules**: two fields, rule and reason, to nudge users into writing the why.
-- **Project commands**: dev, build, test, lint, pre-filled when detected and editable.
+- **Project commands**: dev, build, test, lint, pre-filled when detected and editable, stored in the spec's `commands`.
 
 ## Output
 
@@ -387,13 +394,56 @@ Each agent has a renderer that turns the same choices into its own format. AGENT
 
 | Agent | Generated file | Note |
 | --- | --- | --- |
-| Claude Code | `CLAUDE.md` | With several targets it holds `@AGENTS.md` plus any Claude-only rules |
+| Claude Code | `CLAUDE.md` | When AGENTS.md is also a target it holds `@AGENTS.md` plus any Claude-only rules |
 | Codex and compatible agents | `AGENTS.md` | The shared format, used as the main source |
 | Gemini CLI | `GEMINI.md` | Same import logic as Claude |
 | Cursor | `.cursor/rules/*.mdc` | One file per topic, with frontmatter for scope |
 | GitHub Copilot | `.github/copilot-instructions.md` | Compact version |
 
 Formats change often: every renderer is checked against the official docs and covered by snapshot tests.
+
+Renderers live in `internal/render`. They take the resolved selection and return the files to write, path and content, in memory; showing a diff, asking and writing belong to the interfaces. Output is deterministic: the same input gives byte-identical files, with LF line endings. To keep what regeneration must not lose, a renderer reads the project as it is now through an `fs.FS` rooted at the project folder, never through the disk directly. An `fs.FS` rather than a list of files, because the renderer, not the caller, knows which files it generates once output is split. Targets without a renderer yet are skipped with a warning.
+
+### The main file
+
+The main file follows the standard structure in Generated file quality. Each section has a fixed source, and a section with nothing to say is left out:
+
+| Section | Source |
+| --- | --- |
+| Title | `project.name` |
+| Project overview | `project.goal`, `users`, `core_features`, `out_of_scope` |
+| Language policy | `languages.*`; kinds of text in the same language share a line, and replies always get their own |
+| Tech stack | A "Uses:" line naming the selected entries that have a `url`, except those of topics `git`, `workflow` and `safety`, which are practices; then entries of topics `architecture` and `tooling` |
+| Commands | `commands.*`, in the order dev, build, test, lint |
+| Project structure | No source yet, so never generated; a protected section can hold it |
+| Code style | Topics `style` and `i18n`, then the `i18n` settings: locales and who translates |
+| Testing, Git workflow, Agent workflow | Topics `testing`, `git` and `workflow` |
+| Other topics | An unknown topic gets a section of its own, titled from the topic and sorted by it, after Agent workflow, so a new topic needs no code change; entries without a topic go to "Other rules" |
+| Safety rules | Topic `safety` |
+| Domain notes | `answers.domain_notes`, then `custom_rules`: project knowledge no catalog can have |
+| Further reading | Documents read on demand, such as `project.brief`: *Before adding a feature, read docs/PRODUCT.md.* |
+
+Inside a section, entries keep the order of `selections`. Each entry is one bullet, `- <rule> Why: <why>`, with the lines of a multi-line rule joined by spaces: the shortest form keeps the file within its line budget.
+
+AGENTS.md and CLAUDE.md get the same content when only one of them is a target. With both, AGENTS.md holds everything and CLAUDE.md holds the header, `@AGENTS.md` and only Claude-specific content. CLAUDE.md imports AGENTS.md only when `agents-md` is a target, so its content depends on the spec alone.
+
+Every generated Markdown file opens with this header:
+
+```markdown
+<!-- Generated by cyanotype from cyanotype.yaml; regenerating replaces this file.
+Change rules in cyanotype.yaml (custom_rules for your own), or write between
+cyanotype:custom markers, which regeneration keeps. -->
+```
+
+It names the markers without quoting them, because an HTML comment cannot contain another one.
+
+### Protected sections
+
+Hand-written text between a `<!-- cyanotype:custom -->` line and a `<!-- /cyanotype:custom -->` line survives regeneration, markers included and byte for byte apart from CRLF line endings, which become LF. Each marker must be alone on its line.
+
+A block belongs to the nearest `## ` heading above it; headings inside a block are hand-written text and do not count. On regeneration the block goes back to the end of the section with the same heading, a block above every section goes right after the title, and a block whose section is no longer generated goes to the end of the file. Blocks that land in the same place keep their order, and regenerating an unchanged project leaves every block where it is.
+
+A marker without its partner, or a block inside another, stops generation with the file and line, because guessing wrong would silently drop hand-written text.
 
 ### Splitting into multiple files
 
@@ -618,7 +668,7 @@ These turn a one-shot generator into a tool that stays with the project.
 
 - **Stack detection.** On an existing project it reads `package.json`, `pyproject.toml`, `go.mod`, lockfiles and config files through the catalog's `detect` field, and pre-selects what it finds. The user confirms instead of typing.
 - **Presets.** Ready combinations ("Next.js + Supabase", "FastAPI + Postgres", "Simple Python script") stored as ordinary `cyanotype.yaml` files. Community presets arrive by pull request.
-- **Protected sections.** Hand-written text inside markers such as `<!-- cyanotype:custom -->` survives regeneration.
+- **Protected sections.** Hand-written text between `<!-- cyanotype:custom -->` markers survives regeneration; see Output.
 - **Live preview** in TUI and desktop, updated on every selection.
 - **Sharing.** Export a configuration as a file or a compact string, import it in one step.
 - **Multiple agents at once**, generating every target in a single run.
@@ -655,5 +705,9 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Agent enforcement covers the shell**: agent-level constraints on file tools can be bypassed through shell commands, so they must also cover the agent's shell tools and sandbox; repository, pre-commit and CI levels stay the baseline. See Real constraints.
 - [x] **Alternatives in `requires`**: a separate `requires_one_of` field holds groups of alternatives, each satisfied when at least one of its entries is selected, such as `[nextjs, vite-react]` for shadcn/ui. A separate field keeps `requires` a plain list of ids. Unmet groups are resolver errors, one message per group. See The catalog and Resolving against the catalog.
 - [x] **MVP categories**: separate radio categories for web, mobile and backend frameworks, for Python and Node.js package managers, for styling and UI components, and for i18n libraries next to the checkbox category of generic i18n rules; databases are radio; rule maintenance is its own radio category. See the catalog's MVP entries section.
+- [x] **Project commands in the spec**: an optional `commands` object with fixed keys `dev`, `build`, `test` and `lint`, each one line. Fixed keys rather than a free map, so a typo is an unknown field and the Commands section always lists them in the same order. A new optional field, so the spec `version` stays 1. See Project spec.
+- [x] **Renderer input and output**: renderers take the resolved selection and an `fs.FS` of the existing project, and return files in memory, deterministic and sorted by path; they never write to disk. See Output.
+- [x] **Main file layout**: each standard section has a fixed source, catalog topics map to sections, unknown topics get their own section, and each entry is one `rule Why: why` bullet. With both targets, CLAUDE.md imports AGENTS.md and adds only Claude-specific content. See The main file.
+- [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
 - [ ] **`ask` permissions in `enforce`**: `enforce.claude` only has `deny`, which blocks an action even after the user approves it. Some rules need "ask first" instead: `dependency-approval` would generate `ask` rules for install commands such as `npm install *`, `pnpm add *` and `uv add *`, and is the first entry to use it. Adding the field changes the JSON Schema, the catalog validation and the Claude renderer.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.

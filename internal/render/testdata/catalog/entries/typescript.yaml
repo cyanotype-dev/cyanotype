@@ -1,0 +1,13 @@
+id: typescript
+name: TypeScript
+category: language
+select: checkbox
+url: https://www.typescriptlang.org
+summary: JavaScript with static types
+level: beginner
+topic: style
+snippet:
+  rule: Keep `strict` enabled in tsconfig.json. Never use `any`; use `unknown` and narrow it.
+  why: Strict types catch errors at compile time, and `any` silently turns the checks off.
+detect:
+  files: [tsconfig.json]

@@ -1,0 +1,11 @@
+# Test entry: no topic at all.
+id: untopiced
+name: Untopiced rule
+category: misc
+select: checkbox
+summary: Test entry without a topic
+snippet:
+  rule: |
+    Keep the changelog in `CHANGELOG.md`.
+    Add an entry for every user-visible change.
+  why: Users read the changelog, not the git log.

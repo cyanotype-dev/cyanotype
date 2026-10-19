@@ -1,0 +1,1 @@
+targets[2]: cyanotype cannot generate files for "cursor" yet; they are skipped

@@ -40,6 +40,7 @@ func TestDesignExample(t *testing.T) {
 			Code: "english", Comments: "english", Docs: "english",
 			Commits: "english", AgentReplies: "italian",
 		},
+		Commands: Commands{Dev: "pnpm dev", Build: "pnpm build", Test: "pnpm test", Lint: "pnpm lint"},
 		Selections: []string{
 			"typescript", "nextjs", "node", "pnpm", "postgres", "vitest", "i18n-next-intl",
 			"conventional-commits", "no-test-tampering", "no-destructive-commands",

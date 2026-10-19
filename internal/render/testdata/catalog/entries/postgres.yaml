@@ -1,0 +1,13 @@
+id: postgres
+name: PostgreSQL
+category: database
+select: radio
+url: https://www.postgresql.org/docs/
+summary: Relational database for most production apps
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Change the schema only through migration files committed with the code; never alter tables by hand.
+    Pass values as query parameters, never by concatenating them into SQL.
+  why: Migrations rebuild the same schema in every environment, and parameters prevent SQL injection.

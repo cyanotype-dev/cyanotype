@@ -79,6 +79,9 @@ type Spec struct {
 	Project        Project  `yaml:"project"`
 	// Languages sets the human language of each kind of text the agent writes.
 	Languages Languages `yaml:"languages,omitempty"`
+	// Commands holds the project's own commands, which the main instruction
+	// file lists so the agent never has to guess how to build or test.
+	Commands Commands `yaml:"commands,omitempty"`
 	// Selections holds catalog entry ids. Order matters: it is the order in
 	// which entries appear in generated text, such as {languages}.
 	Selections []string `yaml:"selections,omitempty"`
@@ -115,6 +118,17 @@ type Languages struct {
 	Docs         string `yaml:"docs,omitempty"`
 	Commits      string `yaml:"commits,omitempty"`
 	AgentReplies string `yaml:"agent_replies,omitempty"`
+}
+
+// Commands holds the shell commands that run the project, such as
+// "pnpm dev" or "go test ./...". Each one is optional. The fields are fixed,
+// rather than a free map, so a typo in a key is an unknown field and the
+// generated file always lists them in the same order.
+type Commands struct {
+	Dev   string `yaml:"dev,omitempty"`
+	Build string `yaml:"build,omitempty"`
+	Test  string `yaml:"test,omitempty"`
+	Lint  string `yaml:"lint,omitempty"`
 }
 
 // I18n holds the translation settings of the app being built. Locales are

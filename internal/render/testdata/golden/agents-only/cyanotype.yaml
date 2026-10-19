@@ -1,0 +1,36 @@
+# A Go tool targeting AGENTS.md only, with topics the renderer does not
+# know (code-review) and an entry without a topic.
+version: 1
+targets: [agents-md]
+mode: advanced
+project:
+  name: gopher-tool
+  goal: |
+    Command-line tool that tidies Go module files.
+    It runs locally and in CI.
+  core_features:
+    - Sort require blocks
+  brief: docs/PRODUCT.md
+commands:
+  build: go build ./...
+  test: go test ./...
+  lint: golangci-lint run
+selections:
+  - go
+  - golangci-lint
+  - learning-guided
+  - plan-before-code
+  - review-checklist
+  - untopiced
+  - secrets-in-env
+  - rule-maintenance-propose
+i18n:
+  default_locale: en
+answers:
+  domain_notes: |
+    Module paths are case-sensitive.
+
+    Never touch vendor/.
+custom_rules:
+  - rule: Keep the CLI output under 80 columns.
+    why: Users run it in narrow CI logs.

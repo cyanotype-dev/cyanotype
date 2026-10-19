@@ -1,0 +1,9 @@
+id: plan-before-code
+name: Plan before code
+category: agent-workflow
+select: checkbox
+summary: The agent proposes a plan and waits for approval before larger changes
+topic: workflow
+snippet:
+  rule: For any change beyond one file, propose a short plan with the files to touch and the approach, and wait for approval before writing code.
+  why: Correcting a plan costs one message, while correcting finished code costs a rewrite.

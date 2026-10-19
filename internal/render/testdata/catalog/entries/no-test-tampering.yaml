@@ -1,0 +1,9 @@
+id: no-test-tampering
+name: Never weaken tests to make them pass
+category: agent-safety
+select: checkbox
+summary: The agent may not edit or delete tests to make them pass
+topic: safety
+snippet:
+  rule: Never edit, skip or delete an existing test to make it pass. Fix the code, or stop and ask.
+  why: A passing test suite is only meaningful if the tests stay honest.

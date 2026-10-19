@@ -1,0 +1,16 @@
+id: vitest
+name: Vitest
+category: testing
+select: checkbox
+url: https://vitest.dev
+summary: Fast unit test runner for JavaScript and TypeScript
+requires: [node]
+level: beginner
+topic: testing
+snippet:
+  rule: |
+    Run tests with `vitest run`; plain `vitest` starts watch mode in an interactive terminal and never exits.
+    Put each test file next to the code it tests, named `*.test.ts` or `*.test.js`.
+  why: A watch-mode run blocks the shell until someone stops it.
+detect:
+  files: [vitest.config.ts, vitest.config.js, vitest.config.mts]
