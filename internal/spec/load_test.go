@@ -166,6 +166,44 @@ func TestLoadReadError(t *testing.T) {
 	}
 }
 
+func TestFileLine(t *testing.T) {
+	const input = `version: 1
+targets: [claude]
+project:
+  name: tiny
+  goal: A tiny project for tests.
+selections:
+  - go
+  - pnpm
+answers:
+  domain_notes: Prices are in cents.
+`
+	f, err := Load(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("Load() error:\n%v", err)
+	}
+	tests := []struct {
+		field string
+		want  int
+	}{
+		{"version", 1},
+		{"project.goal", 5},
+		{"selections[1]", 8},
+		{"answers.domain_notes", 10},
+		{"selections[9]", 6},   // missing item: the line of the list
+		{"catalog_version", 0}, // missing top-level field
+	}
+	for _, tt := range tests {
+		if got := f.Line(tt.field); got != tt.want {
+			t.Errorf("Line(%q) = %d, want %d", tt.field, got, tt.want)
+		}
+	}
+
+	if got := New(f.Spec).Line("version"); got != 0 {
+		t.Errorf("Line() of a new file = %d, want 0", got)
+	}
+}
+
 func TestValidate(t *testing.T) {
 	valid := Spec{
 		Version: CurrentVersion,
