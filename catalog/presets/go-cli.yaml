@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: go-cli
+name: Go command-line tool
+summary: Command-line tool that ships as a single binary
+project_type: script
+selections: [go, golangci-lint]
+commands:
+  build: go build ./...
+  test: go test ./...
+  lint: golangci-lint run

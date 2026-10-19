@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: fastapi-postgres
+name: FastAPI + PostgreSQL
+summary: Python HTTP API with typed request validation and a Postgres database
+project_type: api
+selections: [python, uv, fastapi, postgres, pytest, ruff]
+commands:
+  dev: uv run fastapi dev
+  test: uv run pytest
+  lint: uv run ruff check

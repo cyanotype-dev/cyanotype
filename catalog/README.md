@@ -1,6 +1,6 @@
 # Cyanotype catalog
 
-This folder holds the catalog: one YAML file per selectable technology or rule, in `entries/`. Each entry carries the text it contributes to generated instruction files, the reason behind it, and the real constraints it can enforce.
+This folder holds the catalog: one YAML file per selectable technology or rule, in `entries/`, and one per preset, a ready combination of entries, in `presets/`. Each entry carries the text it contributes to generated instruction files, the reason behind it, and the real constraints it can enforce.
 
 ## License
 
@@ -36,3 +36,26 @@ The rules the test enforces:
 - `snippet.rule` and `snippet.why` may use the `{languages}` placeholder, filled with the selected languages ("Go and TypeScript"). Any other `{name}` is an error; wrap literal braces in backticks, as in `` `{children}` ``.
 
 The fields and the reasoning behind them are in the catalog section of [docs/DESIGN.md](../docs/DESIGN.md).
+
+## Adding a preset
+
+A preset is a ready combination of entries that simple mode starts a project from, such as "Next.js + Supabase". It holds the stack part of a `cyanotype.yaml` (`selections`, `commands`, `output`) plus metadata; the fields about one project, and `targets`, are chosen when someone uses it.
+
+1. Create `presets/<id>.yaml`. As with entries, the folder is flat and the file name must equal the `id`.
+2. Start the file with this line, for editor autocompletion against [the preset schema](../schema/preset.schema.json):
+
+   ```yaml
+   # yaml-language-server: $schema=../../schema/preset.schema.json
+   ```
+
+3. Run `go test ./internal/preset/ ./catalog/`. Loading resolves the preset against the catalog, so the test reports every problem a spec built from it would have.
+
+The rules the test enforces:
+
+- `id`, `name`, `summary`, `project_type` and `selections` are required; `i18n_selections`, `commands` and `output` are optional. Any other key is an error.
+- `project_type` is `website`, `mobile-app`, `api` or `script`.
+- `selections` must resolve without errors: known entries, one entry per radio category, every `requires` and `requires_one_of` met.
+- `i18n_selections` lists the entries a multilingual project adds after `i18n-rules`, such as the i18n library of the stack. The selections must still resolve with them added.
+- Every bundled preset must also generate files without warnings.
+
+The format and the reasoning behind it are in the Presets section of [docs/DESIGN.md](../docs/DESIGN.md).

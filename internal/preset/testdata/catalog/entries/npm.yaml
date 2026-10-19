@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: npm
+name: npm
+category: package-manager
+select: radio
+url: https://docs.npmjs.com
+summary: The package manager bundled with Node.js
+requires: [node]
+level: beginner
+topic: tooling
+snippet:
+  rule: Use npm for every install and script, and commit package-lock.json. Never run pnpm or yarn.
+  why: Mixing package managers creates conflicting lockfiles.
+enforce:
+  claude:
+    deny: ["Bash(pnpm:*)", "Bash(yarn:*)"]
+detect:
+  files: [package-lock.json]

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: python-script
+name: Python script with uv
+summary: Python script or automation with dependencies managed by uv
+project_type: script
+selections: [python, uv, pytest, ruff]
+commands:
+  test: uv run pytest
+  lint: uv run ruff check

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: nextjs-supabase
+name: Next.js + Supabase
+summary: Full-stack web app with a Postgres database, auth and storage from Supabase
+project_type: website
+selections: [typescript, node, pnpm, nextjs, tailwind, shadcn-ui, supabase, vitest, eslint-prettier]
+i18n_selections: [i18n-next-intl]
+commands:
+  dev: pnpm dev
+  build: pnpm build
+  test: pnpm test
+  lint: pnpm lint

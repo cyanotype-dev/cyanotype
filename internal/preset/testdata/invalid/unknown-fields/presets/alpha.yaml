@@ -1,0 +1,8 @@
+id: alpha
+name: Alpha
+summary: Alpha preset
+project_type: script
+selections: [go]
+targets: [claude]
+project:
+  name: alpha
