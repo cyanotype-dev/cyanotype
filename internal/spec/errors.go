@@ -20,11 +20,18 @@ type ValidationError struct {
 	// parent when the field is missing; 0 when unknown.
 	Line int
 	Msg  string
+	// Syntax reports a YAML syntax error. yaml.v3 reports the line of some
+	// syntax errors one off, so Line is only approximate: interfaces should
+	// say "near line" and show the lines around it.
+	Syntax bool
 }
 
 func (e *ValidationError) Error() string {
 	var b strings.Builder
-	if e.Line > 0 {
+	switch {
+	case e.Line > 0 && e.Syntax:
+		fmt.Fprintf(&b, "near line %d: ", e.Line)
+	case e.Line > 0:
 		fmt.Fprintf(&b, "line %d: ", e.Line)
 	}
 	if e.Field != "" {
@@ -41,7 +48,8 @@ var (
 	cannotDecode  = regexp.MustCompile("^cannot unmarshal (!!\\w+)(?: `(.*)`)? into (\\S+)$")
 )
 
-// syntaxErrors turns a YAML parse error into a ValidationError.
+// syntaxErrors turns a YAML parse error into a ValidationError marked as a
+// syntax error, whose line may be one off.
 func syntaxErrors(err error) []error {
 	msg := strings.TrimPrefix(err.Error(), "yaml: ")
 	line := 0
@@ -49,7 +57,7 @@ func syntaxErrors(err error) []error {
 		line, _ = strconv.Atoi(m[1])
 		msg = m[2]
 	}
-	return []error{&ValidationError{Line: line, Msg: "invalid YAML: " + msg}}
+	return []error{&ValidationError{Line: line, Msg: "invalid YAML: " + msg, Syntax: true}}
 }
 
 // decodeErrors turns the errors of a strict decode into one ValidationError
