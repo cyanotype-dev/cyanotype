@@ -1,0 +1,6 @@
+# Only the required fields: overview and language policy, nothing else.
+version: 1
+targets: [agents-md]
+project:
+  name: tiny
+  goal: A tiny project for tests.

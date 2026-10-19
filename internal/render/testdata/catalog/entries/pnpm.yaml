@@ -1,0 +1,17 @@
+id: pnpm
+name: pnpm
+category: package-manager
+select: radio
+url: https://pnpm.io
+summary: Fast, disk-efficient package manager for Node.js
+requires: [node]
+level: beginner
+topic: tooling
+snippet:
+  rule: Use pnpm for every install and script. Never run npm or yarn.
+  why: Mixing package managers creates conflicting lockfiles.
+enforce:
+  claude:
+    deny: ["Bash(npm install:*)", "Bash(yarn:*)"]
+detect:
+  files: [pnpm-lock.yaml]

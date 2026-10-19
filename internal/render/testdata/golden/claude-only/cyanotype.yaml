@@ -1,0 +1,26 @@
+# A TypeScript app targeting CLAUDE.md only, with mixed languages and human
+# translators.
+version: 1
+targets: [claude]
+project:
+  name: shop-front
+  goal: Storefront for a small bakery.
+  users: Customers ordering on their phones.
+  out_of_scope:
+    - Payments (handled by the provider's hosted page)
+languages:
+  docs: italian
+  agent_replies: italian
+commands:
+  dev: npm run dev
+  test: npm test
+selections:
+  - typescript
+  - node
+  - npm
+  - vitest
+  - no-test-tampering
+i18n:
+  default_locale: it
+  locales: [it, en]
+  translations_by: human

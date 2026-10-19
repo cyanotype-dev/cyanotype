@@ -1,0 +1,10 @@
+# Both targets, regenerated over files that hold protected blocks.
+version: 1
+targets: [agents-md, claude]
+project:
+  name: gopher-tool
+  goal: Command-line tool that tidies Go module files.
+selections:
+  - go
+  - golangci-lint
+  - no-test-tampering

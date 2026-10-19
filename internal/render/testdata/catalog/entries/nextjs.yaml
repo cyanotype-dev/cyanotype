@@ -1,0 +1,16 @@
+id: nextjs
+name: Next.js
+category: frontend-framework
+select: radio
+url: https://nextjs.org/docs
+summary: React framework for full-stack web apps
+requires: [node]
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Use the App Router in `app/`. Pages and layouts are Server Components; add `'use client'` only to components that need state, effects or browser APIs.
+    Expose an environment variable to the browser only through the `NEXT_PUBLIC_` prefix, and never for a secret.
+  why: Server Components keep secrets and data fetching on the server and send less JavaScript to the browser.
+detect:
+  files: [next.config.js, next.config.mjs, next.config.ts]

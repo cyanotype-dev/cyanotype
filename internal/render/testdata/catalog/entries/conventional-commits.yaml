@@ -1,0 +1,15 @@
+id: conventional-commits
+name: Conventional Commits
+category: git
+select: checkbox
+url: https://www.conventionalcommits.org
+summary: Commit messages with a type, an optional scope and a description
+level: beginner
+topic: git
+snippet:
+  rule: |
+    Write commit messages as Conventional Commits: `type(scope): description`, with types such as feat, fix, docs, test and chore.
+    Mark a breaking change with `!` before the colon or a `BREAKING CHANGE:` footer.
+  why: Typed messages make the history easy to scan and let tools derive changelogs and versions.
+detect:
+  files: [commitlint.config.js, commitlint.config.mjs, commitlint.config.ts, .commitlintrc, .commitlintrc.json]

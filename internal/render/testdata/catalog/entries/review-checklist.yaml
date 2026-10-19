@@ -1,0 +1,10 @@
+# Test entry: a topic the renderer has no section for.
+id: review-checklist
+name: Review checklist
+category: code-review
+select: checkbox
+summary: Test entry with a topic of its own
+topic: code-review
+snippet:
+  rule: Before asking for review, reread the diff and remove debug output.
+  why: Reviewers should spend their time on design, not leftovers.

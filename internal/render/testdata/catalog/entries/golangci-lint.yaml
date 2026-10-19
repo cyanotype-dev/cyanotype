@@ -1,0 +1,16 @@
+id: golangci-lint
+name: golangci-lint
+category: lint
+select: checkbox
+url: https://golangci-lint.run
+summary: Runs many Go linters in one pass
+requires: [go]
+level: beginner
+topic: style
+snippet:
+  rule: |
+    Run `golangci-lint run` before finishing a change and fix every finding.
+    Suppress a finding only with a `//nolint` that names the linter and gives a reason, as in `//nolint:gosec // path is a constant`.
+  why: A suppression that names its linter and reason can be reviewed, while a bare one hides future problems.
+detect:
+  files: [.golangci.yml, .golangci.yaml, .golangci.toml, .golangci.json]

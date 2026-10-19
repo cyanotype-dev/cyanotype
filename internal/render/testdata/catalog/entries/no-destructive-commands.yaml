@@ -1,0 +1,29 @@
+id: no-destructive-commands
+name: No destructive commands without asking
+category: agent-safety
+select: checkbox
+summary: The agent asks before running commands that destroy work
+topic: safety
+snippet:
+  rule: Never run destructive commands without asking first, such as `rm -rf`, `git reset --hard`, `git push --force`, `git clean -f` or deleting a branch. Propose a reversible alternative when one exists.
+  why: These commands destroy work that neither git nor the file system can bring back.
+enforce:
+  claude:
+    # Bash and PowerShell both, since a rule on one shell does not cover the other.
+    deny:
+      - "Bash(rm -rf *)"
+      - "Bash(rm -fr *)"
+      - "Bash(rm -Rf *)"
+      - "Bash(git reset --hard*)"
+      - "Bash(git push *--force*)"
+      - "Bash(git push -f*)"
+      - "Bash(git push * -f*)"
+      - "Bash(git clean -f*)"
+      - "Bash(git branch -D *)"
+      - "PowerShell(Remove-Item *-Recurse*)"
+      - "PowerShell(git reset --hard*)"
+      - "PowerShell(git push *--force*)"
+      - "PowerShell(git push -f*)"
+      - "PowerShell(git push * -f*)"
+      - "PowerShell(git clean -f*)"
+      - "PowerShell(git branch -D *)"
