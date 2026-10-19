@@ -32,6 +32,8 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - `internal/render/`: one renderer per agent format.
 - `internal/generate/`: compares rendered files with the project and writes them safely (atomic, root-confined, never deletes).
 - `internal/diff/`: line diff with unified output.
+- `internal/preset/`: loads presets from the catalog and validates them by resolving them against it.
+- `internal/simple/`: simple-mode questions and how their answers become a spec.
 - `catalog/`: YAML entries, licensed CC0-1.0 (separate LICENSE). Code is Apache-2.0.
 - `schema/`: JSON Schemas for catalog entries and the spec file.
 
