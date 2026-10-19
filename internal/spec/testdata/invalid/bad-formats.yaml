@@ -1,0 +1,18 @@
+version: 1
+catalog_version: "2026.13"
+targets: [claude]
+project:
+  name: formats
+  goal: Test formats.
+  brief: ../PRODUCT.md
+languages:
+  code: English
+selections: [typescript, Next.js]
+i18n:
+  default_locale: en_US
+  locales: [en_US, EN]
+answers:
+  DomainNotes: Private recipes stay private.
+output:
+  max_lines: -5
+  topic_dir: C:\agents

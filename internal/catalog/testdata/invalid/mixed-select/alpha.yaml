@@ -1,0 +1,8 @@
+id: alpha
+name: Alpha
+category: database
+select: radio
+summary: A database for tests
+snippet:
+  rule: Store data in Alpha.
+  why: Tests need a database.

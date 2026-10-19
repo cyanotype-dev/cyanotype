@@ -1,0 +1,18 @@
+version: 1
+targets: [claude, cursor, claude]
+project:
+  name: "two\nlines"
+  goal: Test lists.
+  core_features:
+    - Save recipes
+    - ""
+selections: [typescript, pnpm, typescript, ""]
+locked: [no-test-tampering]
+i18n:
+  default_locale: it
+  locales: [en, es]
+answers:
+  domain_notes: "  "
+custom_rules:
+  - rule: Use metric units.
+  - why: No rule here.

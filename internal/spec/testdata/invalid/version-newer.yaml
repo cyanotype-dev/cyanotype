@@ -1,0 +1,3 @@
+version: 2
+targets: [claude]
+something_new: true

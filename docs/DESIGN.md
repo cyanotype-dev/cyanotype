@@ -81,6 +81,8 @@ detect:
 
 References in `requires` and `conflicts` are plain entry ids, never qualified by category. Ids are unique across the whole catalog, so a qualifier adds nothing, and moving an entry to another category must not break the entries that point to it.
 
+All entries in a category share the same `select` value, because the interface draws a category either as radio buttons or as checkboxes; validation rejects a mix. Until category metadata exists, this is how a category's kind is defined.
+
 Exclusivity inside a `radio` category is implicit: selecting pnpm deselects npm without either entry saying so. `conflicts` is only for entries in different categories, such as a framework that does not work with a given database, and it must be declared on both sides. Listing an entry of the same radio category in `conflicts` is a validation error. Languages are `checkbox`, because many projects use more than one.
 
 An agent behavior entry:
@@ -169,8 +171,13 @@ Each project has an `cyanotype.yaml` at its root holding the user's choices, nev
 
 ```yaml
 version: 1
+
+catalog_version: "2026.10"
+
 targets: [claude, agents-md, cursor]
+
 mode: advanced
+
 project:
   name: recipe-box
   goal: Web app where families save, organize and share recipes.
@@ -181,27 +188,82 @@ project:
   out_of_scope:
     - Meal planning and shopping lists (later)
   brief: docs/PRODUCT.md
+
 languages:
   code: english
   comments: english
   docs: english
   commits: english
   agent_replies: italian
-selections: [typescript, nextjs, pnpm, postgres, vitest, i18n-next-intl,
-             conventional-commits, no-test-tampering, no-destructive-commands]
+
+selections:
+  - typescript
+  - nextjs
+  - pnpm
+  - postgres
+  - vitest
+  - i18n-next-intl
+  - conventional-commits
+  - no-test-tampering
+  - no-destructive-commands
+
+locked: [no-test-tampering, no-destructive-commands]
+
 i18n:
   default_locale: en
   locales: [en, it, es]
   translations_by: agent-draft
+
 answers:
   domain_notes: Private recipes never appear in search results.
+
 custom_rules:
   - rule: Store all quantities in metric units; convert only for display.
     why: Keeps scaling and conversion logic in one place.
+
 output:
   split: auto
   max_lines: 100
 ```
+
+### Fields
+
+| Field | Required | Default | Rules |
+| --- | --- | --- | --- |
+| `version` | yes | — | Spec format version, see Versioning |
+| `catalog_version` | no | Bundled catalog | Date-based, `YYYY.MM` or `YYYY.MM.N`; quoted, since YAML reads `2026.10` as a number |
+| `targets` | yes | — | At least one of `claude`, `agents-md`, `gemini`, `cursor`, `copilot` |
+| `mode` | no | `advanced` | `simple` or `advanced`. A file without a mode was written by hand, and opening it in simple mode could replace its selections |
+| `project.name`, `project.goal` | yes | — | Name on one line |
+| `project.users`, `core_features`, `out_of_scope`, `brief` | no | — | `brief` is a relative path with forward slashes |
+| `languages.*` | no | `english` | `code`, `comments`, `docs`, `commits`, `agent_replies`; lowercase language names |
+| `selections` | no | none | Catalog entry ids, kebab-case, no duplicates. Order matters, as in `{languages}` |
+| `locked` | no | none | Selected ids a local file may not weaken; see Team rules |
+| `i18n.default_locale` | yes, if `i18n` is present | — | BCP 47 tag such as `en` or `pt-BR` |
+| `i18n.locales` | no | The default locale | Must include the default locale |
+| `i18n.translations_by` | no | `agent-draft` | `agent-draft`, `agent-default-only` or `human` |
+| `answers` | no | none | Free text keyed by snake_case question id, such as `domain_notes` |
+| `custom_rules[]` | no | none | `rule` and `why` required, `locked` optional |
+| `output.split`, `max_lines`, `topic_dir` | no | `auto`, `100`, `docs/agents` | See Splitting into multiple files |
+
+Defaults are applied in code and never written to the file, so the spec records only what the user chose. Unknown fields are errors. `schema/spec.schema.json` gives editors autocompletion; as with the catalog, runtime validation is Go code.
+
+Validation is split in two. `internal/spec` checks the file on its own: types, required fields, enums, formats, duplicates, and consistency inside the file, such as `locked` ids being selected. Anything that needs the catalog — whether selections exist, radio exclusivity, `requires`, `conflicts`, known `answers` keys — belongs to `internal/resolve`. Errors name the field and its line.
+
+### Versioning
+
+`version` changes only for breaking changes: renaming, removing or changing the meaning of a field. New optional fields keep the version, so an older cyanotype rejects them as unknown fields and suggests upgrading. A file with a newer version than the tool supports is rejected. An older one is migrated on load, one version at a time, by steps that rewrite the YAML tree rather than Go types, so comments survive; the new version reaches the disk only when the spec is saved. Anchors, aliases and merge keys are not supported, because a shared value cannot be updated in one place only.
+
+### Writing the file back
+
+When the tool updates `cyanotype.yaml`, it merges the new choices into the file as it was read: comments, key order and quoting survive, and only changed values change. The output always has the same canonical layout, so saving never reformats a file at random:
+
+- two-space indentation, with list items indented under their key;
+- one blank line between top-level keys and none elsewhere; a key's comment stays attached above it;
+- flow sequences such as `[claude, cursor]` stay on one line while the line fits in 80 characters, and become one item per line when it does not or when an item carries a comment;
+- LF line endings and one space before trailing comments.
+
+Comments attached to a removed key or list item go with it. A file already in canonical layout comes back byte for byte when nothing changes.
 
 ### Project goal and product brief
 
@@ -343,7 +405,9 @@ The tool merges the two and writes personal output to each agent's local file wh
 
 Collaborators often use different agents. The team spec lists the targets whose files are committed; each person can add more targets in `cyanotype.local.yaml`, and the files generated for them go into `.gitignore`, so one person's setup never changes what others see. Shared files, the main instruction file and the topic folder, stay in one place per repo as set in the team spec; moving them per person would scatter copies of the same rules across commits. Personal topic files go to a local folder, `.agents.local/` by default, which each person can change.
 
-Team entries can be marked `locked: true`. A locked rule, typically a safety rule, cannot be weakened or removed by a local file; `cyanotype check` reports any attempt.
+Team entries can be locked. A locked rule, typically a safety rule, cannot be weakened or removed by a local file; `cyanotype check` reports any attempt. Selections are plain ids, so locked selections are listed in a top-level `locked` list, and custom rules carry `locked: true`.
+
+`cyanotype.local.yaml` will have its own type, built from the same parts as the team spec (languages, targets, custom rules), so strict decoding rejects team-only keys such as `project` by itself. Merging needs the catalog, since a personal radio choice replaces the team's unless it is locked, so it belongs to `internal/resolve`: lists add up, `agent_replies` from the local file wins, and changes to locked entries are reported instead of applied. In the local file, `output.topic_dir` is the personal topic folder.
 
 One trap the renderer must handle: a `CLAUDE.local.md` also stops Claude Code from reading AGENTS.md, so the generated local file always imports it.
 
@@ -492,4 +556,9 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Catalog references**: `requires` and `conflicts` hold plain entry ids; exclusivity inside a radio category is implicit and `conflicts` only links entries of different categories. See The catalog.
 - [x] **Catalog layout**: one flat folder, `catalog/entries/<id>.yaml`, with the file name equal to the id. The category lives only in the entry.
 - [x] **Catalog YAML parsing**: `go.yaml.in/yaml/v3` with unknown fields rejected. The JSON Schema in `schema/` serves editor autocompletion; runtime validation is Go code, which also checks references across entries.
+- [x] **Catalog select per category**: all entries of a category share one `select` value, enforced by validation until category metadata exists.
+- [x] **Spec format**: `cyanotype.yaml` fields, required fields and defaults as in the Project spec section; defaults live in code, never in the file. Locked selections go in a top-level `locked` list so `selections` stays a plain list of ids.
+- [x] **Spec versioning**: an integer `version`, bumped only for breaking changes, with migrations on the YAML tree; newer versions are rejected.
+- [x] **Spec write-back**: merge into the original YAML tree to keep comments and order, then write a canonical layout (blank line between top-level keys, flow sequences over 80 characters as block lists).
+- [x] **Spec validation boundary**: `internal/spec` validates structure only; checks that need the catalog, and the merge with `cyanotype.local.yaml`, belong to `internal/resolve`.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.

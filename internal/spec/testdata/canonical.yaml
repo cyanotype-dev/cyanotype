@@ -1,0 +1,52 @@
+# A spec already in the canonical layout: Save must return it unchanged.
+
+version: 1
+
+catalog_version: "2026.10"
+
+# Committed agent files.
+targets: [claude, agents-md] # cursor is personal
+
+mode: simple
+
+project:
+  name: canonical
+  # One sentence.
+  goal: Check that a canonical file survives a save byte for byte.
+  core_features:
+    - Load # first
+    - Save
+  brief: docs/PRODUCT.md
+
+languages:
+  agent_replies: italian
+
+selections:
+  - go # the only language
+  - no-test-tampering
+
+locked: [no-test-tampering]
+
+i18n:
+  default_locale: en
+  locales: [en, it]
+
+answers:
+  domain_notes: |
+    Line one.
+    Line two.
+
+custom_rules:
+  - rule: Keep functions short.
+    why: Short functions are easier to test.
+  # Second rule.
+  - rule: Name tests after behavior.
+    why: Failures then read like a spec.
+    locked: true
+
+output:
+  split: always
+  topic_dir: docs/agents
+# End of output.
+
+# End of file.

@@ -110,8 +110,9 @@ func validateNotBlank(name, field string, values []string) []error {
 	return errs
 }
 
-// validateCatalog checks rules that span entries: unique ids, references to
-// existing entries, and conflicts that cross categories and are symmetric.
+// validateCatalog checks rules that span entries: unique ids, one select value
+// per category, references to existing entries, and conflicts that cross
+// categories and are symmetric.
 func validateCatalog(files []file) []error {
 	var errs []error
 	byID := make(map[string]file, len(files))
@@ -125,6 +126,26 @@ func validateCatalog(files []file) []error {
 			continue
 		}
 		byID[id] = f
+	}
+
+	// The UI draws a category either as radio buttons or as checkboxes, never
+	// a mix, so the first file of each category sets the value for the rest.
+	firstOfCategory := make(map[string]file)
+	for _, f := range files {
+		e := f.entry
+		if e.Category == "" || !slices.Contains(selects, e.Select) {
+			continue // reported by validateEntry
+		}
+		first, ok := firstOfCategory[e.Category]
+		if !ok {
+			firstOfCategory[e.Category] = f
+			continue
+		}
+		if e.Select != first.entry.Select {
+			errs = append(errs, &ValidationError{File: f.name, Field: "select", Msg: fmt.Sprintf(
+				"%q differs from %q used by %s in category %q; all entries in a category must share the same select",
+				e.Select, first.entry.Select, first.name, e.Category)})
+		}
 	}
 
 	for _, f := range files {
