@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: vite-react-app
+name: Vite + React
+summary: Single-page web app that runs in the browser, with no server of its own
+project_type: website
+selections: [typescript, node, pnpm, vite-react, tailwind, shadcn-ui, vitest, eslint-prettier]
+commands:
+  dev: pnpm dev
+  build: pnpm build
+  test: pnpm test
+  lint: pnpm lint

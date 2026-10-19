@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: expo-app
+name: Expo app
+summary: Mobile app for iOS and Android from one TypeScript codebase
+project_type: mobile-app
+selections: [typescript, node, npm, expo, eslint-prettier]
+commands:
+  dev: npx expo start
+  lint: npx expo lint

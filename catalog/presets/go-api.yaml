@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: go-api
+name: Go API + PostgreSQL
+summary: Go HTTP API on the standard library, with a Postgres database
+project_type: api
+selections: [go, go-stdlib, postgres, golangci-lint]
+commands:
+  dev: go run .
+  build: go build ./...
+  test: go test ./...
+  lint: golangci-lint run
