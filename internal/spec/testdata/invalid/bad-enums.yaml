@@ -1,0 +1,11 @@
+version: 1
+targets: [claude, vscode]
+mode: expert
+project:
+  name: enums
+  goal: Test enums.
+i18n:
+  default_locale: en
+  translations_by: robots
+output:
+  split: sometimes

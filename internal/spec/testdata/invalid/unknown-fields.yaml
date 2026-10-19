@@ -1,0 +1,7 @@
+version: 1
+targets: [claude]
+project:
+  name: unknown
+  goal: Test unknown fields.
+  owner: Jane
+tags: [web]

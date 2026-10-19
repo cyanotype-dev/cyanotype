@@ -1,0 +1,6 @@
+version: 1
+targets: &agents [claude]
+project:
+  name: aliases
+  goal: Test aliases.
+selections: *agents

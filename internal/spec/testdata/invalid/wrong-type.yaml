@@ -1,0 +1,7 @@
+version: 1
+targets: claude
+project:
+  name: types
+  goal: Test types.
+output:
+  max_lines: many
