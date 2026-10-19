@@ -1,0 +1,1 @@
+output.max_lines: CLAUDE.md still has 28 lines after splitting, more than 20

@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -174,28 +175,35 @@ func TestDeterministic(t *testing.T) {
 // included, and expects the same files back: regenerating an unchanged
 // project must never move or duplicate hand-written text.
 func TestRegenerateIsStable(t *testing.T) {
-	dir := filepath.Join("testdata", "golden", "custom-blocks")
-	text, err := os.ReadFile(filepath.Join(dir, "cyanotype.yaml")) //nolint:gosec // path built from testdata in test code
-	if err != nil {
-		t.Fatal(err)
-	}
-	r := resolveSpec(t, string(text))
-	first, _, err := Render(r, os.DirFS(filepath.Join(dir, "existing")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	project := fstest.MapFS{}
-	for _, f := range first {
-		project[f.Path] = &fstest.MapFile{Data: f.Content}
-	}
-	second, _, err := Render(r, project)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i := range first {
-		if !bytes.Equal(first[i].Content, second[i].Content) {
-			t.Errorf("%s changed on regeneration:\nfirst:\n%s\nsecond:\n%s", first[i].Path, first[i].Content, second[i].Content)
-		}
+	for _, name := range []string{"custom-blocks", "split-always"} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join("testdata", "golden", name)
+			text, err := os.ReadFile(filepath.Join(dir, "cyanotype.yaml")) //nolint:gosec // path built from testdata in test code
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := resolveSpec(t, string(text))
+			first, _, err := Render(r, os.DirFS(filepath.Join(dir, "existing")))
+			if err != nil {
+				t.Fatal(err)
+			}
+			project := fstest.MapFS{}
+			for _, f := range first {
+				project[f.Path] = &fstest.MapFile{Data: f.Content}
+			}
+			second, _, err := Render(r, project)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(first) != len(second) {
+				t.Fatalf("regeneration returned %d files, the first render %d", len(second), len(first))
+			}
+			for i := range first {
+				if !bytes.Equal(first[i].Content, second[i].Content) {
+					t.Errorf("%s changed on regeneration:\nfirst:\n%s\nsecond:\n%s", first[i].Path, first[i].Content, second[i].Content)
+				}
+			}
+		})
 	}
 }
 
@@ -206,6 +214,41 @@ project:
   name: tiny
   goal: A tiny project for tests.
 `
+
+// TestSplitAutoThreshold checks the boundary of output.split auto: a main
+// file of exactly max_lines stays whole, one line more splits it.
+func TestSplitAutoThreshold(t *testing.T) {
+	const base = minimalSpec + `selections: [go, plan-before-code]
+output:
+`
+	whole, _, err := Render(resolveSpec(t, base+"  split: never\n"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := lineCount(whole[0].Content)
+
+	tests := []struct {
+		maxLines  int
+		wantFiles []string
+	}{
+		{n + 1, []string{"AGENTS.md"}},
+		{n, []string{"AGENTS.md"}},
+		{n - 1, []string{"AGENTS.md", "docs/agents/style.md", "docs/agents/workflow.md"}},
+	}
+	for _, tt := range tests {
+		files, _, err := Render(resolveSpec(t, base+"  max_lines: "+strconv.Itoa(tt.maxLines)+"\n"), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, f := range files {
+			got = append(got, f.Path)
+		}
+		if !slices.Equal(got, tt.wantFiles) {
+			t.Errorf("unsplit file has %d lines; with max_lines %d Render() returned %q, want %q", n, tt.maxLines, got, tt.wantFiles)
+		}
+	}
+}
 
 func TestRenderCustomBlocksWithCRLF(t *testing.T) {
 	existing := fstest.MapFS{"AGENTS.md": &fstest.MapFile{Data: []byte(

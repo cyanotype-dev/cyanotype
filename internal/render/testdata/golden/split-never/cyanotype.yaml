@@ -1,0 +1,14 @@
+# never: one file however long, with a warning above max_lines.
+version: 1
+targets: [agents-md]
+project:
+  name: gopher-tool
+  goal: Command-line tool that tidies Go module files.
+selections:
+  - go
+  - golangci-lint
+  - plan-before-code
+  - no-test-tampering
+output:
+  split: never
+  max_lines: 20

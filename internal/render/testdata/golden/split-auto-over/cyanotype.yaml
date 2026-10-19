@@ -1,0 +1,31 @@
+# auto with a low max_lines: the unsplit AGENTS.md is too long, so every
+# topic except safety and tooling moves to docs/agents/.
+version: 1
+targets: [agents-md, claude]
+project:
+  name: recipe-box
+  goal: Web app where families save, organize and share recipes.
+  brief: docs/PRODUCT.md
+commands:
+  dev: pnpm dev
+  test: pnpm test
+selections:
+  - typescript
+  - nextjs
+  - node
+  - pnpm
+  - postgres
+  - vitest
+  - i18n-rules
+  - i18n-next-intl
+  - conventional-commits
+  - plan-before-code
+  - review-checklist
+  - untopiced
+  - no-test-tampering
+  - secrets-in-env
+i18n:
+  default_locale: en
+  locales: [en, it]
+output:
+  max_lines: 60

@@ -42,10 +42,19 @@ var topicSections = map[string]string{
 }
 
 // mainDocument builds the main instruction file: everything the spec and
-// the selected entries say, in the standard section order.
-func mainDocument(r *resolve.Result) document {
+// the selected entries say, in the standard section order. When l splits
+// the output, entries of the topics that move out are replaced by pointers
+// to their topic files in Further reading; the Tech stack's "Uses:" line
+// still names every technology.
+func mainDocument(r *resolve.Result, l layout) document {
 	s := r.Spec
-	rules, extra := entryBullets(r.Entries)
+	var kept []resolve.Entry
+	for _, e := range r.Entries {
+		if l.inMain(e.Topic) {
+			kept = append(kept, e)
+		}
+	}
+	rules, extra := entryBullets(kept)
 
 	var sections []section
 	add := func(title string, body []string) {
@@ -67,7 +76,7 @@ func mainDocument(r *resolve.Result) document {
 	add(titleOther, rules[titleOther])
 	add(titleSafety, rules[titleSafety])
 	add(titleDomain, domainNotes(s.Answers["domain_notes"], s.CustomRules))
-	add(titleReading, furtherReading(s.Project))
+	add(titleReading, furtherReading(s.Project, l.pointers(r.Entries)))
 
 	return document{preamble: []string{"# " + oneLine(s.Project.Name)}, sections: sections}
 }
@@ -236,12 +245,14 @@ func domainNotes(notes string, custom []spec.CustomRule) []string {
 }
 
 // furtherReading lists documents the agent reads on demand, so they cost no
-// context until a task needs them.
-func furtherReading(p spec.Project) []string {
-	if p.Brief == "" {
-		return nil
+// context until a task needs them: the product brief first, then the topic
+// files of a split output.
+func furtherReading(p spec.Project, topicPointers []string) []string {
+	var body []string
+	if p.Brief != "" {
+		body = append(body, "- Before adding a feature, read "+p.Brief+".")
 	}
-	return []string{"- Before adding a feature, read " + p.Brief + "."}
+	return append(body, topicPointers...)
 }
 
 func listItems(items []string) []string {

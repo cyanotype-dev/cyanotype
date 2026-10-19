@@ -421,7 +421,7 @@ The main file follows the standard structure in Generated file quality. Each sec
 | Other topics | An unknown topic gets a section of its own, titled from the topic and sorted by it, after Agent workflow, so a new topic needs no code change; entries without a topic go to "Other rules" |
 | Safety rules | Topic `safety` |
 | Domain notes | `answers.domain_notes`, then `custom_rules`: project knowledge no catalog can have |
-| Further reading | Documents read on demand, such as `project.brief`: *Before adding a feature, read docs/PRODUCT.md.* |
+| Further reading | Documents read on demand: `project.brief` (*Before adding a feature, read docs/PRODUCT.md.*), then the topic files of a split output |
 
 Inside a section, entries keep the order of `selections`. Each entry is one bullet, `- <rule> Why: <why>`, with the lines of a multi-line rule joined by spaces: the shortest form keeps the file within its line budget.
 
@@ -453,9 +453,25 @@ When the main file would grow past a threshold, the content is split by `topic` 
 - `always`: the "Always split" checkbox in the UI; useful for teams that want one file per area from day one.
 - `never`: everything in one file, with a warning when it gets long.
 
+For `auto`, the renderer builds the main file unsplit, header and protected sections included, and splits when it has more than `max_lines` lines; a file of exactly `max_lines` stays whole. Splitting is all or nothing: every topic that can move out does, rather than moving topics one by one until the file fits, so the layout stays predictable and adding one entry never reshuffles the files. A main file still longer than `max_lines` after splitting gets a warning too.
+
 The topic folder defaults to `docs/agents/`, visible so that human contributors read the same conventions and agent search tools, which often skip hidden folders, find them. Each repo can change it with `output.topic_dir`. When the tool detects a documentation site generator such as MkDocs or Docusaurus, it warns that the folder could be published and offers to exclude it.
 
-The main file always keeps the project goal, commands and safety rules, which the agent must never have to go looking for. Each topic file then reaches the agent in one of three ways, chosen per topic:
+The main file always keeps the project goal, commands and safety rules, which the agent must never have to go looking for. When split, it also keeps the language policy, the Tech stack section (its "Uses:" line, still naming every technology, and every entry of topic `tooling`), domain notes and custom rules, and entries without a topic, which have no file to go to. Tooling stays because rules like "use pnpm, never npm" apply to almost every task, and an agent may run `npm install` without ever opening a topic file.
+
+Every other topic moves to `<topic_dir>/<topic>.md`, such as `docs/agents/testing.md`: the header, a `# ` title, and the topic's entries in selection order. Protected sections work in topic files as in the main file. Titles and the triggers that tell the agent when to read each file:
+
+| Topic | Title | Trigger in the main file |
+| --- | --- | --- |
+| `architecture` | Architecture | Before adding a dependency or changing how the app is structured |
+| `style` | Code style | Before writing code |
+| `i18n` | Internationalization | Before adding or changing user-facing text |
+| `testing` | Testing | Before writing or changing tests |
+| `git` | Git workflow | Before committing or opening a pull request |
+| `workflow` | Agent workflow | Before starting a task |
+| Unknown, such as `code-review` | From the topic: Code review | For code review rules |
+
+Each topic file then reaches the agent in one of three ways, chosen per topic:
 
 | Mode | How | Context cost | When to use |
 | --- | --- | --- | --- |
@@ -464,6 +480,15 @@ The main file always keeps the project goal, commands and safety rules, which th
 | Path-scoped | `.claude/rules/` with `paths:`, Cursor globs, nested AGENTS.md | Loaded when matching files are touched | Rules for one part of the codebase (frontend, migrations) |
 
 Only the last two actually reduce what the agent reads; importing is about tidiness. The preview shows the resulting layout and the line count of each file.
+
+In the MVP every topic file is read on demand, for every target: the main file's Further reading lists one line per topic file, *Before writing or changing tests, read docs/agents/testing.md.*, in section order. Not imported for Claude, because:
+1. Splitting exists because the main file is too long, and an import is always loaded, so Claude would read as many lines as without splitting.
+2. With both targets CLAUDE.md only imports AGENTS.md; imports only Claude can follow would make Claude and Codex read different rules from the same spec.
+3. AGENTS.md has no import syntax, so on demand is the one mode that works for both, with one code path.
+
+Path-scoped files need globs per entry, which the catalog does not have yet, so they wait.
+
+The renderer returns only the files the current layout needs. A topic file left over from an earlier split, or from a topic no longer selected, is not removed: telling it apart from a hand-written file needs a record of what cyanotype generated, the `cyanotype.lock` open item in Decisions.
 
 ### Real constraints
 
@@ -709,5 +734,7 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Renderer input and output**: renderers take the resolved selection and an `fs.FS` of the existing project, and return files in memory, deterministic and sorted by path; they never write to disk. See Output.
 - [x] **Main file layout**: each standard section has a fixed source, catalog topics map to sections, unknown topics get their own section, and each entry is one `rule Why: why` bullet. With both targets, CLAUDE.md imports AGENTS.md and adds only Claude-specific content. See The main file.
 - [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
+- [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
 - [ ] **`ask` permissions in `enforce`**: `enforce.claude` only has `deny`, which blocks an action even after the user approves it. Some rules need "ask first" instead: `dependency-approval` would generate `ask` rules for install commands such as `npm install *`, `pnpm add *` and `uv add *`, and is the first entry to use it. Adding the field changes the JSON Schema, the catalog validation and the Claude renderer.
+- [ ] **Generated-state file**: a file such as `cyanotype.lock` recording the files and the deny rules cyanotype produced. Without it, generated output cannot be told apart from what people wrote, which leaves three known limits: deny rules of deselected entries stay in `.claude/settings.json`, topic files from an earlier split stay on disk, and `cyanotype check` cannot detect generated files edited by hand. One record solves all three. Not implemented yet.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.

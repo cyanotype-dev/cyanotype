@@ -46,28 +46,6 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 	agents := slices.Contains(targets, spec.TargetAgentsMD)
 	claude := slices.Contains(targets, spec.TargetClaude)
 
-	var files []File
-	if agents {
-		f, err := renderMarkdown(existing, agentsPath, mainDocument(r))
-		if err != nil {
-			return nil, nil, err
-		}
-		files = append(files, f)
-	}
-	if claude {
-		// With AGENTS.md generated too, CLAUDE.md only imports it, so both
-		// agents read the same rules from one file.
-		doc := mainDocument(r)
-		if agents {
-			doc = claudeImportDocument()
-		}
-		f, err := renderMarkdown(existing, claudePath, doc)
-		if err != nil {
-			return nil, nil, err
-		}
-		files = append(files, f)
-	}
-
 	var warnings []resolve.Warning
 	for i, t := range targets {
 		if t != spec.TargetAgentsMD && t != spec.TargetClaude {
@@ -76,6 +54,45 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 				Msg:   fmt.Sprintf("cyanotype cannot generate files for %q yet; they are skipped", t),
 			})
 		}
+	}
+	if !agents && !claude {
+		return nil, warnings, nil
+	}
+
+	// The main file holds the shared content: AGENTS.md when it is a
+	// target, since CLAUDE.md then only imports it.
+	mainPath := agentsPath
+	if !agents {
+		mainPath = claudePath
+	}
+	l, err := chooseLayout(r, existing, mainPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	main, err := renderMarkdown(existing, mainPath, mainDocument(r, l))
+	if err != nil {
+		return nil, nil, err
+	}
+	files := []File{main}
+	warnings = append(warnings, lengthWarning(main, l, r.Spec.Output.MaxLines)...)
+
+	if agents && claude {
+		// CLAUDE.md only imports AGENTS.md, so both agents read the same
+		// rules from one file.
+		f, err := renderMarkdown(existing, claudePath, claudeImportDocument())
+		if err != nil {
+			return nil, nil, err
+		}
+		files = append(files, f)
+	}
+
+	for _, topic := range l.splitTopics(r.Entries) {
+		f, err := renderMarkdown(existing, l.topicPath(topic), topicDocument(topic, r.Entries))
+		if err != nil {
+			return nil, nil, err
+		}
+		files = append(files, f)
 	}
 
 	slices.SortFunc(files, func(a, b File) int { return strings.Compare(a.Path, b.Path) })
