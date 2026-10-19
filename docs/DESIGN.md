@@ -190,6 +190,32 @@ The first release ships 40 entries: one solid choice per simple-mode project typ
 | Agent workflow | Plan before code, verifiable definition of done, small commits, rule maintenance |
 | Learning | Learning mode: explain, guided, hands-on |
 
+The rows above are groups for reading; the entries use these categories, and the `select` value says whether a project can pick more than one entry of a category:
+
+| Category | Select | Entries | Why |
+| --- | --- | --- | --- |
+| `language` | checkbox | `typescript`, `python`, `go` | Many projects use more than one language |
+| `runtime` | radio | `node` | |
+| `package-manager` | radio | `npm`, `pnpm` | One lockfile per Node.js project |
+| `python-package-manager` | radio | `uv` | Separate from Node.js package managers, so pnpm and uv can coexist |
+| `frontend-framework` | radio | `nextjs`, `vite-react` | |
+| `mobile-framework` | radio | `expo` | Next.js for the web and Expo for mobile are often combined, even in one repo |
+| `backend-framework` | radio | `fastapi`, `go-stdlib` | Separate from the frontend, so Next.js + FastAPI works |
+| `styling` | radio | `tailwind` | Styling approaches exclude each other |
+| `ui-components` | radio | `shadcn-ui` | Component libraries exclude each other |
+| `database` | radio | `postgres`, `sqlite`, `supabase` | One primary database keeps the rules unambiguous, and Supabase is itself Postgres; a cache or queue will get its own category |
+| `testing` | checkbox | `vitest`, `playwright`, `pytest` | Unit and end-to-end tests combine |
+| `lint` | checkbox | `eslint-prettier`, `ruff`, `golangci-lint` | One linter per language |
+| `i18n` | checkbox | `i18n-rules` | Generic rules combine with any library |
+| `i18n-library` | radio | `i18n-next-intl` | Libraries exclude each other |
+| `git` | checkbox | `conventional-commits`, `branch-per-task` | |
+| `agent-safety` | checkbox | `no-destructive-commands`, `no-test-tampering`, `secrets-in-env`, `no-unrequested-changes`, `dependency-approval`, `no-duplicate-files` | |
+| `agent-workflow` | checkbox | `plan-before-code`, `definition-of-done`, `small-commits` | |
+| `rule-maintenance` | radio | `rule-maintenance-propose` | The policies in Keeping rules current; selecting none means Off |
+| `learning` | radio | `learning-explain`, `learning-guided`, `learning-hands-on` | Selecting none turns learning mode off |
+
+`node` requires one of `npm` or `pnpm`, so every JavaScript project declares its package manager and generated commands are unambiguous. `i18n-next-intl` does not require `i18n-rules`, which a preset can add.
+
 Starter presets built from these entries: Next.js + Supabase, Vite + React, Expo app, FastAPI + PostgreSQL, Python script with uv, Go command-line tool.
 
 Deferred, and good first contributions once the format is proven: Vue, Svelte, Angular, Django, Rails, Rust, Flutter, Java and Kotlin, MongoDB, desktop and game stacks.
@@ -621,4 +647,6 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Snippet placeholders**: `{languages}` is the only placeholder; other names are catalog validation errors, and text inside backticks is literal.
 - [x] **Agent enforcement covers the shell**: agent-level constraints on file tools can be bypassed through shell commands, so they must also cover the agent's shell tools and sandbox; repository, pre-commit and CI levels stay the baseline. See Real constraints.
 - [x] **Alternatives in `requires`**: a separate `requires_one_of` field holds groups of alternatives, each satisfied when at least one of its entries is selected, such as `[nextjs, vite-react]` for shadcn/ui. A separate field keeps `requires` a plain list of ids. Unmet groups are resolver errors, one message per group. See The catalog and Resolving against the catalog.
+- [x] **MVP categories**: separate radio categories for web, mobile and backend frameworks, for Python and Node.js package managers, for styling and UI components, and for i18n libraries next to the checkbox category of generic i18n rules; databases are radio; rule maintenance is its own radio category. See the catalog's MVP entries section.
+- [ ] **`ask` permissions in `enforce`**: `enforce.claude` only has `deny`, which blocks an action even after the user approves it. Some rules need "ask first" instead: `dependency-approval` would generate `ask` rules for install commands such as `npm install *`, `pnpm add *` and `uv add *`, and is the first entry to use it. Adding the field changes the JSON Schema, the catalog validation and the Claude renderer.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
