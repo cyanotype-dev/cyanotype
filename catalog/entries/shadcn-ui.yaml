@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: shadcn-ui
+name: shadcn/ui
+category: ui-components
+select: radio
+url: https://ui.shadcn.com/docs
+summary: Accessible React components copied into the project as source code
+requires: [tailwind]
+requires_one_of:
+  - [nextjs, vite-react]
+level: beginner
+topic: style
+snippet:
+  rule: |
+    Add components with the shadcn CLI's `add` command, run through the project's package manager, instead of writing them from scratch.
+    Before creating a primitive such as a button or dialog, check the ui folder set in `components.json`; the components there are project code you may edit.
+  why: Reusing the same components keeps styling and accessibility consistent across the app.
+detect:
+  files: [components.json]
