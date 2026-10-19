@@ -1,0 +1,6 @@
+id: alpha
+name: Alpha
+summary: Alpha preset
+project_type: script
+selections: [go]
+i18n_selections: [i18n-rules]

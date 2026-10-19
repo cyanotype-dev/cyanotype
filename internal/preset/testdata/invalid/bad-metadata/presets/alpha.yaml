@@ -1,0 +1,7 @@
+id: Beta
+name: |
+  Two
+  lines
+summary: Alpha preset
+project_type: game
+selections: [go]

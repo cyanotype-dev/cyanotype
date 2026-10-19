@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyanotype.dev/schema/preset.schema.json",
+  "title": "Cyanotype preset",
+  "description": "A ready combination of catalog entries that simple mode starts a project from: the stack part of a cyanotype.yaml plus metadata. Editor support only: the tool validates presets with its own Go code, which also resolves them against the catalog. See the Presets section of docs/DESIGN.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "summary", "project_type", "selections"],
+  "properties": {
+    "id": {
+      "description": "Stable identifier. Must equal the file name without .yaml.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "name": {
+      "description": "Display name, such as Next.js + Supabase.",
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "description": "One line saying what the preset is good for.",
+      "type": "string",
+      "minLength": 1
+    },
+    "project_type": {
+      "description": "What the preset builds; simple mode offers the presets of the type the user picks.",
+      "enum": ["website", "mobile-app", "api", "script"]
+    },
+    "selections": {
+      "description": "Catalog entry ids, in the order they go into the spec.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "i18n_selections": {
+      "description": "Catalog entry ids added, after i18n-rules, when the app is multilingual or will be, such as the i18n library that fits the stack.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "commands": {
+      "description": "The project's own commands, as in cyanotype.yaml. Each is optional and on one line.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dev": { "description": "Starts the project for development, such as pnpm dev.", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" },
+        "build": { "description": "Builds the project, such as go build ./....", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" },
+        "test": { "description": "Runs the tests, such as pnpm test.", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" },
+        "lint": { "description": "Runs the linter, such as golangci-lint run.", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" }
+      }
+    },
+    "output": {
+      "description": "Layout of the generated files, as in cyanotype.yaml.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "split": {
+          "description": "auto splits only when the main file would exceed max_lines; always and never force it. Defaults to auto.",
+          "enum": ["auto", "always", "never"]
+        },
+        "max_lines": {
+          "description": "Main file length above which auto splits. Defaults to 100.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "topic_dir": {
+          "description": "Folder for topic files relative to the project root, with forward slashes. Defaults to docs/agents.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

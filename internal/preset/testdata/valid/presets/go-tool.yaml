@@ -1,0 +1,8 @@
+id: go-tool
+name: Go tool
+summary: A Go command-line tool
+project_type: script
+selections: [go, golangci-lint]
+commands:
+  build: go build ./...
+  test: go test ./...

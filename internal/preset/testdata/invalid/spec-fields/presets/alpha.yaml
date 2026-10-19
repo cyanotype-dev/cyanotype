@@ -1,0 +1,11 @@
+id: alpha
+name: Alpha
+summary: Alpha preset
+project_type: script
+selections: [go, go]
+commands:
+  test: |
+    go vet ./...
+    go test ./...
+output:
+  split: sometimes

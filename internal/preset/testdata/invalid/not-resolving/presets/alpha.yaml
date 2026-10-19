@@ -1,0 +1,5 @@
+id: alpha
+name: Alpha
+summary: Alpha preset
+project_type: website
+selections: [golangci-lint, node, npm, pnpm]
