@@ -1,0 +1,13 @@
+{
+    "env": {"RATE": 1.50, "NOTE": "a < b & c"},
+    "permissions": {
+        "allow": ["Bash(go test:*)"],
+        "deny": [
+            "Read(!.env.example)",
+            "Bash(curl:*)",
+            "Read(.env)"
+        ],
+        "defaultMode": "acceptEdits"
+    },
+    "hooks": {}
+}

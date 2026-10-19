@@ -1,0 +1,14 @@
+# Merge into an existing .claude/settings.json that has unknown keys, a
+# four-space indent, and the user's own deny rules in an order that would
+# break secrets-in-env's negations; and into a .gitignore with an old block.
+version: 1
+targets: [claude]
+project:
+  name: shop-front
+  goal: Storefront for a small bakery.
+selections:
+  - typescript
+  - node
+  - npm
+  - secrets-in-env
+  - rule-maintenance-propose

@@ -1,0 +1,32 @@
+{
+  "env": {
+    "RATE": 1.50,
+    "NOTE": "a < b & c"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(go test:*)"
+    ],
+    "deny": [
+      "Read(!.env.example)",
+      "Bash(curl:*)",
+      "Read(.env)",
+      "Bash(pnpm:*)",
+      "Bash(yarn:*)",
+      "Read(.env.*)",
+      "Read(!.env.example)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(!.env.example)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/AGENTS.md)",
+      "Edit(/GEMINI.md)",
+      "Edit(/.github/copilot-instructions.md)",
+      "Edit(/.cursor/rules/**)",
+      "Edit(/cyanotype.yaml)",
+      "Edit(/docs/agents/**)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "hooks": {}
+}

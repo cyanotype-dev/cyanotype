@@ -40,7 +40,9 @@ const (
 // means a project with no files yet.
 //
 // Targets that have no renderer yet are skipped with a warning, so a spec
-// that also lists them still gets its other files.
+// that also lists them still gets its other files. The .gitignore block is
+// generated whatever the targets, since it protects personal files from
+// every collaborator's commits.
 func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error) {
 	targets := r.Spec.Targets
 	agents := slices.Contains(targets, spec.TargetAgentsMD)
@@ -55,32 +57,73 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 			})
 		}
 	}
-	if !agents && !claude {
-		return nil, warnings, nil
+
+	var files []File
+	if agents || claude {
+		instructions, w, err := renderInstructions(r, existing, agents, claude)
+		if err != nil {
+			return nil, nil, err
+		}
+		files = append(files, instructions...)
+		warnings = append(warnings, w...)
 	}
 
+	gitignore, err := renderGitignore(existing)
+	if err != nil {
+		return nil, nil, err
+	}
+	files = append(files, gitignore)
+
+	if claude {
+		f, ok, err := renderSettings(r, existing)
+		if err != nil {
+			return nil, nil, err
+		}
+		if ok {
+			files = append(files, f)
+		}
+	}
+
+	slices.SortFunc(files, func(a, b File) int { return strings.Compare(a.Path, b.Path) })
+	return files, warnings, nil
+}
+
+// renderInstructions returns the Markdown instruction files: the main file,
+// CLAUDE.md importing it when both targets are set, and the topic files of
+// a split output.
+func renderInstructions(r *resolve.Result, existing fs.FS, agents, claude bool) ([]File, []resolve.Warning, error) {
 	// The main file holds the shared content: AGENTS.md when it is a
 	// target, since CLAUDE.md then only imports it.
 	mainPath := agentsPath
 	if !agents {
 		mainPath = claudePath
 	}
-	l, err := chooseLayout(r, existing, mainPath)
+	// enforced reports that .claude/settings.json gets deny rules, which
+	// CLAUDE.md then explains in its Claude Code section.
+	enforced := claude && len(denyGroups(r)) > 0
+	build := func(l layout) document {
+		d := mainDocument(r, l)
+		if mainPath == claudePath && enforced {
+			d = withClaudeSection(d)
+		}
+		return d
+	}
+
+	l, err := chooseLayout(r, existing, mainPath, build)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	main, err := renderMarkdown(existing, mainPath, mainDocument(r, l))
+	main, err := renderMarkdown(existing, mainPath, build(l))
 	if err != nil {
 		return nil, nil, err
 	}
 	files := []File{main}
-	warnings = append(warnings, lengthWarning(main, l, r.Spec.Output.MaxLines)...)
+	warnings := lengthWarning(main, l, r.Spec.Output.MaxLines)
 
 	if agents && claude {
 		// CLAUDE.md only imports AGENTS.md, so both agents read the same
 		// rules from one file.
-		f, err := renderMarkdown(existing, claudePath, claudeImportDocument())
+		f, err := renderMarkdown(existing, claudePath, claudeImportDocument(enforced))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -94,8 +137,6 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 		}
 		files = append(files, f)
 	}
-
-	slices.SortFunc(files, func(a, b File) int { return strings.Compare(a.Path, b.Path) })
 	return files, warnings, nil
 }
 

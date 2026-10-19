@@ -1,0 +1,9 @@
+# Build output
+dist/
+
+# cyanotype:begin (an older explanation)
+cyanotype.local.yaml
+# cyanotype:end
+
+# Editor
+.idea/

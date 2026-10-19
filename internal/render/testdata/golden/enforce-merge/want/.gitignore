@@ -1,0 +1,10 @@
+# Build output
+dist/
+
+# cyanotype:begin (generated from cyanotype.yaml; regeneration replaces this block)
+cyanotype.local.yaml
+.agents.local/
+# cyanotype:end
+
+# Editor
+.idea/
