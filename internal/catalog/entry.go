@@ -31,9 +31,17 @@ type Entry struct {
 	// URL is the target of the "i" icon; technologies have one, rules usually do not.
 	URL     string `yaml:"url,omitempty"`
 	Summary string `yaml:"summary"`
-	// Requires and Conflicts hold plain entry ids. Conflicts only links
-	// entries of different categories and must be declared on both sides.
-	Requires  []string `yaml:"requires,omitempty"`
+	// Requires, RequiresOneOf and Conflicts hold plain entry ids.
+	//
+	// Requires lists entries that must all be selected too.
+	Requires []string `yaml:"requires,omitempty"`
+	// RequiresOneOf holds groups of alternatives, such as [nextjs, vite-react]:
+	// each group is satisfied when at least one of its entries is selected.
+	// It exists because some entries work with any one of several others,
+	// which Requires cannot express.
+	RequiresOneOf [][]string `yaml:"requires_one_of,omitempty"`
+	// Conflicts only links entries of different categories and must be
+	// declared on both sides.
 	Conflicts []string `yaml:"conflicts,omitempty"`
 	Level     Level    `yaml:"level,omitempty"`
 	// Topic names the split file the snippet goes to when output is split.

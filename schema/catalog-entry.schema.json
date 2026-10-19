@@ -42,6 +42,16 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
     },
+    "requires_one_of": {
+      "description": "Groups of alternatives, such as [nextjs, vite-react]: each group is satisfied when at least one of its plain ids is selected. A single id belongs in requires.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "uniqueItems": true,
+        "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+      }
+    },
     "conflicts": {
       "description": "Plain ids of incompatible entries in other categories. Must be declared on both sides; never list an entry of the same radio category.",
       "type": "array",

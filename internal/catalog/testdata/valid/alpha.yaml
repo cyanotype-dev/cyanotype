@@ -4,6 +4,8 @@ category: language
 select: checkbox
 url: https://alpha.example.org
 summary: A language for tests
+requires_one_of:
+  - [beta, gamma]
 level: beginner
 topic: style
 snippet:

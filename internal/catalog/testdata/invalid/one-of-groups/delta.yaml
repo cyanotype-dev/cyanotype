@@ -1,0 +1,8 @@
+id: delta
+name: Delta
+category: framework
+select: radio
+summary: Another framework for tests
+snippet:
+  rule: Build pages with Delta.
+  why: Tests need a second framework.

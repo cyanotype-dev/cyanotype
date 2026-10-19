@@ -72,6 +72,27 @@ func validateEntry(name string, e Entry) []error {
 			add(fmt.Sprintf("conflicts[%d]", i), "%q is also listed in requires", id)
 		}
 	}
+	for i, group := range e.RequiresOneOf {
+		field := fmt.Sprintf("requires_one_of[%d]", i)
+		if len(group) < 2 {
+			add(field, "needs at least two alternatives; move a single id to requires")
+		}
+		errs = append(errs, validateRefs(name, e.ID, field, group)...)
+		for j, id := range group {
+			if !isRef(group, j, e.ID) {
+				continue
+			}
+			// An alternative that is also required, or forbidden, makes the
+			// group meaningless.
+			f := fmt.Sprintf("%s[%d]", field, j)
+			if slices.Contains(e.Requires, id) {
+				add(f, "%q is also listed in requires", id)
+			}
+			if slices.Contains(e.Conflicts, id) {
+				add(f, "%q is also listed in conflicts", id)
+			}
+		}
+	}
 
 	for _, s := range []struct{ field, text string }{
 		{"snippet.rule", e.Snippet.Rule},
@@ -123,8 +144,8 @@ func validateNotBlank(name, field string, values []string) []error {
 }
 
 // validateCatalog checks rules that span entries: unique ids, one select value
-// per category, references to existing entries, and conflicts that cross
-// categories and are symmetric.
+// per category, references to existing entries (in requires, requires_one_of
+// and conflicts), and conflicts that cross categories and are symmetric.
 func validateCatalog(files []file) []error {
 	var errs []error
 	byID := make(map[string]file, len(files))
@@ -165,6 +186,13 @@ func validateCatalog(files []file) []error {
 		for i, id := range e.Requires {
 			if _, ok := byID[id]; !ok && isRef(e.Requires, i, e.ID) {
 				errs = append(errs, &ValidationError{File: f.name, Field: fmt.Sprintf("requires[%d]", i), Msg: fmt.Sprintf("unknown entry %q", id)})
+			}
+		}
+		for i, group := range e.RequiresOneOf {
+			for j, id := range group {
+				if _, ok := byID[id]; !ok && isRef(group, j, e.ID) {
+					errs = append(errs, &ValidationError{File: f.name, Field: fmt.Sprintf("requires_one_of[%d][%d]", i, j), Msg: fmt.Sprintf("unknown entry %q", id)})
+				}
 			}
 		}
 		for i, id := range e.Conflicts {

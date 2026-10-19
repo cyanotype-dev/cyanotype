@@ -25,11 +25,12 @@ func TestSchemaMatchesEntry(t *testing.T) {
 	}
 
 	kebab := map[string]*schematest.Node{
-		"id":              props["id"],
-		"category":        props["category"],
-		"topic":           props["topic"],
-		"requires.items":  props["requires"].Items,
-		"conflicts.items": props["conflicts"].Items,
+		"id":                          props["id"],
+		"category":                    props["category"],
+		"topic":                       props["topic"],
+		"requires.items":              props["requires"].Items,
+		"requires_one_of.items.items": props["requires_one_of"].Items.Items,
+		"conflicts.items":             props["conflicts"].Items,
 	}
 	for path, node := range kebab {
 		if node.Pattern != kebabCase.String() {
