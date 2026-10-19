@@ -1,0 +1,8 @@
+id: no-test-tampering
+name: No test tampering
+category: agent-safety
+select: checkbox
+summary: No test tampering for tests
+snippet:
+  rule: Use No test tampering.
+  why: Tests need No test tampering.

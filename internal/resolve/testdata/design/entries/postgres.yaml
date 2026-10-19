@@ -1,0 +1,8 @@
+id: postgres
+name: PostgreSQL
+category: database
+select: radio
+summary: PostgreSQL for tests
+snippet:
+  rule: Use PostgreSQL.
+  why: Tests need PostgreSQL.

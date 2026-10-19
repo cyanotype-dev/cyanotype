@@ -1,0 +1,8 @@
+id: node
+name: Node.js
+category: runtime
+select: radio
+summary: Node.js for tests
+snippet:
+  rule: Use Node.js.
+  why: Tests need Node.js.
