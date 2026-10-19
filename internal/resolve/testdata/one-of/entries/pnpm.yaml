@@ -1,0 +1,9 @@
+id: pnpm
+name: pnpm
+category: package-manager
+select: radio
+summary: pnpm for tests
+requires: [node]
+snippet:
+  rule: Use pnpm.
+  why: Tests need pnpm.

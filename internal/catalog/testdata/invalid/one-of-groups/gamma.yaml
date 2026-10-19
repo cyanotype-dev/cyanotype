@@ -1,0 +1,9 @@
+id: gamma
+name: Gamma
+category: framework
+select: radio
+summary: A framework for tests
+conflicts: [alpha]
+snippet:
+  rule: Build pages with Gamma.
+  why: Tests need a framework.

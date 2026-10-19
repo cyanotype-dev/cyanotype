@@ -1,0 +1,11 @@
+id: shadcn-ui
+name: shadcn/ui
+category: ui-components
+select: radio
+summary: shadcn/ui for tests
+requires: [tailwind]
+requires_one_of:
+  - [nextjs, vite-react]
+snippet:
+  rule: Use shadcn/ui.
+  why: Tests need shadcn/ui.

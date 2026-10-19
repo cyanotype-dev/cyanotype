@@ -17,16 +17,17 @@ func TestLoadValid(t *testing.T) {
 
 	want := []Entry{
 		{
-			ID:       "alpha",
-			Name:     "Alpha",
-			Category: "language",
-			Select:   SelectCheckbox,
-			URL:      "https://alpha.example.org",
-			Summary:  "A language for tests",
-			Level:    LevelBeginner,
-			Topic:    "style",
-			Snippet:  Snippet{Rule: "Write Alpha.", Why: "Tests need a language."},
-			Detect:   &Detect{Files: []string{"alpha.mod"}},
+			ID:            "alpha",
+			Name:          "Alpha",
+			Category:      "language",
+			Select:        SelectCheckbox,
+			URL:           "https://alpha.example.org",
+			Summary:       "A language for tests",
+			RequiresOneOf: [][]string{{"beta", "gamma"}},
+			Level:         LevelBeginner,
+			Topic:         "style",
+			Snippet:       Snippet{Rule: "Write Alpha.", Why: "Tests need a language."},
+			Detect:        &Detect{Files: []string{"alpha.mod"}},
 		},
 		{
 			ID:        "beta",
@@ -105,6 +106,17 @@ func TestLoadInvalid(t *testing.T) {
 			{"alpha.yaml", "requires[1]", "cannot reference itself"},
 			{"alpha.yaml", "requires[2]", `"beta" is listed twice`},
 			{"alpha.yaml", "conflicts[0]", `"beta" is also listed in requires`},
+		}},
+		{"one-of-groups", []wantErr{
+			{"alpha.yaml", "requires_one_of[0]", "needs at least two alternatives; move a single id to requires"},
+			{"alpha.yaml", "requires_one_of[0][0]", `"beta" is also listed in requires`},
+			{"alpha.yaml", "requires_one_of[1][3]", "is empty"},
+			{"alpha.yaml", "requires_one_of[1][0]", "cannot reference itself"},
+			{"alpha.yaml", "requires_one_of[1][2]", `"delta" is listed twice`},
+			{"alpha.yaml", "requires_one_of[2][0]", `"gamma" is also listed in conflicts`},
+		}},
+		{"unknown-one-of", []wantErr{
+			{"alpha.yaml", "requires_one_of[0][1]", `unknown entry "ghost"`},
 		}},
 		{"asymmetric-conflict", []wantErr{
 			{"beta.yaml", "conflicts", `missing "alpha": alpha.yaml declares a conflict`},

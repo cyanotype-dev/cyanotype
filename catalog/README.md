@@ -31,6 +31,7 @@ The rules the test enforces:
 - `id`, `category` and `topic` are kebab-case; `url` is an absolute `https` URL.
 - All entries in a category share the same `select` value: a category is either `radio` or `checkbox`.
 - `requires` and `conflicts` hold plain entry ids that must exist.
+- `requires_one_of` holds groups of alternatives, such as `[nextjs, vite-react]`: each group needs at least one of its entries selected. A group has at least two ids; a single id belongs in `requires`. No id may be the entry itself, appear twice in a group, or also be listed in `requires` or `conflicts`.
 - Entries in a `radio` category already exclude each other: do not list them in `conflicts`. Use `conflicts` only for entries of different categories, and declare it on both sides.
 - `snippet.rule` and `snippet.why` may use the `{languages}` placeholder, filled with the selected languages ("Go and TypeScript"). Any other `{name}` is an error; wrap literal braces in backticks, as in `` `{children}` ``.
 

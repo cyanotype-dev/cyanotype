@@ -1,0 +1,9 @@
+id: nextjs
+name: Next.js
+category: framework
+select: radio
+summary: Next.js for tests
+requires: [node]
+snippet:
+  rule: Use Next.js.
+  why: Tests need Next.js.

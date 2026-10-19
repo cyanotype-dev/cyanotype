@@ -232,17 +232,32 @@ type missing struct {
 	through string // the unselected entry that requires it; empty when required directly
 }
 
+// missingGroup is a requires_one_of group none of whose alternatives is
+// selected.
+type missingGroup struct {
+	ids     []string
+	through string // the unselected entry that requires it; empty when required directly
+}
+
 // checkRequires reports what s requires but is not selected. Requires are
 // transitive: selecting an entry means needing everything its requirements
 // need too. The search only goes through entries that are not selected,
 // because a selected entry reports its own missing requirements; that way
 // each gap appears once for every selection that needs it.
+//
+// All missing requires are reported in one message, and each unmet
+// requires_one_of group in a message of its own. The search never goes into
+// the alternatives of an unmet group, because nobody has chosen one yet.
+// Cycles, such as node requiring one of npm or pnpm and both requiring node,
+// end because every entry is visited once and a group counts as met when
+// any alternative is selected, s itself included.
 func (r *resolver) checkRequires(s selected, indexOf map[string]int) {
 	queue := make([]missing, 0, len(s.entry.Requires))
 	for _, id := range s.entry.Requires {
 		queue = append(queue, missing{id: id})
 	}
 	seen := map[string]bool{s.entry.ID: true} // also guards against cycles
+	groups := unmetGroups(s.entry, "", indexOf)
 
 	var gaps []missing
 	for len(queue) > 0 {
@@ -261,23 +276,54 @@ func (r *resolver) checkRequires(s selected, indexOf map[string]int) {
 		for _, id := range req.Requires {
 			queue = append(queue, missing{id: id, through: m.id})
 		}
-	}
-	if len(gaps) == 0 {
-		return
+		groups = append(groups, unmetGroups(req, m.id, indexOf)...)
 	}
 
-	names := make([]string, len(gaps))
-	for i, g := range gaps {
-		names[i] = fmt.Sprintf("%q", g.id)
-		if g.through != "" {
-			names[i] += fmt.Sprintf(" (through %q)", g.through)
+	field := selectionField(s.index)
+	if len(gaps) > 0 {
+		names := make([]string, len(gaps))
+		for i, g := range gaps {
+			names[i] = fmt.Sprintf("%q", g.id) + throughSuffix(g.through)
+		}
+		verb := "is"
+		if len(gaps) > 1 {
+			verb = "are"
+		}
+		r.errorf(field, "%q requires %s, which %s not selected", s.entry.ID, joinNames(names), verb)
+	}
+	for _, g := range groups {
+		names := make([]string, len(g.ids))
+		for i, id := range g.ids {
+			names[i] = fmt.Sprintf("%q", id)
+		}
+		r.errorf(field, "%q requires one of %s%s, but none is selected",
+			s.entry.ID, joinList(names, "or"), throughSuffix(g.through))
+	}
+}
+
+// unmetGroups returns the requires_one_of groups of e that have no selected
+// alternative, marked as required through the entry named by through.
+func unmetGroups(e catalog.Entry, through string, indexOf map[string]int) []missingGroup {
+	var out []missingGroup
+	for _, group := range e.RequiresOneOf {
+		met := slices.ContainsFunc(group, func(id string) bool {
+			_, ok := indexOf[id]
+			return ok
+		})
+		if !met {
+			out = append(out, missingGroup{ids: group, through: through})
 		}
 	}
-	verb := "is"
-	if len(gaps) > 1 {
-		verb = "are"
+	return out
+}
+
+// throughSuffix names the unselected entry a requirement comes through, or
+// returns "" for a direct requirement.
+func throughSuffix(through string) string {
+	if through == "" {
+		return ""
 	}
-	r.errorf(selectionField(s.index), "%q requires %s, which %s not selected", s.entry.ID, joinNames(names), verb)
+	return fmt.Sprintf(" (through %q)", through)
 }
 
 // checkConflicts reports s when it conflicts with an earlier selection.
@@ -361,11 +407,17 @@ func (r *resolver) checkAnswers() {
 // joinNames joins names as an English list without a serial comma:
 // "Go", "Go and TypeScript", "Go, Python and TypeScript".
 func joinNames(names []string) string {
+	return joinList(names, "and")
+}
+
+// joinList joins names as an English list whose last two items are linked
+// by conj, without a serial comma: "a, b or c" for conj "or".
+func joinList(names []string, conj string) string {
 	switch len(names) {
 	case 0:
 		return ""
 	case 1:
 		return names[0]
 	}
-	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	return strings.Join(names[:len(names)-1], ", ") + " " + conj + " " + names[len(names)-1]
 }

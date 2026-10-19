@@ -51,6 +51,7 @@ The catalog is a folder of YAML files, one per entry: each selectable technology
 | `url` | for technologies | Target of the "i" icon |
 | `summary` | yes | One-line tooltip |
 | `requires`, `conflicts` | no | Compatibility: disables incompatible entries and says why. Plain entry ids |
+| `requires_one_of` | no | Groups of alternatives: each group needs at least one of its entries selected |
 | `level` | no | Lets simple mode prefer beginner-friendly entries |
 | `topic` | no | Which split file the snippet goes to when output is split |
 | `snippet.rule`, `snippet.why` | yes | The rule and its reason |
@@ -79,7 +80,18 @@ detect:
   files: [pnpm-lock.yaml]
 ```
 
-References in `requires` and `conflicts` are plain entry ids, never qualified by category. Ids are unique across the whole catalog, so a qualifier adds nothing, and moving an entry to another category must not break the entries that point to it.
+`requires` means "all of these". When an entry works with any one of several others, `requires_one_of` lists groups of alternatives, and each group is satisfied when at least one of its entries is selected. shadcn/ui needs Tailwind CSS and either Next.js or Vite + React:
+
+```yaml
+id: shadcn-ui
+requires: [tailwind]
+requires_one_of:
+  - [nextjs, vite-react]
+```
+
+A group has at least two alternatives, since a single id belongs in `requires`. No alternative may be the entry itself, appear twice, or also be listed in `requires` or `conflicts`. The field is separate from `requires` rather than a list nested inside it, so `requires` stays a plain list of ids and each field has one type.
+
+References in `requires`, `requires_one_of` and `conflicts` are plain entry ids, never qualified by category. Ids are unique across the whole catalog, so a qualifier adds nothing, and moving an entry to another category must not break the entries that point to it.
 
 All entries in a category share the same `select` value, because the interface draws a category either as radio buttons or as checkboxes; validation rejects a mix. Until category metadata exists, this is how a category's kind is defined.
 
@@ -285,12 +297,13 @@ Problems that would produce wrong or inconsistent files are errors and block gen
 | Selection not in the catalog, with the closest id when one is close enough | Error | `unknown entry "pnpn"; did you mean "pnpm"?` |
 | Two entries of the same radio category | Error | `"npm" and "pnpm" (selections[1]) are both in radio category "package-manager"; keep only one` |
 | A requirement that is not selected | Error | `"vitest" requires "vite" and "node" (through "vite"), which are not selected` |
+| A `requires_one_of` group with no selected alternative | Error | `"shadcn-ui" requires one of "nextjs" or "vite-react", but none is selected` |
 | Two selected entries that conflict | Error | `"supabase" conflicts with "sqlite" (selections[0]); keep only one` |
 | A placeholder the selection cannot fill | Error | `"learning-guided" uses {languages}, but no entry of category "language" is selected` |
 | An `answers` key that matches no question | Error | `unknown question "domain_note"; did you mean "domain_notes"?` |
 | `catalog_version` newer or older than the catalog | Error or warning | See Distribution |
 
-`requires` is transitive: selecting an entry means needing everything its requirements need. Each selection reports all its missing requirements in one message, following only entries that are not selected, because a selected entry reports its own gaps. The resolver never adds entries by itself: the spec records the user's choices, and the interface offers the fix. An unknown selection is reported once and left out of the other checks, so a typo does not cause a cascade.
+`requires` is transitive: selecting an entry means needing everything its requirements need. Each selection reports all its missing requirements in one message, following only entries that are not selected, because a selected entry reports its own gaps. `requires_one_of` groups follow the same path, and each unmet group gets a message of its own, with `(through "x")` when it comes from an unselected requirement. The search never goes into the alternatives of an unmet group, because none has been chosen yet. A group counts as met when any alternative is selected, including the entry being checked. That keeps cycles such as Node.js requiring one of npm or pnpm, which both require Node.js, from reporting anything when one package manager and Node.js are selected. The resolver never adds entries by itself: the spec records the user's choices, and the interface offers the fix. An unknown selection is reported once and left out of the other checks, so a typo does not cause a cascade.
 
 Questions are not in the catalog yet, so the known `answers` keys are a list in the code, currently `domain_notes`. They move into the catalog together with category metadata.
 
@@ -389,6 +402,8 @@ Critical catalog rules carry an `enforce` field that generates, alongside the te
 | CI | GitHub Actions workflow with required tests and lint | Everyone, before merge |
 
 Repository, pre-commit and CI levels work with any agent, so they are the baseline. The tool never overwrites an existing file without showing a diff and asking.
+
+Agent-level constraints only cover the tools they name. A hook or deny rule that blocks the agent's file-editing tools does not stop it from writing the same file through the shell, with a redirection, `sed` or a script it runs. Agent-level enforcement must therefore cover shell commands too: rules and hooks on every shell tool the agent has, such as Bash and PowerShell, plus the agent's sandbox where one exists, for what no command pattern can catch. Even then it is best effort, so the repository, pre-commit and CI levels stay the baseline.
 
 ## Generated file quality
 
@@ -604,5 +619,6 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Catalog version**: the bundled catalog's version lives in `catalog/catalog.yaml`, next to `catalog/entries/`. A spec pin older than the loaded catalog is a warning, a newer one an error. See Distribution.
 - [x] **Resolution**: unknown selections, radio clashes, missing `requires` (transitive), conflicts, unfillable placeholders and unknown `answers` keys are errors with field and line; warnings never block generation. Resolved entries keep the order of `selections`. See Resolving against the catalog.
 - [x] **Snippet placeholders**: `{languages}` is the only placeholder; other names are catalog validation errors, and text inside backticks is literal.
-- [ ] **Alternatives in `requires`**: `requires` can only say "all of these", but some MVP entries need "one of these": shadcn/ui works with Next.js or Vite + React, not only with one of them. A possible format lets an item of `requires` be a list of alternatives, satisfied when at least one is selected: `requires: [tailwind, [nextjs, vite-react]]`. The JSON Schema, the catalog checks (every alternative exists, none is the entry itself) and the resolver message, such as `"shadcn-ui" requires one of "nextjs" or "vite-react", and none is selected`, would change with it. Not implemented yet; decide before adding those entries.
+- [x] **Agent enforcement covers the shell**: agent-level constraints on file tools can be bypassed through shell commands, so they must also cover the agent's shell tools and sandbox; repository, pre-commit and CI levels stay the baseline. See Real constraints.
+- [x] **Alternatives in `requires`**: a separate `requires_one_of` field holds groups of alternatives, each satisfied when at least one of its entries is selected, such as `[nextjs, vite-react]` for shadcn/ui. A separate field keeps `requires` a plain list of ids. Unmet groups are resolver errors, one message per group. See The catalog and Resolving against the catalog.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
