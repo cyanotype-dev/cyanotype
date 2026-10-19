@@ -390,6 +390,8 @@ Critical catalog rules carry an `enforce` field that generates, alongside the te
 
 Repository, pre-commit and CI levels work with any agent, so they are the baseline. The tool never overwrites an existing file without showing a diff and asking.
 
+Agent-level constraints only cover the tools they name. A hook or deny rule that blocks the agent's file-editing tools does not stop it from writing the same file through the shell, with a redirection, `sed` or a script it runs. Agent-level enforcement must therefore cover shell commands too: rules and hooks on every shell tool the agent has, such as Bash and PowerShell, plus the agent's sandbox where one exists, for what no command pattern can catch. Even then it is best effort, so the repository, pre-commit and CI levels stay the baseline.
+
 ## Generated file quality
 
 The main file aims to stay under 80–100 lines, because the most common complaint ("it ignores my CLAUDE.md") almost always comes from files that are too long or too vague.
@@ -604,5 +606,6 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Catalog version**: the bundled catalog's version lives in `catalog/catalog.yaml`, next to `catalog/entries/`. A spec pin older than the loaded catalog is a warning, a newer one an error. See Distribution.
 - [x] **Resolution**: unknown selections, radio clashes, missing `requires` (transitive), conflicts, unfillable placeholders and unknown `answers` keys are errors with field and line; warnings never block generation. Resolved entries keep the order of `selections`. See Resolving against the catalog.
 - [x] **Snippet placeholders**: `{languages}` is the only placeholder; other names are catalog validation errors, and text inside backticks is literal.
+- [x] **Agent enforcement covers the shell**: agent-level constraints on file tools can be bypassed through shell commands, so they must also cover the agent's shell tools and sandbox; repository, pre-commit and CI levels stay the baseline. See Real constraints.
 - [ ] **Alternatives in `requires`**: `requires` can only say "all of these", but some MVP entries need "one of these": shadcn/ui works with Next.js or Vite + React, not only with one of them. A possible format lets an item of `requires` be a list of alternatives, satisfied when at least one is selected: `requires: [tailwind, [nextjs, vite-react]]`. The JSON Schema, the catalog checks (every alternative exists, none is the entry itself) and the resolver message, such as `"shadcn-ui" requires one of "nextjs" or "vite-react", and none is selected`, would change with it. Not implemented yet; decide before adding those entries.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
