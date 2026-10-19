@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: uv
+name: uv
+category: python-package-manager
+select: radio
+url: https://docs.astral.sh/uv/
+summary: Fast package and project manager for Python
+requires: [python]
+level: beginner
+topic: tooling
+snippet:
+  rule: Add dependencies with `uv add` and run scripts and tools with `uv run`. Commit uv.lock and never edit it by hand. Never run pip install.
+  why: pip bypasses uv.lock, so installs stop being reproducible.
+enforce:
+  claude:
+    deny: ["Bash(pip install *)", "Bash(pip3 install *)", "Bash(python -m pip install *)"]
+detect:
+  files: [uv.lock]
