@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyanotype.dev/schema/spec.schema.json",
+  "title": "Cyanotype project spec",
+  "description": "cyanotype.yaml: the user's choices, never the generated text. Editor support only: the tool validates the file with its own Go code, and checks selections against the catalog separately. See the Project spec section of docs/DESIGN.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "targets", "project"],
+  "properties": {
+    "version": {
+      "description": "Version of the spec format. Older versions are migrated; newer ones need a newer cyanotype.",
+      "type": "integer",
+      "const": 1
+    },
+    "catalog_version": {
+      "description": "Catalog version the spec was generated with, such as \"2026.10\". Quote it: unquoted, YAML reads it as a number. Omit it to use the catalog bundled with cyanotype.",
+      "type": "string",
+      "pattern": "^[0-9]{4}\\.(0[1-9]|1[0-2])(\\.[1-9][0-9]*)?$"
+    },
+    "targets": {
+      "description": "Agents whose instruction files are generated and committed.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["claude", "agents-md", "gemini", "cursor", "copilot"] }
+    },
+    "mode": {
+      "description": "Interface mode the choices were last made in. Defaults to advanced.",
+      "enum": ["simple", "advanced"]
+    },
+    "project": {
+      "description": "Short summary of what is being built; it goes into the main instruction file.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "goal"],
+      "properties": {
+        "name": { "description": "Project name, on one line.", "type": "string", "minLength": 1 },
+        "goal": { "description": "What the project is for, in one or two sentences.", "type": "string", "minLength": 1 },
+        "users": { "description": "Who uses it.", "type": "string" },
+        "core_features": {
+          "description": "The features that matter most.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "out_of_scope": {
+          "description": "What the agent must not build. Prevents a lot of unrequested work.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "brief": {
+          "description": "Path of the full product description relative to the project root, with forward slashes, such as docs/PRODUCT.md.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "languages": {
+      "description": "Human language of each kind of text the agent writes. Each defaults to english.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": { "description": "Identifiers and strings in code.", "type": "string", "pattern": "^[a-z]+(-[a-z]+)*$" },
+        "comments": { "description": "Code comments.", "type": "string", "pattern": "^[a-z]+(-[a-z]+)*$" },
+        "docs": { "description": "Documentation.", "type": "string", "pattern": "^[a-z]+(-[a-z]+)*$" },
+        "commits": { "description": "Commit messages.", "type": "string", "pattern": "^[a-z]+(-[a-z]+)*$" },
+        "agent_replies": { "description": "The agent's replies to the user.", "type": "string", "pattern": "^[a-z]+(-[a-z]+)*$" }
+      }
+    },
+    "selections": {
+      "description": "Selected catalog entry ids. Order matters: entries appear in generated text in this order.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "locked": {
+      "description": "Selected entry ids that a personal cyanotype.local.yaml may not weaken or remove.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+    },
+    "i18n": {
+      "description": "Translation settings of the app being built.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_locale"],
+      "properties": {
+        "default_locale": {
+          "description": "BCP 47 tag of the default locale, such as en or pt-BR.",
+          "type": "string",
+          "pattern": "^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$"
+        },
+        "locales": {
+          "description": "Every supported locale, including the default one. Defaults to the default locale only.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$" }
+        },
+        "translations_by": {
+          "description": "Who translates: the agent drafts every locale, the agent writes the default locale only, or human translators. Defaults to agent-draft.",
+          "enum": ["agent-draft", "agent-default-only", "human"]
+        }
+      }
+    },
+    "answers": {
+      "description": "Free-text answers to open questions, keyed by question id, such as domain_notes.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9]*(_[a-z0-9]+)*$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "custom_rules": {
+      "description": "Rules the catalog cannot know, each with its reason.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "why"],
+        "properties": {
+          "rule": { "description": "The rule, concrete and actionable.", "type": "string", "minLength": 1 },
+          "why": { "description": "The reason behind the rule, in short form.", "type": "string", "minLength": 1 },
+          "locked": { "description": "Stops a personal cyanotype.local.yaml from overriding the rule.", "type": "boolean" }
+        }
+      }
+    },
+    "output": {
+      "description": "Layout of the generated files.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "split": {
+          "description": "auto splits only when the main file would exceed max_lines; always and never force it. Defaults to auto.",
+          "enum": ["auto", "always", "never"]
+        },
+        "max_lines": {
+          "description": "Main file length above which auto splits. Defaults to 100.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "topic_dir": {
+          "description": "Folder for topic files relative to the project root, with forward slashes. Defaults to docs/agents.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

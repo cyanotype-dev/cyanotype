@@ -23,6 +23,8 @@ type Node struct {
 	Items      *Node            `json:"items"`
 	Enum       []string         `json:"enum"`
 	Pattern    string           `json:"pattern"`
+	// PropertyNames constrains the keys of a map, such as their pattern.
+	PropertyNames *Node `json:"propertyNames"`
 	// AdditionalProperties is either false, for a closed object, or the
 	// schema of every value, for a map. It stays raw because its JSON type varies.
 	AdditionalProperties json.RawMessage `json:"additionalProperties"`
