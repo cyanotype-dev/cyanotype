@@ -216,11 +216,55 @@ The rows above are groups for reading; the entries use these categories, and the
 
 `node` requires one of `npm` or `pnpm`, so every JavaScript project declares its package manager and generated commands are unambiguous. `i18n-next-intl` does not require `i18n-rules`, which a preset can add.
 
-Starter presets built from these entries: Next.js + Supabase, Vite + React, Expo app, FastAPI + PostgreSQL, Python script with uv, Go command-line tool.
+Seven starter presets are built from these entries, at least one per simple-mode project type, so that every framework entry is used by some preset (see Presets):
+
+| Preset | Project type | Selections |
+| --- | --- | --- |
+| `nextjs-supabase`: Next.js + Supabase | website | `typescript`, `node`, `pnpm`, `nextjs`, `tailwind`, `shadcn-ui`, `supabase`, `vitest`, `eslint-prettier`; `i18n-next-intl` when multilingual |
+| `vite-react-app`: Vite + React | website | `typescript`, `node`, `pnpm`, `vite-react`, `tailwind`, `shadcn-ui`, `vitest`, `eslint-prettier` |
+| `expo-app`: Expo app | mobile-app | `typescript`, `node`, `npm`, `expo`, `eslint-prettier` |
+| `fastapi-postgres`: FastAPI + PostgreSQL | api | `python`, `uv`, `fastapi`, `postgres`, `pytest`, `ruff` |
+| `go-api`: Go API + PostgreSQL | api | `go`, `go-stdlib`, `postgres`, `golangci-lint` |
+| `python-script`: Python script with uv | script | `python`, `uv`, `pytest`, `ruff` |
+| `go-cli`: Go command-line tool | script | `go`, `golangci-lint` |
+
+`go-api` gives someone who knows Go an API stack in their language, and is the preset that uses `go-stdlib`. Expo uses npm, the package manager of the Expo documentation, and has no test runner yet: Vitest fits React Native poorly, and Jest is not in the catalog. Playwright is in no preset, since it is an `intermediate` entry and starter presets aim at beginners.
 
 Deferred, and good first contributions once the format is proven: Vue, Svelte, Angular, Django, Rails, Rust, Flutter, Java and Kotlin, MongoDB, desktop and game stacks.
 
 The quality of each snippet and its reason matters more than the number of entries.
+
+### Presets
+
+A preset is a ready combination of entries, such as "Next.js + Supabase", that simple mode starts a project from. It is the stack part of a `cyanotype.yaml`, with the same keys and meaning, plus metadata of its own. It cannot be a whole spec: `project.name` and `project.goal` are required, and a preset cannot know them.
+
+```yaml
+# yaml-language-server: $schema=../../schema/preset.schema.json
+id: nextjs-supabase
+name: Next.js + Supabase
+summary: Full-stack web app with a Postgres database, auth and storage from Supabase
+project_type: website
+selections: [typescript, node, pnpm, nextjs, tailwind, shadcn-ui, supabase, vitest, eslint-prettier]
+i18n_selections: [i18n-next-intl]
+commands:
+  dev: pnpm dev
+  build: pnpm build
+  test: pnpm test
+  lint: pnpm lint
+```
+
+| Field | Required | Purpose |
+| --- | --- | --- |
+| `id`, `name` | yes | Stable identifier, equal to the file name, and display name |
+| `summary` | yes | One line saying what the preset is good for |
+| `project_type` | yes | `website`, `mobile-app`, `api` or `script`: simple mode offers the presets of the type the user picks |
+| `selections` | yes | Entry ids, in the order they go into the spec |
+| `i18n_selections` | no | Entries added after `i18n-rules` when the app is multilingual or will be, such as the i18n library that fits the stack |
+| `commands`, `output` | no | As in the spec |
+
+Presets live in `catalog/presets/<id>.yaml`, one flat folder next to `catalog/entries/`, and are embedded, released and licensed with the catalog, so a preset always ships with the entries it selects. Every other spec key is an unknown field. `targets` is left out on purpose: which agents someone uses is a personal choice rather than part of the stack (see Team rules), and simple mode always asks for it. Presets shared by organizations may bring it back as an optional field. `project_type` and `i18n_selections` keep stack knowledge in the catalog rather than in code, so a community preset needs no code change. The preset's languages, for `{languages}` and for offering learning mode, are its selections of category `language`.
+
+Loading a preset resolves it against its catalog twice, as it is and with `i18n-rules` and its `i18n_selections` added: a preset that would give a spec with errors never loads, and its problems name the file and the field.
 
 ## Project spec
 
@@ -750,7 +794,7 @@ Open question: whether to host a public blueprint gallery, and how to review sub
 These turn a one-shot generator into a tool that stays with the project.
 
 - **Stack detection.** On an existing project it reads `package.json`, `pyproject.toml`, `go.mod`, lockfiles and config files through the catalog's `detect` field, and pre-selects what it finds. The user confirms instead of typing.
-- **Presets.** Ready combinations ("Next.js + Supabase", "FastAPI + Postgres", "Simple Python script") stored as ordinary `cyanotype.yaml` files. Community presets arrive by pull request.
+- **Presets.** Ready combinations ("Next.js + Supabase", "FastAPI + Postgres", "Simple Python script") stored as partial `cyanotype.yaml` files: the stack part of a spec, with the same keys, plus metadata. See Presets. Community presets arrive by pull request.
 - **Protected sections.** Hand-written text between `<!-- cyanotype:custom -->` markers survives regeneration; see Output.
 - **Live preview** in TUI and desktop, updated on every selection.
 - **Sharing.** Export a configuration as a file or a compact string, import it in one step.
@@ -772,7 +816,8 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Name: Cyanotype, command cyanotype with the short alias cyty (checked free on Homebrew, Debian, Arch, AUR, PyPI, crates.io and npm). Available: GitHub organization cyanotype-dev and domain cyanotype.dev (cyanotype, cyanotype-ai and cyty are taken on GitHub; cyanotype.com, .io and .app are registered). Trademarks checked on TMview (6 results): none in classes 9 or 42 in the EU, Italy or the US; class 42 marks exist only in Japan (cyanotype) and the UK (Cyanotype Media). GitHub organization cyanotype-dev created; Go module path github.com/cyanotype-dev/cyanotype. Next step: register cyanotype.dev**.
 - [x] **License**: Apache-2.0 for the code, for its explicit patent grant and contribution terms; CC0-1.0 for the catalog, so generated files carry no license obligations. User blueprints use the license in their own manifest.
 - [x] **Catalog distribution**: bundled snapshot plus explicit, signed updates, pinned per project. See the catalog's Distribution section.
-- [x] **MVP catalog entries**: 40 entries and 6 starter presets. See the catalog's MVP entries section.
+- [x] **MVP catalog entries**: 40 entries and 7 starter presets. See the catalog's MVP entries section.
+- [x] **Preset format**: a preset is the stack part of a spec (`selections`, `commands`, `output`) plus `id`, `name`, `summary`, `project_type` and `i18n_selections`, in `catalog/presets/<id>.yaml`, embedded and versioned with the catalog. No `targets`, which are a personal choice. Loading resolves each preset against the catalog, with and without its i18n entries, so a preset that loads always generates. See Presets.
 - [x] **Topic folder**: `docs/agents/` by default, configurable per repo with `output.topic_dir`; personal topic files in `.agents.local/`, configurable per person. See Output and Team rules.
 - [x] **Catalog references**: `requires` and `conflicts` hold plain entry ids; exclusivity inside a radio category is implicit and `conflicts` only links entries of different categories. See The catalog.
 - [x] **Catalog layout**: one flat folder, `catalog/entries/<id>.yaml`, with the file name equal to the id. The category lives only in the entry.
