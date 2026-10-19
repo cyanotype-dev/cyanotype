@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: no-unrequested-changes
+name: No unrequested changes
+category: agent-safety
+select: checkbox
+summary: The agent changes only what the task asks for
+topic: safety
+snippet:
+  rule: Change only what the task asks for; do not refactor, rename or reformat unrelated code. Mention other problems you notice instead of fixing them.
+  why: Unrequested changes make diffs hard to review and can break code nobody asked to touch.

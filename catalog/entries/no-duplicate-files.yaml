@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: no-duplicate-files
+name: No duplicate files
+category: agent-safety
+select: checkbox
+summary: The agent edits files instead of creating alternative copies
+topic: safety
+snippet:
+  rule: Never create alternative copies of a file, such as `_v2`, `_new`, `_old` or `.bak`; edit the original. Git already keeps the previous version.
+  why: Duplicates leave readers guessing which copy is the real one.
