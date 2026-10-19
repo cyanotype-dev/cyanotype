@@ -222,6 +222,8 @@ func TestValidate(t *testing.T) {
 		{"missing version", func(s *Spec) { s.Version = 0 }, "version: is required"},
 		{"other version", func(s *Spec) { s.Version = 7 }, "version: must be 1, got 7"},
 		{"blank goal", func(s *Spec) { s.Project.Goal = "  " }, "project.goal: is required"},
+		{"blank command", func(s *Spec) { s.Commands.Test = " " }, "commands.test: is empty"},
+		{"multi-line command", func(s *Spec) { s.Commands.Build = "make\nmake install" }, "commands.build: must be a single line"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

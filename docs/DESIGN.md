@@ -253,6 +253,12 @@ languages:
   commits: english
   agent_replies: italian
 
+commands:
+  dev: pnpm dev
+  build: pnpm build
+  test: pnpm test
+  lint: pnpm lint
+
 selections:
   - typescript
   - nextjs
@@ -295,6 +301,7 @@ output:
 | `project.name`, `project.goal` | yes | — | Name on one line |
 | `project.users`, `core_features`, `out_of_scope`, `brief` | no | — | `brief` is a relative path with forward slashes |
 | `languages.*` | no | `english` | `code`, `comments`, `docs`, `commits`, `agent_replies`; lowercase language names |
+| `commands.*` | no | none | `dev`, `build`, `test`, `lint`; each a shell command on one line, listed in the main file's Commands section |
 | `selections` | no | none | Catalog entry ids, kebab-case, no duplicates. Order matters, as in `{languages}` |
 | `locked` | no | none | Selected ids a local file may not weaken; see Team rules |
 | `i18n.default_locale` | yes, if `i18n` is present | — | BCP 47 tag such as `en` or `pt-BR` |
@@ -379,7 +386,7 @@ From these answers the tool picks a preset, shows it with a short explanation of
 - **Project goal fields**: goal, users, core features, out of scope.
 - **Domain notes**: business rules no catalog can know.
 - **Custom rules**: two fields, rule and reason, to nudge users into writing the why.
-- **Project commands**: dev, build, test, lint, pre-filled when detected and editable.
+- **Project commands**: dev, build, test, lint, pre-filled when detected and editable, stored in the spec's `commands`.
 
 ## Output
 

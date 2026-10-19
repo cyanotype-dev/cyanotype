@@ -66,6 +66,17 @@
         "agent_replies": { "description": "The agent's replies to the user.", "type": "string", "pattern": "^[a-z]+(-[a-z]+)*$" }
       }
     },
+    "commands": {
+      "description": "The project's own commands, listed in the main instruction file. Each is optional and on one line.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dev": { "description": "Starts the project for development, such as pnpm dev.", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" },
+        "build": { "description": "Builds the project, such as go build ./....", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" },
+        "test": { "description": "Runs the tests, such as pnpm test.", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" },
+        "lint": { "description": "Runs the linter, such as golangci-lint run.", "type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$" }
+      }
+    },
     "selections": {
       "description": "Selected catalog entry ids. Order matters: entries appear in generated text in this order.",
       "type": "array",
