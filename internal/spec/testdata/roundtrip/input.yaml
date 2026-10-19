@@ -1,0 +1,43 @@
+# Team spec for recipe-box.
+# Edit by hand or with cyanotype.
+
+version: 1
+catalog_version: 2026.10   # pinned on purpose
+targets: [claude, agents-md, cursor]
+mode: advanced
+
+
+project:
+    name: recipe-box
+    # Keep the goal to one sentence.
+    goal: Web app where families save, organize and share recipes.
+    users: Non-technical family members, mostly on mobile.
+    core_features:
+        - Save recipes with photos and ingredients
+        - Share a recipe with family or publicly   # the main differentiator
+
+    out_of_scope:
+        - Meal planning and shopping lists (later)
+    brief: docs/PRODUCT.md
+languages:
+    code: english
+    agent_replies: italian
+# Order matters: languages come first.
+selections: [typescript, nextjs, pnpm, postgres, vitest, i18n-next-intl,
+             conventional-commits, no-test-tampering, no-destructive-commands]
+locked: [no-test-tampering]
+i18n:
+    default_locale: en
+    locales: [en, it, es]
+    translations_by: 'agent-draft'
+answers:
+    domain_notes: "Private recipes never appear in search results."
+custom_rules:
+    - rule: Store all quantities in metric units; convert only for display.
+      why: Keeps scaling and conversion logic in one place.
+      locked: true
+output:
+    split: auto
+    max_lines: 100
+
+# Nothing below this line.
