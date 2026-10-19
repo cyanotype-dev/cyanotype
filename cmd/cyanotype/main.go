@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -11,7 +12,10 @@ import (
 var version = "dev"
 
 func main() {
-	if err := newRootCmd(version).Execute(); err != nil {
-		os.Exit(1)
+	err := newRootCmd(version).Execute()
+	code, report := exitCode(err)
+	if report {
+		fmt.Fprintln(os.Stderr, "Error:", err)
 	}
+	os.Exit(code)
 }
