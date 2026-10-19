@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: ruff
+name: Ruff
+category: lint
+select: checkbox
+url: https://docs.astral.sh/ruff/
+summary: Fast Python linter and formatter
+requires: [python]
+level: beginner
+topic: style
+snippet:
+  rule: |
+    Lint with `ruff check` and format with `ruff format`, configured in `pyproject.toml` under `[tool.ruff]`.
+    Fix findings instead of suppressing them; when a `# noqa` comment is unavoidable, name the rule, as in `# noqa: E501`.
+  why: A suppression that names its rule can be reviewed, while a bare one hides every future problem on that line.
+detect:
+  files: [ruff.toml, .ruff.toml]
