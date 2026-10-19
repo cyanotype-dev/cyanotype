@@ -1,0 +1,9 @@
+id: npm
+name: npm
+category: package-manager
+select: radio
+summary: npm for tests
+requires: [node]
+snippet:
+  rule: Use npm.
+  why: Tests need npm.

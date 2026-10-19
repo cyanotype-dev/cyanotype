@@ -1,0 +1,8 @@
+id: python
+name: Python
+category: language
+select: checkbox
+summary: Python for tests
+snippet:
+  rule: Use Python.
+  why: Tests need Python.

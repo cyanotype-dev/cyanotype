@@ -1,0 +1,9 @@
+id: cycle-a
+name: Cycle A
+category: cycle
+select: checkbox
+summary: Cycle A for tests
+requires: [cycle-b]
+snippet:
+  rule: Use Cycle A.
+  why: Tests need Cycle A.

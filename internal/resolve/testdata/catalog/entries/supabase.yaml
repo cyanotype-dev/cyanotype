@@ -1,0 +1,9 @@
+id: supabase
+name: Supabase
+category: backend
+select: radio
+summary: Supabase for tests
+conflicts: [sqlite]
+snippet:
+  rule: Use Supabase.
+  why: Tests need Supabase.
