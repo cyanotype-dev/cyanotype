@@ -432,7 +432,7 @@ Repository, pre-commit and CI levels work with any agent, so they are the baseli
 Agent-level constraints only cover the tools they name. A hook or deny rule that blocks the agent's file-editing tools does not stop it from writing the same file through the shell, with a redirection, `sed` or a script it runs. Agent-level enforcement must therefore cover shell commands too: rules and hooks on every shell tool the agent has, such as Bash and PowerShell, plus the agent's sandbox where one exists, for what no command pattern can catch. Even then it is best effort, so the repository, pre-commit and CI levels stay the baseline.
 
 A manual check of `secrets-in-env` with Claude Code 2.1.299 confirmed this; the procedure and results are in [enforce-checks.md](enforce-checks.md). `Read` deny rules on `.env` files blocked the Read, Edit and Write tools and every shell command that named the file. They did not block:
-- shell writes such as `>> .env`, `tee -a` and PowerShell `Add-Content`, which matching `Edit` deny rules did block;
+- shell writes such as `>> .env`, `tee -a` and PowerShell `Add-Content`, which matching `Edit` deny rules did block, so the entry ships both kinds of rules;
 - reads that do not name the file, such as globs (`cat .en*`), command substitution, `source` and `grep -r`;
 - scripts that open the file themselves.
 

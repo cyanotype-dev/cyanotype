@@ -17,7 +17,7 @@ Run it again when an entry's deny rules change, and when a new Claude Code relea
 
 ### Cases for `secrets-in-env`
 
-Rules: `Read(.env)`, `Read(.env.*)`, `Read(!.env.example)`. Expected: `.env` and `.env.*` blocked everywhere; `.env.example` readable and writable.
+Rules: `Read(.env)`, `Read(.env.*)`, `Read(!.env.example)`, `Edit(.env)`, `Edit(.env.*)`, `Edit(!.env.example)`, in this order. A negation only carves paths out of the rules listed before it, so each negation must come after the rules it narrows. Expected: `.env` and `.env.*` blocked everywhere, for reads and writes; `.env.example` readable and writable.
 
 - Read tool: `.env` and `.env.local` at the root, `.env` in a subfolder, `.env.example`.
 - Edit and Write tools: edit `.env`, overwrite `.env` and `.env.local`, create `.env.production`, edit `.env.example`.
@@ -31,7 +31,7 @@ Use the same method for the other entries with deny rules. Choose cases that wou
 
 | Entry | Rules | Last checked |
 | --- | --- | --- |
-| `secrets-in-env` | `Read` rules on `.env` files | 2026-10-19, see below |
+| `secrets-in-env` | `Read` and `Edit` rules on `.env` files | 2026-10-19, see below |
 | `no-destructive-commands` | `Bash` and `PowerShell` command patterns | Not yet |
 | `rule-maintenance-propose` | `Edit` rules on generated files | Not yet |
 | `npm`, `pnpm`, `uv` | `Bash` rules on the other package managers | Not yet |
@@ -45,7 +45,7 @@ Use the same method for the other entries with deny rules. Choose cases that wou
 
 In the control run, every case below succeeded.
 
-Phase A uses the entry's rules as shipped. Phase B adds `Edit(.env)`, `Edit(.env.*)` and `Edit(!.env.example)` to see whether they close the gaps found in phase A.
+Phase A uses the three `Read` rules the entry shipped with at the time. Phase B adds `Edit(.env)`, `Edit(.env.*)` and `Edit(!.env.example)`, to see whether they close the gaps found in phase A. They did, so the entry now ships the phase B rules.
 
 | Case | A: Read rules | B: Read + Edit rules |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ An empty cell in column B means the case was not repeated, because Edit rules do
 
 - The negation works: `Read(!.env.example)` keeps `.env.example` readable and editable, while `.env` and every other `.env.*` file stay blocked, at the root and in subfolders.
 - `Read` deny rules block the Read, Edit and Write tools and every shell command that names the file. They do not block commands that reach the file without naming it: globs, command substitution, `source`, recursive `grep` and scripts.
-- `Read` deny rules alone do **not** stop shell writes: redirections, `tee` and PowerShell `Add-Content` wrote to `.env` and created `.env.production`. Adding matching `Edit` deny rules blocked all of these.
+- `Read` deny rules alone do **not** stop shell writes: redirections, `tee` and PowerShell `Add-Content` wrote to `.env` and created `.env.production`. Adding matching `Edit` deny rules blocked all of these, so `secrets-in-env` now ships both kinds of rules.
 - No permission rule stops a script that opens the file itself. Only the sandbox can, at the operating-system level, as the Claude Code documentation says.
 
 ## Known limits
