@@ -6,11 +6,19 @@ Your choices live in a `cyanotype.yaml` spec in your repo; the agent files are r
 
 ## Status
 
-**Pre-alpha.** `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code deny rules and a `.gitignore` block from a hand-written `cyanotype.yaml`; other agents, `init` and simple mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
+**Pre-alpha.** `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset, and `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code deny rules and a `.gitignore` block from it; files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
 
 ## Usage
 
-Write a `cyanotype.yaml` at the root of your project (the Project spec section of [docs/DESIGN.md](docs/DESIGN.md) has an example), then run:
+In your project folder, run:
+
+```sh
+cyanotype init
+```
+
+It asks what you are building, which language you know, how much autonomy the agent gets, whether the app is multilingual, the language of the agent's replies, the goal and your coding agents, then writes `cyanotype.yaml` and offers to generate the files. Every question has a flag, so scripts and agents can run it without a terminal; `cyanotype init --help` lists them. It never overwrites an existing `cyanotype.yaml`, which you can also write by hand (the Project spec section of [docs/DESIGN.md](docs/DESIGN.md) has an example).
+
+To write the files after changing the spec, run:
 
 ```sh
 cyanotype generate
