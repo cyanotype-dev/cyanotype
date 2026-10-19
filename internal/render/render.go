@@ -50,7 +50,7 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 
 	var warnings []resolve.Warning
 	for i, t := range targets {
-		if t != spec.TargetAgentsMD && t != spec.TargetClaude {
+		if !Supported(t) {
 			warnings = append(warnings, resolve.Warning{
 				Field: fmt.Sprintf("targets[%d]", i),
 				Msg:   fmt.Sprintf("cyanotype cannot generate files for %q yet; they are skipped", t),
@@ -86,6 +86,13 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 
 	slices.SortFunc(files, func(a, b File) int { return strings.Compare(a.Path, b.Path) })
 	return files, warnings, nil
+}
+
+// Supported reports whether cyanotype can generate the files of target t
+// yet. Render skips the others with a warning, and interfaces use it to
+// tell the user before that happens.
+func Supported(t spec.Target) bool {
+	return t == spec.TargetAgentsMD || t == spec.TargetClaude
 }
 
 // renderInstructions returns the Markdown instruction files: the main file,

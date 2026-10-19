@@ -169,7 +169,7 @@ func (g *generation) command(flags ...string) string {
 // the spec.
 func (g *generation) printWarnings(warnings []resolve.Warning) {
 	for _, w := range warnings {
-		g.printDiagnostic(g.paint(g.console.colorErr, yellow, "warning"), w.Line, w.Field, w.Msg)
+		g.printDiagnostic(paint(g.console.colorErr, yellow, "warning"), w.Line, w.Field, w.Msg)
 	}
 }
 
@@ -183,7 +183,7 @@ func (g *generation) reportErrors(root *os.Root, err error) error {
 	if errors.As(err, &joined) {
 		errs = joined.Unwrap()
 	}
-	label := g.paint(g.console.colorErr, red, "error")
+	label := paint(g.console.colorErr, red, "error")
 	for _, e := range errs {
 		var ve *spec.ValidationError
 		switch {
@@ -240,7 +240,7 @@ func (g *generation) printDiff(d string) {
 			color = red
 		}
 		text := strings.TrimSuffix(line, "\n")
-		fmt.Fprintln(g.out, g.paint(g.console.colorOut, color, text))
+		fmt.Fprintln(g.out, paint(g.console.colorOut, color, text))
 	}
 }
 
@@ -252,7 +252,7 @@ func (g *generation) printSummary(changes []generate.Change) {
 	for _, ch := range changes {
 		counts[ch.Status]++
 		color := map[generate.Status]string{generate.Created: green, generate.Modified: yellow, generate.Unchanged: dim}[ch.Status]
-		label := g.paint(g.console.colorOut, color, fmt.Sprintf("%-10s", ch.Status))
+		label := paint(g.console.colorOut, color, fmt.Sprintf("%-10s", ch.Status))
 		note := ""
 		if ch.CRLF {
 			note = " (line endings change from CRLF to LF)"
@@ -284,7 +284,7 @@ const (
 )
 
 // paint wraps s in color when the stream shows colors.
-func (g *generation) paint(enabled bool, color, s string) string {
+func paint(enabled bool, color, s string) string {
 	if !enabled || color == "" {
 		return s
 	}

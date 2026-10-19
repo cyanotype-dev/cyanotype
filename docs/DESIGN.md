@@ -413,8 +413,37 @@ Choices are made with radio buttons and checkboxes grouped by category; open tex
 4. Should the app support more than one language? No, later, or yes (which ones).
 5. Language for agent replies.
 6. Describe the project in one or two sentences (open field).
+7. Which coding agents do you work with: Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, or another agent that reads AGENTS.md. Several can be chosen.
 
 From these answers the tool picks a preset, shows it with a short explanation of each component and offers to switch to advanced mode to inspect or change the details.
+
+The project type and the known language pick the preset: the presets of that type, narrowed to those in the known language when there are any. When several remain, such as the two website presets, a starter question lists them. The translation question is asked only for websites and mobile apps, which have text to translate. Learning mode is offered only when the user does not know a language of the chosen preset, and is never on by default. The project name is not asked: it defaults to the folder name.
+
+Each answer maps to the spec as follows; questions and mappings live in `internal/simple`, so every interface asks the same questions:
+
+| Answer | Spec |
+| --- | --- |
+| Preset | `selections` first, in the preset's order, then `commands` and `output` |
+| Multilingual: later | `i18n-rules` and the preset's `i18n_selections`; `i18n.default_locale`, `en` unless another is given |
+| Multilingual: yes | The same entries; `i18n.default_locale` and `i18n.locales`, the default first |
+| Autonomy | The entries in the table below, after the i18n entries |
+| Learning mode | `learning-explain`, `learning-guided` or `learning-hands-on`, last |
+| Reply language | `languages.agent_replies`, left out when English, the default |
+| Description | `project.goal` |
+| Agents | `targets`, see below |
+| Always | `version`, `catalog_version` pinned to the bundled catalog, `mode: simple` |
+
+| Entry | Asks often | Balanced | Autonomous |
+| --- | --- | --- | --- |
+| `conventional-commits`, `small-commits` | ✓ | ✓ | ✓ |
+| `definition-of-done`, `no-destructive-commands`, `no-test-tampering`, `secrets-in-env`, `no-unrequested-changes`, `no-duplicate-files`, `rule-maintenance-propose` | ✓ | ✓ | ✓ |
+| `plan-before-code` | ✓ | | |
+| `dependency-approval` | ✓ | ✓ | |
+| `branch-per-task` | | | ✓ |
+
+Safety rules and an honest definition of done hold at every level; autonomy only changes how often the agent asks before acting. An autonomous agent works on a branch per task, so unsupervised work stays apart until it is reviewed.
+
+Claude Code maps to `claude`, Codex and other agents to `agents-md`, and Gemini CLI, Cursor and GitHub Copilot to their own targets. `agents-md` is added whenever an agent other than Claude Code is chosen: AGENTS.md is the shared main file, and Cursor and GitHub Copilot read it before cyanotype generates their own files. Targets without a renderer stay in the spec, so their files appear once cyanotype supports them.
 
 ### Advanced mode
 
@@ -614,6 +643,34 @@ Comparing and writing live in `internal/generate`, shared with the MCP server's 
 - **No deletions.** Nothing is ever deleted; stale topic files wait for `cyanotype.lock`. If writing stops halfway, the command lists the files already written.
 
 The diff is in-house, in `internal/diff`: Myers' algorithm with three lines of context, which is enough for files of a few hundred lines. Texts that need more than 1000 edits are shown as wholly replaced, which bounds memory. Go's standard library has no diff; of the libraries, `pmezard/go-difflib` and `hexops/gotextdiff` are archived, `sergi/go-diff` diffs characters rather than lines, and `aymanbagabas/go-udiff` is maintained but not worth a dependency here.
+
+### Creating the spec
+
+`cyanotype init` is simple mode in the terminal. It asks the questions of Simple mode, shows the chosen preset with the name and `summary` of every entry it selects, writes `cyanotype.yaml` and, on a terminal, offers to run generate, which then shows its diff and asks before writing as usual. Advanced mode arrives with the TUI; until then the spec is edited by hand.
+
+Every question has a flag, so agents, scripts and the MCP server can run it without a terminal:
+
+| Flag | Answers |
+| --- | --- |
+| `--type` | What to build: `website`, `mobile-app`, `api` or `script`. `desktop-app` and `game` are refused as coming later |
+| `--language` | A language the user knows: a catalog language, `other` or `none` |
+| `--preset` | The starter preset; implies `--type`, and is needed only when several presets fit |
+| `--learning` | `off` (default), `explain`, `guided` or `hands-on` |
+| `--autonomy` | `asks-often`, `balanced` or `autonomous` |
+| `--i18n`, `--locales` | `no`, `later` or `yes`; the locales, default first, such as `en,it`. Websites and mobile apps only |
+| `--replies` | Language of the agent's replies; default English |
+| `--goal` | The project in one or two sentences |
+| `--agents` | `claude`, `codex`, `gemini`, `cursor`, `copilot`, `other`, separated by commas |
+| `--name` | Project name; default the folder name |
+| `--dir` | The project folder, as for generate |
+
+Flags answer their questions and the rest are asked. When stdin is not a terminal, init never reads it: the missing answers are one usage error that lists each missing flag with its allowed values, so an agent can fix its call in one step instead of hanging. Wrong values are usage errors before anything is asked.
+
+init never overwrites a spec. An existing `cyanotype.yaml`, even a symbolic link, stops it before the first question, and the file is created exclusively, through `generate.CreateSpec`, so one that appears while the user answers is not replaced either. Before writing, the spec is resolved against the catalog like any other.
+
+Exit codes are those of generate: 0 written, 1 an error such as an existing spec, 2 wrong usage or missing answers, and, when init runs generate, the code generate ends with, 3 for files not written.
+
+Prompts use the standard library: numbered choices, answered by number or value, and lines of text, re-asked with a reason when wrong. Questions go to stderr and results to stdout, as generate's confirmation does. charmbracelet/huh would give arrow keys and inline validation, but it brings about twenty modules and is part of the TUI that Phase 2 builds with Bubble Tea. The questions are data in `internal/simple`, so a huh form will render the same ones when the TUI pays for that dependency.
 
 ## Generated file quality
 
@@ -840,6 +897,8 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
 - [x] **Generated constraints**: `.claude/settings.json` deny rules are merged into the existing file, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; the merge is additive. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place. See Real constraints.
 - [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; nothing is deleted. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
+- [x] **Init command**: `cyanotype init` asks the Simple mode questions plus the coding agents, which decide the targets, with a flag for every question. Without a terminal, missing answers are one usage error listing the flags. It shows the preset entry by entry, writes the spec exclusively and never overwrites one, and offers to run generate. Autonomy levels, i18n answers, learning mode and agents map to entries and fields as in Simple mode. See Simple mode and Creating the spec.
+- [x] **Simple-mode prompts**: standard-library prompts now; charmbracelet/huh with the Phase 2 TUI, which pays for the dependency. Questions and options are data in `internal/simple`, shared by every interface. See Creating the spec.
 - [x] **Line diff**: written in-house in `internal/diff` (Myers, unified output) rather than taken from a library. See Generating files.
 - [x] **Terminal detection**: `golang.org/x/term` tells whether stdin and stdout are terminals, and `golang.org/x/sys/windows`, which x/term already depends on, turns on ANSI colors in Windows consoles. Both are maintained by the Go team and cover every platform; unlike a check for character devices, x/term reports `/dev/null` as not a terminal.
 - [ ] **`--json` output for generate**: the MCP server section says the CLI mirrors every MCP tool with `--json`. The JSON of `generate` is a public contract shared with the MCP tools `preview` and `generate`, so it is designed together with them; `generate.Change` (path, status, old and new content, diff) is the shape it will encode.
