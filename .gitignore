@@ -29,8 +29,8 @@ go.work.sum
 .env
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
 
 # Cyanotype personal files (see docs/DESIGN.md, Team rules and personal rules)
 cyanotype.local.yaml
