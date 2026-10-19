@@ -199,6 +199,7 @@ languages:
 selections:
   - typescript
   - nextjs
+  - node
   - pnpm
   - postgres
   - vitest

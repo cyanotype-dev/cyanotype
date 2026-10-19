@@ -64,7 +64,7 @@ func TestDesignExample(t *testing.T) {
 			Commits: "english", AgentReplies: "italian",
 		},
 		Selections: []string{
-			"typescript", "nextjs", "pnpm", "postgres", "vitest", "i18n-next-intl",
+			"typescript", "nextjs", "node", "pnpm", "postgres", "vitest", "i18n-next-intl",
 			"conventional-commits", "no-test-tampering", "no-destructive-commands",
 		},
 		Locked: []string{"no-test-tampering", "no-destructive-commands"},
