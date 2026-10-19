@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(!.env.example)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(!.env.example)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/AGENTS.md)",
+      "Edit(/GEMINI.md)",
+      "Edit(/.github/copilot-instructions.md)",
+      "Edit(/.cursor/rules/**)",
+      "Edit(/cyanotype.yaml)",
+      "Edit(/agents-rules/**)"
+    ]
+  }
+}

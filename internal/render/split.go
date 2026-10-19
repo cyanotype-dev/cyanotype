@@ -114,18 +114,20 @@ func topicDocument(topic string, entries []resolve.Entry) document {
 }
 
 // chooseLayout applies output.split. For auto it renders the main file
-// unsplit, protected sections included, and splits only when that file is
+// unsplit with build, the same function that renders the final file, so the
+// count includes everything that file will hold, protected sections too. It
+// splits only when that file is
 // longer than output.max_lines. Splitting is all or nothing, rather than
 // moving topics out one by one until the file fits, so the layout stays
 // predictable and adding one entry never reshuffles the files.
-func chooseLayout(r *resolve.Result, existing fs.FS, mainPath string) (layout, error) {
+func chooseLayout(r *resolve.Result, existing fs.FS, mainPath string, build func(layout) document) (layout, error) {
 	out := r.Spec.Output
 	l := layout{topicDir: out.TopicDir}
 	switch out.Split {
 	case spec.SplitAlways:
 		l.split = true
 	case spec.SplitAuto:
-		f, err := renderMarkdown(existing, mainPath, mainDocument(r, l))
+		f, err := renderMarkdown(existing, mainPath, build(l))
 		if err != nil {
 			return layout{}, err
 		}

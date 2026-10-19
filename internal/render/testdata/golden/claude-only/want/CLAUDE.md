@@ -43,3 +43,7 @@ Uses: TypeScript, Node.js, npm, Vitest.
 ## Safety rules
 
 - Never edit, skip or delete an existing test to make it pass. Fix the code, or stop and ask. Why: A passing test suite is only meaningful if the tests stay honest.
+
+## Claude Code
+
+- Deny rules in .claude/settings.json back the safety rules; when one blocks an action, stop and ask instead of reaching the same result another way.

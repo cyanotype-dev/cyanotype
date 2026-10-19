@@ -3,3 +3,7 @@ Change rules in cyanotype.yaml (custom_rules for your own), or write between
 cyanotype:custom markers, which regeneration keeps. -->
 
 @AGENTS.md
+
+## Claude Code
+
+- Deny rules in .claude/settings.json back the safety rules; when one blocks an action, stop and ask instead of reaching the same result another way.

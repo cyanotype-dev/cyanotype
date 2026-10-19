@@ -1,0 +1,13 @@
+# New settings with a custom topic folder: rule-maintenance-propose gets a
+# deny rule for it.
+version: 1
+targets: [agents-md, claude]
+project:
+  name: gopher-tool
+  goal: Command-line tool that tidies Go module files.
+selections:
+  - go
+  - secrets-in-env
+  - rule-maintenance-propose
+output:
+  topic_dir: agents-rules

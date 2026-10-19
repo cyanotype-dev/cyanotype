@@ -22,6 +22,10 @@ Uses: Go, golangci-lint.
 - Never edit, skip or delete an existing test to make it pass. Fix the code, or stop and ask. Why: A passing test suite is only meaningful if the tests stay honest.
 - Never run destructive commands without asking first, such as `rm -rf`, `git reset --hard`, `git push --force`, `git clean -f` or deleting a branch. Propose a reversible alternative when one exists. Why: These commands destroy work that neither git nor the file system can bring back.
 
+## Claude Code
+
+- Deny rules in .claude/settings.json back the safety rules; when one blocks an action, stop and ask instead of reaching the same result another way.
+
 ## Further reading
 
 - Before writing code, read agents/style.md.

@@ -153,6 +153,19 @@ func readTree(t *testing.T, dir string) map[string][]byte {
 	return out
 }
 
+// fileContent returns the content of the file at path in files, failing the
+// test when Render did not return it.
+func fileContent(t *testing.T, files []File, path string) []byte {
+	t.Helper()
+	for _, f := range files {
+		if f.Path == path {
+			return f.Content
+		}
+	}
+	t.Fatalf("Render() did not return %s", path)
+	return nil
+}
+
 // TestDeterministic renders the same input twice and expects the same bytes.
 func TestDeterministic(t *testing.T) {
 	r := resolveSpec(t, designdoctest.SpecExample(t, filepath.Join("..", "..")))
@@ -225,15 +238,15 @@ output:
 	if err != nil {
 		t.Fatal(err)
 	}
-	n := lineCount(whole[0].Content)
+	n := lineCount(fileContent(t, whole, "AGENTS.md"))
 
 	tests := []struct {
 		maxLines  int
 		wantFiles []string
 	}{
-		{n + 1, []string{"AGENTS.md"}},
-		{n, []string{"AGENTS.md"}},
-		{n - 1, []string{"AGENTS.md", "docs/agents/style.md", "docs/agents/workflow.md"}},
+		{n + 1, []string{".gitignore", "AGENTS.md"}},
+		{n, []string{".gitignore", "AGENTS.md"}},
+		{n - 1, []string{".gitignore", "AGENTS.md", "docs/agents/style.md", "docs/agents/workflow.md"}},
 	}
 	for _, tt := range tests {
 		files, _, err := Render(resolveSpec(t, base+"  max_lines: "+strconv.Itoa(tt.maxLines)+"\n"), nil)
@@ -259,7 +272,7 @@ func TestRenderCustomBlocksWithCRLF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := string(files[0].Content)
+	got := string(fileContent(t, files, "AGENTS.md"))
 	want := "## Project overview\n\nA tiny project for tests.\n\n<!-- cyanotype:custom -->\nKeep me.\n<!-- /cyanotype:custom -->\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("AGENTS.md =\n%s\nwant it to contain\n%s", got, want)
