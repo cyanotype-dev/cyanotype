@@ -5,6 +5,8 @@ category: runtime
 select: radio
 url: https://nodejs.org
 summary: JavaScript runtime for servers, tools and build pipelines
+requires_one_of:
+  - [npm, pnpm]
 level: beginner
 topic: tooling
 snippet:
