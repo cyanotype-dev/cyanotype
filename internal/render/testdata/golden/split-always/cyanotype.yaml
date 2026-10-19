@@ -1,0 +1,17 @@
+# always, with a custom topic_dir, a protected block in an existing topic
+# file, and a main file still longer than max_lines after splitting.
+version: 1
+targets: [claude]
+project:
+  name: gopher-tool
+  goal: Command-line tool that tidies Go module files.
+selections:
+  - go
+  - golangci-lint
+  - plan-before-code
+  - no-test-tampering
+  - no-destructive-commands
+output:
+  split: always
+  max_lines: 20
+  topic_dir: agents
