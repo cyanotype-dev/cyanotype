@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: playwright
+name: Playwright
+category: testing
+select: checkbox
+url: https://playwright.dev/docs/intro
+summary: End-to-end browser tests with Playwright Test
+requires: [node]
+level: intermediate
+topic: testing
+snippet:
+  rule: |
+    Locate elements with user-facing locators such as `getByRole` and `getByLabel`, not CSS or XPath selectors.
+    Assert with web-first assertions such as `await expect(locator).toBeVisible()`, and never add fixed waits like `waitForTimeout`.
+  why: Locators and web-first assertions wait and retry, so tests stay stable when timing or markup changes.
+detect:
+  files: [playwright.config.ts, playwright.config.js]
