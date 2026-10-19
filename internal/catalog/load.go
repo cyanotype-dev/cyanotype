@@ -16,8 +16,16 @@ import (
 
 // Catalog is a loaded and validated set of entries.
 type Catalog struct {
+	version string
 	entries []Entry // sorted by id
 	byID    map[string]int
+}
+
+// Version returns the catalog's own version, such as "2026.10", read from
+// its manifest by LoadRoot. It is empty for a catalog loaded with Load,
+// which has no manifest.
+func (c *Catalog) Version() string {
+	return c.version
 }
 
 // Entries returns all entries sorted by id.
@@ -59,6 +67,9 @@ type file struct {
 // anything else is an error, so nothing is silently skipped.
 // All problems are returned together, joined with errors.Join; each one is a
 // *ValidationError unless reading the folder itself failed.
+//
+// The result has no version: LoadRoot loads a whole catalog folder,
+// manifest included.
 func Load(fsys fs.FS) (*Catalog, error) {
 	dirEntries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
@@ -87,7 +98,7 @@ func Load(fsys fs.FS) (*Catalog, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", name, err)
 		}
-		e, decodeErrs := decode(name, data)
+		e, decodeErrs := decode[Entry](name, data)
 		if len(decodeErrs) > 0 {
 			errs = append(errs, decodeErrs...)
 			decodeFailed = true
@@ -121,28 +132,28 @@ func Load(fsys fs.FS) (*Catalog, error) {
 
 var unknownField = regexp.MustCompile(`^(line \d+): field (\S+) not found in type `)
 
-// decode parses exactly one YAML document into an Entry, rejecting unknown fields.
-func decode(name string, data []byte) (Entry, []error) {
-	var e Entry
+// decode parses exactly one YAML document into a T, rejecting unknown fields.
+func decode[T any](name string, data []byte) (T, []error) {
+	var zero, v T
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 
-	err := dec.Decode(&e)
+	err := dec.Decode(&v)
 	if errors.Is(err, io.EOF) {
-		return Entry{}, []error{&ValidationError{File: name, Msg: "file is empty"}}
+		return zero, []error{&ValidationError{File: name, Msg: "file is empty"}}
 	}
 	if err != nil {
-		return Entry{}, decodeErrors(name, err)
+		return zero, decodeErrors(name, err)
 	}
 
 	var extra yaml.Node
 	switch err := dec.Decode(&extra); {
 	case errors.Is(err, io.EOF):
-		return e, nil
+		return v, nil
 	case err != nil:
-		return Entry{}, decodeErrors(name, err)
+		return zero, decodeErrors(name, err)
 	default:
-		return Entry{}, []error{&ValidationError{File: name, Msg: "a file must hold exactly one YAML document"}}
+		return zero, []error{&ValidationError{File: name, Msg: "a file must hold exactly one YAML document"}}
 	}
 }
 

@@ -1,0 +1,8 @@
+id: no-destructive-commands
+name: No destructive commands
+category: agent-safety
+select: checkbox
+summary: No destructive commands for tests
+snippet:
+  rule: Use No destructive commands.
+  why: Tests need No destructive commands.

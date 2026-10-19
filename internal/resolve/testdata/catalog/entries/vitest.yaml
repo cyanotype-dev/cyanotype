@@ -1,0 +1,9 @@
+id: vitest
+name: Vitest
+category: testing
+select: checkbox
+summary: Vitest for tests
+requires: [vite]
+snippet:
+  rule: Use Vitest.
+  why: Tests need Vitest.

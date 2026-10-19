@@ -1,0 +1,8 @@
+id: go
+name: Go
+category: language
+select: checkbox
+summary: Go for tests
+snippet:
+  rule: Use Go.
+  why: Tests need Go.

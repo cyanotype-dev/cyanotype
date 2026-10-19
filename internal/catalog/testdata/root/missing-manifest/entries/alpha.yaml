@@ -1,0 +1,13 @@
+id: alpha
+name: Alpha
+category: language
+select: checkbox
+url: https://alpha.example.org
+summary: A language for tests
+level: beginner
+topic: style
+snippet:
+  rule: Write Alpha.
+  why: Tests need a language.
+detect:
+  files: [alpha.mod]

@@ -1,0 +1,8 @@
+id: conventional-commits
+name: Conventional Commits
+category: git
+select: checkbox
+summary: Conventional Commits for tests
+snippet:
+  rule: Use Conventional Commits.
+  why: Tests need Conventional Commits.

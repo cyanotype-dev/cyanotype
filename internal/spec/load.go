@@ -28,6 +28,16 @@ func New(s Spec) *File {
 	return &File{Spec: s}
 }
 
+// Line returns the 1-based line of field in the file as it was loaded, so
+// packages that check the spec further, such as internal/resolve, can point
+// to the right place. field is a YAML path such as "selections[3]" or
+// "answers.domain_notes". For a missing field it returns the line of its
+// closest existing parent; it returns 0 when nothing matches or the file
+// was created with New.
+func (f *File) Line(field string) int {
+	return lineOf(f.doc, field)
+}
+
 // Load reads a spec file, upgrades it to CurrentVersion when it is older,
 // and validates its structure. Unknown fields are errors. All problems are
 // returned together, joined with errors.Join; each one is a

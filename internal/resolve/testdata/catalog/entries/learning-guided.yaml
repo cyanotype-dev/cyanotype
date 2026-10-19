@@ -1,0 +1,8 @@
+id: learning-guided
+name: "Learning mode: guided"
+category: learning
+select: radio
+summary: Learning mode for tests
+snippet:
+  rule: The user is learning {languages}. Keep `{languages}` literal in code.
+  why: The user wants to understand {languages} code.

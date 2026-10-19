@@ -1,0 +1,9 @@
+id: sqlite
+name: SQLite
+category: database
+select: radio
+summary: SQLite for tests
+conflicts: [supabase]
+snippet:
+  rule: Use SQLite.
+  why: Tests need SQLite.

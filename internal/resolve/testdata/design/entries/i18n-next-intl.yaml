@@ -1,0 +1,9 @@
+id: i18n-next-intl
+name: next-intl
+category: i18n
+select: radio
+summary: next-intl for tests
+requires: [nextjs]
+snippet:
+  rule: Use next-intl.
+  why: Tests need next-intl.

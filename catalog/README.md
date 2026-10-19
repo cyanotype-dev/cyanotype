@@ -10,6 +10,10 @@ Why the split: snippets are copied verbatim into users' instruction files (CLAUD
 
 By contributing to this folder you agree to release your contribution under CC0-1.0.
 
+## Version
+
+`catalog.yaml` holds the catalog's own date-based version, such as `"2026.10"` (quoted, since YAML reads `2026.10` as a number). Projects pin it in `cyanotype.yaml` so regeneration is reproducible.
+
 ## Adding an entry
 
 1. Create `entries/<id>.yaml`. The folder is flat: the file name must equal the `id`, and the category lives only inside the entry.
@@ -28,5 +32,6 @@ The rules the test enforces:
 - All entries in a category share the same `select` value: a category is either `radio` or `checkbox`.
 - `requires` and `conflicts` hold plain entry ids that must exist.
 - Entries in a `radio` category already exclude each other: do not list them in `conflicts`. Use `conflicts` only for entries of different categories, and declare it on both sides.
+- `snippet.rule` and `snippet.why` may use the `{languages}` placeholder, filled with the selected languages ("Go and TypeScript"). Any other `{name}` is an error; wrap literal braces in backticks, as in `` `{children}` ``.
 
 The fields and the reasoning behind them are in the catalog section of [docs/DESIGN.md](../docs/DESIGN.md).

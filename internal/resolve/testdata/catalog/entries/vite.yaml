@@ -1,0 +1,9 @@
+id: vite
+name: Vite
+category: build-tool
+select: radio
+summary: Vite for tests
+requires: [node]
+snippet:
+  rule: Use Vite.
+  why: Tests need Vite.

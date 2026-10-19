@@ -1,0 +1,8 @@
+id: typescript
+name: TypeScript
+category: language
+select: checkbox
+summary: TypeScript for tests
+snippet:
+  rule: Use TypeScript.
+  why: Tests need TypeScript.
