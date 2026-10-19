@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: dependency-approval
+name: New dependencies only with approval
+category: agent-safety
+select: checkbox
+summary: The agent asks before adding a dependency
+topic: safety
+snippet:
+  rule: Ask before adding a dependency, and say what it does and why the standard library or an existing dependency is not enough.
+  why: Every dependency adds supply-chain risk and upgrades to keep up with.

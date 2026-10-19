@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: supabase
+name: Supabase
+category: database
+select: radio
+url: https://supabase.com/docs
+summary: Hosted Postgres with auth, storage and generated APIs
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Enable Row Level Security on every table in an exposed schema, and write a policy for each operation the app needs.
+    Never use a secret or service role key in client code; it bypasses Row Level Security.
+    Change the schema only through migration files in `supabase/migrations/`, created with `supabase migration new`.
+  why: Clients query the database directly, so Row Level Security policies are the only thing protecting the data.
+detect:
+  files: [supabase/config.toml]

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: python
+name: Python
+category: language
+select: checkbox
+url: https://www.python.org
+summary: Readable general-purpose language for scripts, APIs and data work
+level: beginner
+topic: style
+snippet:
+  rule: Annotate the parameters and return type of every function. Use `pathlib` for file paths and f-strings for formatting.
+  why: Type hints let editors and type checkers catch mistakes before the code runs.
+detect:
+  files: [pyproject.toml, requirements.txt]

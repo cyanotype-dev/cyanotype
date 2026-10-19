@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: tailwind
+name: Tailwind CSS
+category: styling
+select: radio
+url: https://tailwindcss.com/docs
+summary: Utility-first CSS framework
+level: beginner
+topic: style
+snippet:
+  rule: |
+    Style with utility classes in the markup instead of adding CSS files.
+    Write every class name in full; Tailwind never generates names built by interpolation, such as `bg-${color}-600`.
+  why: Styles stay next to the markup they affect, and no unused CSS piles up.
+detect:
+  files: [tailwind.config.js, tailwind.config.ts]

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: vite-react
+name: Vite + React
+category: frontend-framework
+select: radio
+url: https://vite.dev
+summary: Single-page React apps built and served by Vite
+requires: [node]
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Write function components and hooks, never class components.
+    Read client settings from `import.meta.env`; only variables prefixed with `VITE_` reach the browser. Never put a secret in a `VITE_` variable.
+  why: Everything in the client bundle is public, so a secret there is a leaked secret.
+detect:
+  files: [vite.config.ts, vite.config.js]

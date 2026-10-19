@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: pytest
+name: pytest
+category: testing
+select: checkbox
+url: https://docs.pytest.org
+summary: The standard test runner for Python
+requires: [python]
+level: beginner
+topic: testing
+snippet:
+  rule: |
+    Name test files `test_*.py` and test functions `test_*`, and check results with plain `assert`.
+    Share setup through fixtures in `conftest.py` instead of base classes.
+  why: pytest finds tests by name and turns a failing plain assert into a detailed message.
+detect:
+  files: [pytest.ini, conftest.py]

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: definition-of-done
+name: Verifiable definition of done
+category: agent-workflow
+select: checkbox
+summary: A task is done only when build, tests and lint pass, with output shown
+topic: workflow
+snippet:
+  rule: A task is done only when the build, tests and lint pass. Show their output instead of stating that they pass.
+  why: Output can be checked, while a claim cannot.

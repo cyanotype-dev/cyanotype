@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: sqlite
+name: SQLite
+category: database
+select: radio
+url: https://www.sqlite.org/docs.html
+summary: Embedded database stored in a single file
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Run `PRAGMA foreign_keys = ON` on every new connection; SQLite leaves foreign keys off by default.
+    Pass values as query parameters, and never commit the database file.
+  why: Without the pragma, SQLite silently accepts rows that break foreign keys.

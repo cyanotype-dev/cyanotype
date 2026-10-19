@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: eslint-prettier
+name: ESLint with Prettier
+category: lint
+select: checkbox
+url: https://eslint.org/docs/latest/
+summary: ESLint for code quality and Prettier for formatting
+requires: [node]
+level: beginner
+topic: style
+snippet:
+  rule: |
+    Let Prettier own formatting and ESLint own code quality; keep `eslint-config-prettier` after the other configs in `eslint.config.js` so their rules never conflict.
+    Fix lint errors instead of adding `eslint-disable` comments.
+  why: Overlapping rules make the tools undo each other's changes, and disable comments hide real bugs.
+detect:
+  files: [eslint.config.js, eslint.config.mjs, eslint.config.ts, .prettierrc]

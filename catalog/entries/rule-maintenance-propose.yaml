@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: rule-maintenance-propose
+name: "Rule maintenance: propose"
+category: rule-maintenance
+select: radio
+summary: The agent proposes new rules instead of editing instruction files
+topic: workflow
+snippet:
+  rule: |
+    Never edit the agent instruction files or `cyanotype.yaml` yourself.
+    When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve.
+  why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
+enforce:
+  claude:
+    # A leading / anchors each path at the project root. The topic folder is
+    # configurable, so its rule belongs to the renderer.
+    deny:
+      - "Edit(/CLAUDE.md)"
+      - "Edit(/AGENTS.md)"
+      - "Edit(/GEMINI.md)"
+      - "Edit(/.github/copilot-instructions.md)"
+      - "Edit(/.cursor/rules/**)"
+      - "Edit(/cyanotype.yaml)"
