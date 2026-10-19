@@ -27,6 +27,19 @@ var (
 	localeTag = regexp.MustCompile(`^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|[0-9]{3}))?$`)
 )
 
+// ValidLanguageName reports whether name can be a value of languages.*: a
+// lowercase human language name such as "english" or "brazilian-portuguese".
+// Interfaces use it to check an answer before building a spec.
+func ValidLanguageName(name string) bool {
+	return languageName.MatchString(name)
+}
+
+// ValidLocale reports whether tag is a BCP 47 tag in canonical case, such as
+// "en" or "pt-BR", as i18n.default_locale and i18n.locales require.
+func ValidLocale(tag string) bool {
+	return localeTag.MatchString(tag)
+}
+
 // Allowed values of each enum, in the order error messages list them.
 var (
 	targets         = []Target{TargetClaude, TargetAgentsMD, TargetGemini, TargetCursor, TargetCopilot}
@@ -185,7 +198,7 @@ func validateLanguages(v *validator, l Languages) {
 		{"languages.agent_replies", l.AgentReplies},
 	}
 	for _, f := range fields {
-		if f.value != "" && !languageName.MatchString(f.value) {
+		if f.value != "" && !ValidLanguageName(f.value) {
 			v.add(f.field, "%q must be a lowercase language name such as \"english\"", f.value)
 		}
 	}
@@ -213,7 +226,7 @@ func validateCommands(v *validator, c Commands) {
 
 func validateI18n(v *validator, i I18n) {
 	checkLocale := func(field, tag string) {
-		if localeTag.MatchString(tag) {
+		if ValidLocale(tag) {
 			return
 		}
 		hint := ""
