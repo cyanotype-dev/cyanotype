@@ -1,0 +1,8 @@
+id: beta
+name: Beta
+category: database
+select: checkbox
+summary: Another database for tests
+snippet:
+  rule: Store data in Beta.
+  why: Tests need a database.

@@ -81,6 +81,8 @@ detect:
 
 References in `requires` and `conflicts` are plain entry ids, never qualified by category. Ids are unique across the whole catalog, so a qualifier adds nothing, and moving an entry to another category must not break the entries that point to it.
 
+All entries in a category share the same `select` value, because the interface draws a category either as radio buttons or as checkboxes; validation rejects a mix. Until category metadata exists, this is how a category's kind is defined.
+
 Exclusivity inside a `radio` category is implicit: selecting pnpm deselects npm without either entry saying so. `conflicts` is only for entries in different categories, such as a framework that does not work with a given database, and it must be declared on both sides. Listing an entry of the same radio category in `conflicts` is a validation error. Languages are `checkbox`, because many projects use more than one.
 
 An agent behavior entry:

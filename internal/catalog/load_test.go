@@ -113,6 +113,9 @@ func TestLoadInvalid(t *testing.T) {
 			{"alpha.yaml", "conflicts[0]", `same radio category "package-manager"`},
 			{"beta.yaml", "conflicts[0]", `same radio category "package-manager"`},
 		}},
+		{"mixed-select", []wantErr{
+			{"beta.yaml", "select", `"checkbox" differs from "radio" used by alpha.yaml in category "database"`},
+		}},
 		{"blank-list-items", []wantErr{
 			{"alpha.yaml", "enforce.claude.deny[1]", "is empty"},
 			{"alpha.yaml", "detect.files[0]", "is empty"},

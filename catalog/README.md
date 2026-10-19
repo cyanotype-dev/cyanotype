@@ -25,6 +25,7 @@ The rules the test enforces:
 
 - `id`, `name`, `category`, `select`, `summary`, `snippet.rule` and `snippet.why` are required. Unknown fields are errors.
 - `id`, `category` and `topic` are kebab-case; `url` is an absolute `https` URL.
+- All entries in a category share the same `select` value: a category is either `radio` or `checkbox`.
 - `requires` and `conflicts` hold plain entry ids that must exist.
 - Entries in a `radio` category already exclude each other: do not list them in `conflicts`. Use `conflicts` only for entries of different categories, and declare it on both sides.
 
