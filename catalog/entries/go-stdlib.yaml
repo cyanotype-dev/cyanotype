@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: go-stdlib
+name: Go standard library
+category: backend-framework
+select: radio
+url: https://pkg.go.dev/net/http
+summary: HTTP servers built on Go's net/http, without a framework
+requires: [go]
+level: intermediate
+topic: architecture
+snippet:
+  rule: |
+    Route requests with `http.ServeMux` patterns such as `GET /items/{id}` and read parameters with `r.PathValue`; do not add a router or web framework.
+    Pass `context.Context` as the first parameter of every function that does I/O.
+  why: The standard library already covers routing, so a framework only adds a dependency to keep up to date.

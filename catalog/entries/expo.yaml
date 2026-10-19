@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: expo
+name: Expo
+category: mobile-framework
+select: radio
+url: https://docs.expo.dev
+summary: React Native framework for iOS, Android and web apps
+requires: [node]
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Add packages with `npx expo install <package>` instead of the package manager's add command; it picks versions that match the project's Expo SDK.
+    After an SDK upgrade, run `npx expo install --check` and fix every mismatch it reports.
+  why: Native modules break at run time when their version does not match the SDK.
+detect:
+  files: [app.json, app.config.js, app.config.ts, eas.json]

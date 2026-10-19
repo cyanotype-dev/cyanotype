@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: fastapi
+name: FastAPI
+category: backend-framework
+select: radio
+url: https://fastapi.tiangolo.com
+summary: Python framework for typed HTTP APIs
+requires: [python]
+level: beginner
+topic: architecture
+snippet:
+  rule: |
+    Declare request and response bodies as Pydantic models, and set a response model on every endpoint.
+    Use `async def` only for endpoints that await async libraries; use plain `def` for blocking calls, such as most database drivers.
+  why: A blocking call inside `async def` stalls every request the server is handling.
