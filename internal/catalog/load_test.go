@@ -117,7 +117,7 @@ func TestLoadInvalid(t *testing.T) {
 			{"beta.yaml", "select", `"checkbox" differs from "radio" used by alpha.yaml in category "database"`},
 		}},
 		{"unknown-placeholder", []wantErr{
-			{"alpha.yaml", "snippet.rule", "unknown placeholder {langauges}; known placeholders: {languages}"},
+			{"alpha.yaml", "snippet.rule", "unknown placeholder {language}; known placeholders: {languages}"},
 			{"alpha.yaml", "snippet.why", "unknown placeholder {reason}"},
 		}},
 		{"blank-list-items", []wantErr{

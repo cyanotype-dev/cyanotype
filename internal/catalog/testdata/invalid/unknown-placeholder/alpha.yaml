@@ -4,5 +4,5 @@ category: learning
 select: radio
 summary: A learning mode for tests
 snippet:
-  rule: The user is learning {langauges}. Explain `{children}` props in JSX.
+  rule: The user is learning {language}. Explain `{children}` props in JSX.
   why: Tests need a {reason} and {languages}.
