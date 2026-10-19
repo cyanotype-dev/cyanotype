@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: small-commits
+name: Small commits
+category: agent-workflow
+select: checkbox
+summary: One logical change per commit, each leaving the build green
+topic: git
+snippet:
+  rule: Commit in small steps, one logical change per commit, and leave the build and tests passing after each one.
+  why: Small commits are easy to review, bisect and revert.
