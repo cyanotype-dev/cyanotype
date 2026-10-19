@@ -73,6 +73,18 @@ func validateEntry(name string, e Entry) []error {
 		}
 	}
 
+	for _, s := range []struct{ field, text string }{
+		{"snippet.rule", e.Snippet.Rule},
+		{"snippet.why", e.Snippet.Why},
+	} {
+		for _, name := range UsedPlaceholders(s.text) {
+			if !slices.Contains(placeholderNames, name) {
+				add(s.field, "unknown placeholder {%s}; known placeholders: {%s}. Wrap literal braces in backticks",
+					name, strings.Join(placeholderNames, "}, {"))
+			}
+		}
+	}
+
 	if e.Enforce != nil && e.Enforce.Claude != nil {
 		errs = append(errs, validateNotBlank(name, "enforce.claude.deny", e.Enforce.Claude.Deny)...)
 	}
