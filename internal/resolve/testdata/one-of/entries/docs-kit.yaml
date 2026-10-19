@@ -1,0 +1,9 @@
+id: docs-kit
+name: Docs kit
+category: docs
+select: checkbox
+summary: A documentation kit built on shadcn/ui, for tests
+requires: [shadcn-ui]
+snippet:
+  rule: Use the docs kit.
+  why: Tests need an entry that requires shadcn/ui.

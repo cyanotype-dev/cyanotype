@@ -1,0 +1,9 @@
+id: vite-react
+name: Vite + React
+category: framework
+select: radio
+summary: Vite + React for tests
+requires: [node]
+snippet:
+  rule: Use Vite + React.
+  why: Tests need Vite + React.

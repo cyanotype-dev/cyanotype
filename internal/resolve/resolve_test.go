@@ -220,6 +220,91 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+// TestResolveOneOf checks requires_one_of groups, including the cycle
+// between node, which requires one of npm or pnpm, and the package
+// managers, which require node.
+func TestResolveOneOf(t *testing.T) {
+	c := loadCatalog(t, "one-of")
+	tests := []struct {
+		name string
+		spec string   // appended to header, starting on line 6
+		ids  []string // resolved entries in order; checked only without errors
+		errs []string
+	}{
+		{
+			name: "unmet group",
+			spec: "selections:\n  - node\n",
+			errs: []string{`line 7: selections[0]: "node" requires one of "npm" or "pnpm", but none is selected`},
+		},
+		{
+			name: "cycle through a group met by the selection itself",
+			spec: "selections:\n  - pnpm\n",
+			errs: []string{`line 7: selections[0]: "pnpm" requires "node", which is not selected`},
+		},
+		{
+			name: "cycle with every entry selected",
+			spec: "selections: [pnpm, node]\n",
+			ids:  []string{"pnpm", "node"},
+		},
+		{
+			name: "two alternatives of one radio category",
+			spec: "selections:\n  - node\n  - npm\n  - pnpm\n",
+			errs: []string{`line 9: selections[2]: "pnpm" and "npm" (selections[1]) are both in radio category "package-manager"; keep only one`},
+		},
+		{
+			name: "missing requires and an unmet group",
+			spec: "selections:\n  - shadcn-ui\n",
+			errs: []string{
+				`line 7: selections[0]: "shadcn-ui" requires "tailwind", which is not selected`,
+				`line 7: selections[0]: "shadcn-ui" requires one of "nextjs" or "vite-react", but none is selected`,
+			},
+		},
+		{
+			name: "group met by one alternative",
+			spec: "selections: [shadcn-ui, tailwind, vite-react, node, pnpm]\n",
+			ids:  []string{"shadcn-ui", "tailwind", "vite-react", "node", "pnpm"},
+		},
+		{
+			name: "a selected alternative reports its own gaps",
+			spec: "selections:\n  - shadcn-ui\n  - tailwind\n  - nextjs\n",
+			errs: []string{
+				`line 9: selections[2]: "nextjs" requires "node", which is not selected`,
+				`line 9: selections[2]: "nextjs" requires one of "npm" or "pnpm" (through "node"), but none is selected`,
+			},
+		},
+		{
+			name: "unmet group through an unselected requirement",
+			spec: "selections:\n  - docs-kit\n  - tailwind\n",
+			errs: []string{
+				`line 7: selections[0]: "docs-kit" requires "shadcn-ui", which is not selected`,
+				`line 7: selections[0]: "docs-kit" requires one of "nextjs" or "vite-react" (through "shadcn-ui"), but none is selected`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res, warnings, err := Resolve(c, loadSpec(t, tt.spec))
+			if len(warnings) > 0 {
+				t.Errorf("warnings = %q, want none", warningStrings(warnings))
+			}
+			if got := messages(err); !slices.Equal(got, tt.errs) {
+				t.Errorf("errors =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(tt.errs, "\n"))
+			}
+			if err != nil {
+				return
+			}
+			var ids []string
+			for _, e := range res.Entries {
+				ids = append(ids, e.ID)
+			}
+			if !slices.Equal(ids, tt.ids) {
+				t.Errorf("entries = %q, want %q", ids, tt.ids)
+			}
+		})
+	}
+}
+
 func TestResolveResult(t *testing.T) {
 	c := loadCatalog(t, "catalog")
 	f := loadSpec(t, "selections: [typescript, learning-guided, python, go, no-test-tampering]\n"+
@@ -316,6 +401,25 @@ func TestJoinNames(t *testing.T) {
 	for _, tt := range tests {
 		if got := joinNames(tt.names); got != tt.want {
 			t.Errorf("joinNames(%q) = %q, want %q", tt.names, got, tt.want)
+		}
+	}
+}
+
+func TestJoinList(t *testing.T) {
+	tests := []struct {
+		names []string
+		conj  string
+		want  string
+	}{
+		{nil, "or", ""},
+		{[]string{`"npm"`}, "or", `"npm"`},
+		{[]string{`"npm"`, `"pnpm"`}, "or", `"npm" or "pnpm"`},
+		{[]string{`"npm"`, `"pnpm"`, `"yarn"`}, "or", `"npm", "pnpm" or "yarn"`},
+		{[]string{"Go", "Python", "TypeScript"}, "and", "Go, Python and TypeScript"},
+	}
+	for _, tt := range tests {
+		if got := joinList(tt.names, tt.conj); got != tt.want {
+			t.Errorf("joinList(%q, %q) = %q, want %q", tt.names, tt.conj, got, tt.want)
 		}
 	}
 }

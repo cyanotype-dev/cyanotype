@@ -1,0 +1,10 @@
+id: node
+name: Node.js
+category: runtime
+select: radio
+summary: Node.js for tests
+requires_one_of:
+  - [npm, pnpm]
+snippet:
+  rule: Use Node.js.
+  why: Tests need Node.js.
