@@ -23,7 +23,7 @@ All logic lives in one shared core; CLI, TUI, desktop app and MCP server are thi
 
 &#91;embedded content: architecture · 4 interfaces, 4 core modules\]
 
-The core reads the catalog and the spec files, resolves compatibility and conflicts, and generates both instruction files and real constraints. It also writes `cyanotype.yaml` back when choices change.
+The core reads the catalog and the spec files, resolves compatibility and conflicts, and generates both instruction files and real constraints. It also writes `cyanotype.yaml` back when choices change, and compares generated files with the project and writes them safely, so every interface shows the same diff and writes the same way; only asking for confirmation belongs to the interfaces.
 
 Stack: Go for the core, [Bubble Tea](https://github.com/charmbracelet/bubbletea) for the TUI, [Wails](https://wails.io) for the desktop app with an HTML and TypeScript interface over the Go core. The result is one executable per operating system with no runtime to install.
 
@@ -402,7 +402,7 @@ Each agent has a renderer that turns the same choices into its own format. AGENT
 
 Formats change often: every renderer is checked against the official docs and covered by snapshot tests.
 
-Renderers live in `internal/render`. They take the resolved selection and return the files to write, path and content, in memory; showing a diff, asking and writing belong to the interfaces. Output is deterministic: the same input gives byte-identical files, with LF line endings. To keep what regeneration must not lose, a renderer reads the project as it is now through an `fs.FS` rooted at the project folder, never through the disk directly. An `fs.FS` rather than a list of files, because the renderer, not the caller, knows which files it generates once output is split. Targets without a renderer yet are skipped with a warning.
+Renderers live in `internal/render`. They take the resolved selection and return the files to write, path and content, in memory; comparing them with the disk and writing belong to `internal/generate`, and asking to the interfaces (see Generating files). Output is deterministic: the same input gives byte-identical files, with LF line endings. To keep what regeneration must not lose, a renderer reads the project as it is now through an `fs.FS` rooted at the project folder, never through the disk directly. An `fs.FS` rather than a list of files, because the renderer, not the caller, knows which files it generates once output is split. Targets without a renderer yet are skipped with a warning.
 
 ### The main file
 
@@ -535,6 +535,41 @@ cyanotype.local.yaml
 ```
 
 Regeneration replaces the block where it is and leaves the rest of the file byte for byte; a line starting with `# cyanotype:begin` opens it, so the explanation can change. Without a block, it is appended after a blank line. The block follows the file's line endings, CRLF when the file has any. Entries the user already lists outside the block are not removed or skipped, so the block never depends on the rest of the file. A second block, or a marker without its partner, is an error.
+
+### Generating files
+
+`cyanotype generate` is the first command that uses the whole core. It reads `cyanotype.yaml` from the current folder, or the one `--dir` names, resolves it against the catalog embedded in the binary, renders the files with the project folder as the existing files, and compares each one with the disk. It prints a unified diff of what changes, colored by line kind, then one line per generated file with its status, `created`, `modified` or `unchanged`, and the counts. Then it asks `Write these files? [y/N]`; only `y` or `yes` writes. When nothing changes it says so and asks nothing.
+
+| Flag | Effect |
+| --- | --- |
+| `--dir <folder>` | The project folder; default the current one. `cyanotype.yaml` is not searched for in parent folders |
+| `--dry-run` | Show the diff and write nothing |
+| `--yes`, `-y` | Write without asking. Cannot be combined with `--dry-run` |
+
+When stdin is not a terminal and `--yes` is not given, the command never reads stdin: it shows the diff and exits, saying to run it again with `--yes`. A CI job or script waiting for an answer nobody gives would otherwise hang. Git Bash's mintty connects programs through pipes, so there it counts as non-interactive too.
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | Files written, or already up to date |
+| 1 | Error: a problem in the spec or in existing files, or an I/O error |
+| 2 | Wrong usage: unknown flags, arguments, `--yes` with `--dry-run` |
+| 3 | Changes found but not written: `--dry-run`, a declined confirmation, or no terminal to ask on |
+
+Code 3 lets scripts check that generated files are current with `cyanotype generate --dry-run`, as `git diff --exit-code` does, until `cyanotype check` exists, and makes a script that forgets `--yes` fail instead of succeeding without writing.
+
+Warnings and errors go to stderr, warnings first, in the `cyanotype.yaml:9: error: selections[3]: ...` form that editors and terminals link to the line. yaml.v3 reports the line of some syntax errors one off, so those say `invalid YAML near line 7` and show lines 6 to 8: the right line is in view either way, and no precise but wrong number misleads the user. The diff and the summary go to stdout, so they can be redirected on their own.
+
+Colors appear only when the stream is a terminal, never when `NO_COLOR` is set to a non-empty value or `TERM` is `dumb`. Windows consoles show them once the command turns on their ANSI support, and stay plain if that fails.
+
+Comparing and writing live in `internal/generate`, shared with the MCP server's `preview` and `generate` tools, which return the same diff:
+
+- **Line endings.** A file that matches the generated content once CRLF is read as LF is `unchanged` and not rewritten: with `core.autocrlf`, the default of Git for Windows, every checkout has CRLF endings, and rewriting them all on each run would only churn files. A file that really changes is written with LF, as all generated output is, and the summary says its line endings change. The diff compares lines as LF, so it shows only the real changes.
+- **Paths.** Every path is checked before anything is written. A path that leaves the project root, uses backslashes, or is a Windows reserved name such as `con.md` stops the whole run; writes go through `os.Root`, which also refuses symbolic links that lead out of the project.
+- **Links and folders.** A target that is a symbolic link, such as a `CLAUDE.md` linked to `AGENTS.md`, or not a regular file, stops the run rather than being replaced by a file: the layout is the user's.
+- **Atomic writes.** Each file is written to a temporary file in its folder, synced, then renamed over the target, so a crash never leaves a half-written file; missing folders are created. Existing files keep their permissions; new ones are readable by everyone, as checked-out files are.
+- **No deletions.** Nothing is ever deleted; stale topic files wait for `cyanotype.lock`. If writing stops halfway, the command lists the files already written.
+
+The diff is in-house, in `internal/diff`: Myers' algorithm with three lines of context, which is enough for files of a few hundred lines. Texts that need more than 1000 edits are shown as wholly replaced, which bounds memory. Go's standard library has no diff; of the libraries, `pmezard/go-difflib` and `hexops/gotextdiff` are archived, `sergi/go-diff` diffs characters rather than lines, and `aymanbagabas/go-udiff` is maintained but not worth a dependency here.
 
 ## Generated file quality
 
@@ -759,6 +794,11 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
 - [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
 - [x] **Generated constraints**: `.claude/settings.json` deny rules are merged into the existing file, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; the merge is additive. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place. See Real constraints.
+- [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; nothing is deleted. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
+- [x] **Line diff**: written in-house in `internal/diff` (Myers, unified output) rather than taken from a library. See Generating files.
+- [x] **Terminal detection**: `golang.org/x/term` tells whether stdin and stdout are terminals, and `golang.org/x/sys/windows`, which x/term already depends on, turns on ANSI colors in Windows consoles. Both are maintained by the Go team and cover every platform; unlike a check for character devices, x/term reports `/dev/null` as not a terminal.
+- [ ] **`--json` output for generate**: the MCP server section says the CLI mirrors every MCP tool with `--json`. The JSON of `generate` is a public contract shared with the MCP tools `preview` and `generate`, so it is designed together with them; `generate.Change` (path, status, old and new content, diff) is the shape it will encode.
+- [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
 - [ ] **`ask` permissions in `enforce`**: `enforce.claude` only has `deny`, which blocks an action even after the user approves it. Some rules need "ask first" instead: `dependency-approval` would generate `ask` rules for install commands such as `npm install *`, `pnpm add *` and `uv add *`, and is the first entry to use it. Adding the field changes the JSON Schema, the catalog validation and the Claude renderer.
 - [ ] **Generated-state file**: a file such as `cyanotype.lock` recording the files and the deny rules cyanotype produced. Without it, generated output cannot be told apart from what people wrote, which leaves three known limits: deny rules of deselected entries stay in `.claude/settings.json`, topic files from an earlier split stay on disk, and `cyanotype check` cannot detect generated files edited by hand. One record solves all three. Not implemented yet.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
