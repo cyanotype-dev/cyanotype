@@ -23,5 +23,10 @@ enforce:
       - "Bash(yarn *)"
       - "PowerShell(npm *)"
       - "PowerShell(yarn *)"
+    # With dependency-approval selected, the agent asks before adding a
+    # package. Ask, not deny, so an approved dependency can still be added.
+    with:
+      dependency-approval:
+        ask: ["Bash(pnpm add *)", "PowerShell(pnpm add *)"]
 detect:
   files: [pnpm-lock.yaml]

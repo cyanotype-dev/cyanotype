@@ -30,5 +30,10 @@ enforce:
       - "PowerShell(python3 -m pip install *)"
       - "PowerShell(py -m pip install *)"
       - "PowerShell(uv pip install *)"
+    # With dependency-approval selected, the agent asks before adding a
+    # package.
+    with:
+      dependency-approval:
+        ask: ["Bash(uv add *)", "PowerShell(uv add *)"]
 detect:
   files: [uv.lock]
