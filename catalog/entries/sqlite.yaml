@@ -12,3 +12,7 @@ snippet:
     Run `PRAGMA foreign_keys = ON` on every new connection; SQLite leaves foreign keys off by default.
     Pass values as query parameters, and never commit the database file.
   why: Without the pragma, SQLite silently accepts rows that break foreign keys.
+enforce:
+  # The database file under its common extensions, and the journal, WAL and
+  # shared-memory files SQLite writes next to it, such as app.db-wal.
+  gitignore: ["*.db", "*.db-*", "*.sqlite", "*.sqlite-*", "*.sqlite3", "*.sqlite3-*"]
