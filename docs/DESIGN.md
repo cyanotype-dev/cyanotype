@@ -173,7 +173,7 @@ An unknown selection under a different pin says so, since the entry may have bee
 
 ### MVP entries
 
-The first release ships 40 entries: one solid choice per simple-mode project type, plus every agent safety and workflow rule, which work with any stack and carry the most value. Simple mode covers website, mobile app, API and script; desktop app and game appear as coming later.
+The first release ships 41 entries: one solid choice per simple-mode project type, plus every agent safety and workflow rule, which work with any stack and carry the most value. Simple mode covers website, mobile app, API and script; desktop app and game appear as coming later.
 
 | Category | Entries |
 | --- | --- |
@@ -184,7 +184,7 @@ The first release ships 40 entries: one solid choice per simple-mode project typ
 | Databases | PostgreSQL, SQLite, Supabase |
 | Testing | Vitest, Playwright, pytest |
 | Lint and format | ESLint with Prettier, Ruff, golangci-lint |
-| Internationalization | Generic i18n rules, next-intl |
+| Internationalization | Generic i18n rules, next-intl, react-i18next |
 | Git | Conventional Commits, one branch per task |
 | Agent safety | No destructive commands, no test tampering, secrets only in `.env`, no unrequested changes, new dependencies only with approval, no duplicate files |
 | Agent workflow | Plan before code, verifiable definition of done, small commits, rule maintenance |
@@ -207,22 +207,24 @@ The rows above are groups for reading; the entries use these categories, and the
 | `testing` | checkbox | `vitest`, `playwright`, `pytest` | Unit and end-to-end tests combine |
 | `lint` | checkbox | `eslint-prettier`, `ruff`, `golangci-lint` | One linter per language |
 | `i18n` | checkbox | `i18n-rules` | Generic rules combine with any library |
-| `i18n-library` | radio | `i18n-next-intl` | Libraries exclude each other |
+| `i18n-library` | radio | `i18n-next-intl`, `i18n-react-i18next` | Libraries exclude each other |
 | `git` | checkbox | `conventional-commits`, `branch-per-task` | |
 | `agent-safety` | checkbox | `no-destructive-commands`, `no-test-tampering`, `secrets-in-env`, `no-unrequested-changes`, `dependency-approval`, `no-duplicate-files` | |
 | `agent-workflow` | checkbox | `plan-before-code`, `definition-of-done`, `small-commits` | |
 | `rule-maintenance` | radio | `rule-maintenance-propose` | The policies in Keeping rules current; selecting none means Off |
 | `learning` | radio | `learning-explain`, `learning-guided`, `learning-hands-on` | Selecting none turns learning mode off |
 
-`node` requires one of `npm` or `pnpm`, so every JavaScript project declares its package manager and generated commands are unambiguous. `i18n-next-intl` does not require `i18n-rules`, which a preset can add.
+`node` requires one of `npm` or `pnpm`, so every JavaScript project declares its package manager and generated commands are unambiguous. `i18n-next-intl` does not require `i18n-rules`, which a preset can add. `i18n-react-i18next` requires one of `vite-react` or `expo`, since react-i18next serves React on the web and React Native alike, so both React presets share one library entry.
+
+`i18n-rules` tells the agent to route strings through "the i18n library's translation function" without naming one, so it works with any library entry. When none is selected, as in a spec written by hand or a preset without `i18n_selections`, the same rule tells the agent to propose a library that fits the stack and ask before adding it, rather than picking one silently. This is the per-entry form of the "Not decided yet" choice in Open questions, which needs category metadata to be offered for every radio category.
 
 Seven starter presets are built from these entries, at least one per simple-mode project type, so that every framework entry is used by some preset (see Presets):
 
 | Preset | Project type | Selections |
 | --- | --- | --- |
 | `nextjs-supabase`: Next.js + Supabase | website | `typescript`, `node`, `pnpm`, `nextjs`, `tailwind`, `shadcn-ui`, `supabase`, `vitest`, `eslint-prettier`; `i18n-next-intl` when multilingual |
-| `vite-react-app`: Vite + React | website | `typescript`, `node`, `pnpm`, `vite-react`, `tailwind`, `shadcn-ui`, `vitest`, `eslint-prettier` |
-| `expo-app`: Expo app | mobile-app | `typescript`, `node`, `npm`, `expo`, `eslint-prettier` |
+| `vite-react-app`: Vite + React | website | `typescript`, `node`, `pnpm`, `vite-react`, `tailwind`, `shadcn-ui`, `vitest`, `eslint-prettier`; `i18n-react-i18next` when multilingual |
+| `expo-app`: Expo app | mobile-app | `typescript`, `node`, `npm`, `expo`, `eslint-prettier`; `i18n-react-i18next` when multilingual |
 | `fastapi-postgres`: FastAPI + PostgreSQL | api | `python`, `uv`, `fastapi`, `postgres`, `pytest`, `ruff` |
 | `go-api`: Go API + PostgreSQL | api | `go`, `go-stdlib`, `postgres`, `golangci-lint` |
 | `python-script`: Python script with uv | script | `python`, `uv`, `pytest`, `ruff` |
@@ -759,7 +761,7 @@ Translations in the app the user is building get their own catalog category, bec
 
 Typical rules this generates:
 
-- Never hardcode user-facing text; every string goes through the i18n library with a key.
+- Never hardcode user-facing text; every string goes through the i18n library with a key. With no library chosen yet, the agent proposes one and asks before adding it.
 - Key naming follows `area.screen.element`, for example `recipes.list.emptyState`.
 - A new key is added to every locale file in the same change; untranslated values are marked so they are easy to find.
 - Dates, numbers and currency are formatted with the locale APIs, never by hand.
@@ -885,7 +887,7 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Name: Cyanotype, command cyanotype with the short alias cyty (checked free on Homebrew, Debian, Arch, AUR, PyPI, crates.io and npm). Available: GitHub organization cyanotype-dev and domain cyanotype.dev (cyanotype, cyanotype-ai and cyty are taken on GitHub; cyanotype.com, .io and .app are registered). Trademarks checked on TMview (6 results): none in classes 9 or 42 in the EU, Italy or the US; class 42 marks exist only in Japan (cyanotype) and the UK (Cyanotype Media). GitHub organization cyanotype-dev created; Go module path github.com/cyanotype-dev/cyanotype. Next step: register cyanotype.dev**.
 - [x] **License**: Apache-2.0 for the code, for its explicit patent grant and contribution terms; CC0-1.0 for the catalog, so generated files carry no license obligations. User blueprints use the license in their own manifest.
 - [x] **Catalog distribution**: bundled snapshot plus explicit, signed updates, pinned per project. See the catalog's Distribution section.
-- [x] **MVP catalog entries**: 40 entries and 7 starter presets. See the catalog's MVP entries section.
+- [x] **MVP catalog entries**: 41 entries and 7 starter presets. See the catalog's MVP entries section.
 - [x] **Preset format**: a preset is the stack part of a spec (`selections`, `commands`, `output`) plus `id`, `name`, `summary`, `project_type` and `i18n_selections`, in `catalog/presets/<id>.yaml`, embedded and versioned with the catalog. No `targets`, which are a personal choice. Loading resolves each preset against the catalog, with and without its i18n entries, so a preset that loads always generates. See Presets.
 - [x] **Topic folder**: `docs/agents/` by default, configurable per repo with `output.topic_dir`; personal topic files in `.agents.local/`, configurable per person. See Output and Team rules.
 - [x] **Catalog references**: `requires` and `conflicts` hold plain entry ids; exclusivity inside a radio category is implicit and `conflicts` only links entries of different categories. See The catalog.
@@ -902,6 +904,7 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Agent enforcement covers the shell**: agent-level constraints on file tools can be bypassed through shell commands, so they must also cover the agent's shell tools and sandbox; repository, pre-commit and CI levels stay the baseline. See Real constraints.
 - [x] **Alternatives in `requires`**: a separate `requires_one_of` field holds groups of alternatives, each satisfied when at least one of its entries is selected, such as `[nextjs, vite-react]` for shadcn/ui. A separate field keeps `requires` a plain list of ids. Unmet groups are resolver errors, one message per group. See The catalog and Resolving against the catalog.
 - [x] **MVP categories**: separate radio categories for web, mobile and backend frameworks, for Python and Node.js package managers, for styling and UI components, and for i18n libraries next to the checkbox category of generic i18n rules; databases are radio; rule maintenance is its own radio category. See the catalog's MVP entries section.
+- [x] **i18n library per stack**: every website and mobile preset names its i18n library in `i18n_selections`, `i18n-next-intl` for Next.js and `i18n-react-i18next` for Vite + React and Expo, and `i18n-rules` names no library and asks the agent to propose one when none is selected. Stack knowledge stays in the catalog; no category name is added to the code. See the catalog's MVP entries section.
 - [x] **Project commands in the spec**: an optional `commands` object with fixed keys `dev`, `build`, `test` and `lint`, each one line. Fixed keys rather than a free map, so a typo is an unknown field and the Commands section always lists them in the same order. A new optional field, so the spec `version` stays 1. See Project spec.
 - [x] **Renderer input and output**: renderers take the resolved selection and an `fs.FS` of the existing project, and return files in memory, deterministic and sorted by path; they never write to disk. See Output.
 - [x] **Main file layout**: each standard section has a fixed source, catalog topics map to sections, unknown topics get their own section, and each entry is one `rule Why: why` bullet. With both targets, CLAUDE.md imports AGENTS.md and adds only Claude-specific content. See The main file.
