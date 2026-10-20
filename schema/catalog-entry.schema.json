@@ -93,6 +93,12 @@
               "items": { "type": "string", "minLength": 1 }
             }
           }
+        },
+        "gitignore": {
+          "description": "Lines for the .gitignore block cyanotype owns, such as \".env\", in order: a negation such as \"!.env.example\" only re-includes what the lines before it ignore. One pattern per line, without leading or trailing spaces and not starting with #.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[^#\\s]([^\\r\\n]*\\S)?$" }
         }
       }
     },

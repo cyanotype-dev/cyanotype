@@ -33,6 +33,7 @@ The rules the test enforces:
 - `requires` and `conflicts` hold plain entry ids that must exist.
 - `requires_one_of` holds groups of alternatives, such as `[nextjs, vite-react]`: each group needs at least one of its entries selected. A group has at least two ids; a single id belongs in `requires`. No id may be the entry itself, appear twice in a group, or also be listed in `requires` or `conflicts`.
 - Entries in a `radio` category already exclude each other: do not list them in `conflicts`. Use `conflicts` only for entries of different categories, and declare it on both sides.
+- `enforce.gitignore` lines go into the `.gitignore` block cyanotype generates, in the order written, so a negation such as `!.env.example` comes after the lines it narrows. Each line is one pattern: not blank, without leading or trailing spaces, not starting with `#`, and not listed twice. Add lines only when the snippet promises that something stays out of git.
 - `snippet.rule` and `snippet.why` may use the `{languages}` placeholder, filled with the selected languages ("Go and TypeScript"). Any other `{name}` is an error; wrap literal braces in backticks, as in `` `{children}` ``.
 
 The fields and the reasoning behind them are in the catalog section of [docs/DESIGN.md](../docs/DESIGN.md).

@@ -136,6 +136,13 @@ func TestLoadInvalid(t *testing.T) {
 			{"alpha.yaml", "enforce.claude.deny[1]", "is empty"},
 			{"alpha.yaml", "detect.files[0]", "is empty"},
 		}},
+		{"bad-gitignore", []wantErr{
+			{"alpha.yaml", "enforce.gitignore[4]", "is empty"},
+			{"alpha.yaml", "enforce.gitignore[1]", "leading or trailing spaces"},
+			{"alpha.yaml", "enforce.gitignore[2]", "starts with #, which makes it a comment"},
+			{"alpha.yaml", "enforce.gitignore[3]", `".env" is listed twice`},
+			{"alpha.yaml", "enforce.gitignore[5]", "must be a single line"},
+		}},
 		{"unknown-fields", []wantErr{
 			{"alpha.yaml", "", `line 6: unknown field "tags"`},
 			{"alpha.yaml", "", `line 10: unknown field "notes"`},
