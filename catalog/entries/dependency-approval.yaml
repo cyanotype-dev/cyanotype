@@ -8,3 +8,28 @@ topic: safety
 snippet:
   rule: Ask before adding a dependency, and say what it does and why the standard library or an existing dependency is not enough.
   why: Every dependency adds supply-chain risk and upgrades to keep up with.
+enforce:
+  claude:
+    # Ask rules, not deny: the rule is "ask first", so an approved dependency
+    # can still be added. One command per package manager in the catalog;
+    # rules for tools a project does not use never match, and a package
+    # manager's own deny rules win over these. A pattern ending in " *" also
+    # matches the bare command, so a plain npm install asks too.
+    # Checked with Claude Code 2.1.299 (docs/enforce-checks.md).
+    ask:
+      - "Bash(npm install *)"
+      - "Bash(npm i *)"
+      - "Bash(npm add *)"
+      - "Bash(pnpm add *)"
+      - "Bash(yarn add *)"
+      - "Bash(npx expo install *)"
+      - "Bash(uv add *)"
+      - "Bash(go get *)"
+      - "PowerShell(npm install *)"
+      - "PowerShell(npm i *)"
+      - "PowerShell(npm add *)"
+      - "PowerShell(pnpm add *)"
+      - "PowerShell(yarn add *)"
+      - "PowerShell(npx expo install *)"
+      - "PowerShell(uv add *)"
+      - "PowerShell(go get *)"
