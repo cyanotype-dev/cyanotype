@@ -20,5 +20,17 @@ enforce:
       - "Bash(yarn *)"
       - "PowerShell(pnpm *)"
       - "PowerShell(yarn *)"
+    # With dependency-approval selected, the agent asks before adding a
+    # package. A pattern ending in " *" also matches the bare command, so a
+    # plain npm install, which only restores the lockfile, asks too.
+    with:
+      dependency-approval:
+        ask:
+          - "Bash(npm install *)"
+          - "Bash(npm i *)"
+          - "Bash(npm add *)"
+          - "PowerShell(npm install *)"
+          - "PowerShell(npm i *)"
+          - "PowerShell(npm add *)"
 detect:
   files: [package-lock.json]

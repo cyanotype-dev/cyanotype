@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"regexp"
 	"slices"
@@ -117,6 +118,26 @@ func validateEntry(name string, e Entry) []error {
 				add(fmt.Sprintf("enforce.claude.ask[%d]", i), "%q is also listed in enforce.claude.deny, which wins; keep it in one list", rule)
 			}
 		}
+		// Keys are sorted so errors come out in the same order every run.
+		for _, key := range slices.Sorted(maps.Keys(c.With)) {
+			field := "enforce.claude.with." + key
+			switch {
+			case !kebabCase.MatchString(key):
+				add(field, "%q must be an entry id in kebab-case", key)
+			case key == e.ID:
+				add(field, "an entry cannot reference itself")
+			}
+			rules := c.With[key].Ask
+			if len(rules) == 0 {
+				add(field, "has no ask rules; add some or remove the key")
+			}
+			errs = append(errs, validateNotBlank(name, field+".ask", rules)...)
+			for i, rule := range rules {
+				if strings.TrimSpace(rule) != "" && slices.Contains(c.Deny, rule) {
+					add(fmt.Sprintf("%s.ask[%d]", field, i), "%q is also listed in enforce.claude.deny, which wins; keep it in one list", rule)
+				}
+			}
+		}
 	}
 	if e.Enforce != nil {
 		errs = append(errs, validateGitignore(name, e.Enforce.Gitignore)...)
@@ -182,8 +203,10 @@ func validateNotBlank(name, field string, values []string) []error {
 }
 
 // validateCatalog checks rules that span entries: unique ids, one select value
-// per category, references to existing entries (in requires, requires_one_of
-// and conflicts), and conflicts that cross categories and are symmetric.
+// per category, references to existing entries (in requires, requires_one_of,
+// conflicts and the keys of enforce.claude.with), with keys that can be
+// selected together with their entry, and conflicts that cross categories
+// and are symmetric.
 func validateCatalog(files []file) []error {
 	var errs []error
 	byID := make(map[string]file, len(files))
@@ -230,6 +253,21 @@ func validateCatalog(files []file) []error {
 			for j, id := range group {
 				if _, ok := byID[id]; !ok && isRef(group, j, e.ID) {
 					errs = append(errs, &ValidationError{File: f.name, Field: fmt.Sprintf("requires_one_of[%d][%d]", i, j), Msg: fmt.Sprintf("unknown entry %q", id)})
+				}
+			}
+		}
+		if e.Enforce != nil && e.Enforce.Claude != nil {
+			for _, key := range slices.Sorted(maps.Keys(e.Enforce.Claude.With)) {
+				if key == e.ID || !kebabCase.MatchString(key) {
+					continue // reported by validateEntry
+				}
+				field := "enforce.claude.with." + key
+				switch other, ok := byID[key]; {
+				case !ok:
+					errs = append(errs, &ValidationError{File: f.name, Field: field, Msg: fmt.Sprintf("unknown entry %q", key)})
+				case sameRadioCategory(e, other.entry):
+					errs = append(errs, &ValidationError{File: f.name, Field: field, Msg: fmt.Sprintf(
+						"%q is in the same radio category %q, so the two are never selected together and these rules would never apply", key, e.Category)})
 				}
 			}
 		}

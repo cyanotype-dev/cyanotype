@@ -1,0 +1,23 @@
+id: alpha
+name: Alpha
+category: package-manager
+select: radio
+summary: A package manager for tests
+snippet:
+  rule: Use Alpha.
+  why: Tests need a package manager.
+enforce:
+  claude:
+    deny: ["Bash(beta *)"]
+    with:
+      alpha:
+        ask: ["Bash(alpha add *)"]
+      beta:
+        ask: ["Bash(alpha add *)"]
+      gamma:
+        ask: ["Bash(alpha add *)", " ", "Bash(beta *)"]
+      ghost:
+        ask: ["Bash(alpha add *)"]
+      Not_Kebab:
+        ask: ["Bash(alpha add *)"]
+      delta: {}

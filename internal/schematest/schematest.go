@@ -93,11 +93,15 @@ func checkField(t testing.TB, path string, typ reflect.Type, prop *Node) {
 		}
 		checkField(t, path+"[]", typ.Elem(), prop.Items)
 	case reflect.Map:
+		// A map's values are described by additionalProperties, which is
+		// checked like any other field: a string, or a nested struct.
 		var values Node
-		if typ.Key().Kind() != reflect.String || typ.Elem().Kind() != reflect.String ||
-			prop.Type != "object" || json.Unmarshal(prop.AdditionalProperties, &values) != nil || values.Type != "string" {
-			t.Errorf("%s: schema must be an object with additionalProperties of type string", path)
+		if typ.Key().Kind() != reflect.String || prop.Type != "object" ||
+			json.Unmarshal(prop.AdditionalProperties, &values) != nil || values.Type == "" {
+			t.Errorf("%s: schema must be an object with additionalProperties describing its values", path)
+			return
 		}
+		checkField(t, path+"{}", typ.Elem(), &values)
 	case reflect.String:
 		if prop.Type != "string" && prop.Enum == nil {
 			t.Errorf("%s: schema must be a string or an enum", path)

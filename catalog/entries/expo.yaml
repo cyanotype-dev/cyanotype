@@ -13,5 +13,12 @@ snippet:
     Add packages with `npx expo install <package>` instead of the package manager's add command; it picks versions that match the project's Expo SDK.
     After an SDK upgrade, run `npx expo install --check` and fix every mismatch it reports.
   why: Native modules break at run time when their version does not match the SDK.
+enforce:
+  claude:
+    # With dependency-approval selected, the agent asks before adding a
+    # package; the snippet makes this the command it adds packages with.
+    with:
+      dependency-approval:
+        ask: ["Bash(npx expo install *)", "PowerShell(npx expo install *)"]
 detect:
   files: [app.json, app.config.js, app.config.ts, eas.json]

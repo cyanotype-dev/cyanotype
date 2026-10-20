@@ -54,7 +54,7 @@ Use the same method for the other entries with permission rules. Choose cases th
 | `no-destructive-commands` | `Bash` and `PowerShell` command patterns | Not yet |
 | `rule-maintenance-propose` | `Edit` deny rules on generated files | Not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20 |
 | `npm`, `pnpm`, `uv` | `Bash` and `PowerShell` rules on the other package managers | 2026-10-20, see below |
-| `dependency-approval` | `Bash` and `PowerShell` ask rules on install commands | 2026-10-20, see below |
+| `npm`, `pnpm`, `uv`, `go`, `expo` | `Bash` and `PowerShell` ask rules on their install commands, under `with.dependency-approval` | 2026-10-20 for `npm install` and `go get` in both shells and `npm i` in Bash; not yet for the others |
 
 ## Run of 2026-10-19: `secrets-in-env`
 
@@ -148,8 +148,14 @@ In the control run, every installed command ran and pnpm, yarn and uv failed wit
 - `X *` matches only the whole word `X`: `Bash(npm *)` does not match `npx`, and a pattern ending in ` *` also matches the bare command. So `Bash(npm install *)` also asks for a plain `npm install`, which only restores the lockfile.
 - Claude Code checks each part of a compound command and strips `command`: neither gets around a rule.
 - In Bash, `npm.cmd` gets around `Bash(npm *)`; in PowerShell, `PowerShell(npm *)` also blocks `npm.cmd` and `& npm`. Options placed before the subcommand, such as `pip -q install`, get around patterns that name the subcommand.
-- Ask wins over allow, and deny wins over ask, so an entry's rule must not be in both of its lists, and a package manager's deny rules win over `dependency-approval`'s ask rules.
+- Ask wins over allow, and deny wins over ask, so an entry's rule must not be in both of its lists, and a package manager's deny rules win over another tool's install ask rules.
 - An `Edit` ask rule prompts for the Edit and Write tools even in accept-edits mode. Whether it also prompts for shell writes could not be told apart with this method, since the shell write prompted without it too.
+
+## Change of 2026-10-20: install ask rules moved to each tool
+
+The install ask rules moved from `dependency-approval` to the entry of each tool, under `enforce.claude.with.dependency-approval`, so a project only gets the rules of its own stack. The patterns did not change, and `yarn add` was dropped, since yarn is not in the catalog. No new run was made: which rules are generated is renderer logic that `go test` covers, while how Claude Code matches a pattern depends only on the pattern.
+
+As ask rules, the run of 2026-10-20 checked `npm install *` and `go get *` in Bash and PowerShell, and `npm i *` in Bash. `npm i *` in PowerShell, `npm add *`, `pnpm add *`, `uv add *` and `npx expo install *` have the same form but have not been checked as ask rules; the table under Other entries says so.
 
 ## Known limits
 

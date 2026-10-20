@@ -77,6 +77,21 @@ type ClaudeEnforce struct {
 	// "ask first" rather than "never": Claude Code asks the user before the
 	// action, so an approved change can still happen.
 	Ask []string `yaml:"ask,omitempty"`
+	// With holds rules that apply only when another entry, named by the
+	// key, is selected too. It lets a stack entry carry the rules another
+	// entry needs for that stack, such as pnpm's install command for
+	// dependency-approval, so a project only gets the rules of the tools
+	// it uses and the code needs no knowledge of either entry.
+	With map[string]ClaudeConditional `yaml:"with,omitempty"`
+}
+
+// ClaudeConditional holds the rules of one key of ClaudeEnforce.With. Only
+// ask rules are supported for now; conditional deny rules could be added
+// here later without a new field.
+type ClaudeConditional struct {
+	// Ask holds permission rules added to the ask list when the key's
+	// entry is selected. It is required: a key without rules does nothing.
+	Ask []string `yaml:"ask"`
 }
 
 // Detect lists what reveals the entry in an existing project.

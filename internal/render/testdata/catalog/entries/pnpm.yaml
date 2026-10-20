@@ -13,5 +13,8 @@ snippet:
 enforce:
   claude:
     deny: ["Bash(npm *)", "Bash(yarn *)", "PowerShell(npm *)", "PowerShell(yarn *)"]
+    with:
+      dependency-approval:
+        ask: ["Bash(pnpm add *)", "PowerShell(pnpm add *)"]
 detect:
   files: [pnpm-lock.yaml]

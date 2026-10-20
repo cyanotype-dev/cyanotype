@@ -140,6 +140,20 @@ func TestLoadInvalid(t *testing.T) {
 			{"alpha.yaml", "enforce.claude.ask[1]", "is empty"},
 			{"alpha.yaml", "enforce.claude.ask[2]", `"Bash(beta *)" is also listed in enforce.claude.deny, which wins`},
 		}},
+		{"bad-with", []wantErr{
+			{"alpha.yaml", "enforce.claude.with.Not_Kebab", "must be an entry id in kebab-case"},
+			{"alpha.yaml", "enforce.claude.with.alpha", "an entry cannot reference itself"},
+			{"alpha.yaml", "enforce.claude.with.delta", "has no ask rules"},
+			{"alpha.yaml", "enforce.claude.with.gamma.ask[1]", "is empty"},
+			{"alpha.yaml", "enforce.claude.with.gamma.ask[2]", `"Bash(beta *)" is also listed in enforce.claude.deny, which wins`},
+			{"alpha.yaml", "enforce.claude.with.beta", `"beta" is in the same radio category "package-manager"`},
+			{"alpha.yaml", "enforce.claude.with.ghost", `unknown entry "ghost"`},
+		}},
+		// Only ask rules are supported inside with; deny is a possible
+		// later extension, so for now it is an unknown field.
+		{"with-deny", []wantErr{
+			{"alpha.yaml", "", `line 13: unknown field "deny"`},
+		}},
 		{"bad-gitignore", []wantErr{
 			{"alpha.yaml", "enforce.gitignore[4]", "is empty"},
 			{"alpha.yaml", "enforce.gitignore[1]", "leading or trailing spaces"},

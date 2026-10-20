@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"slices"
 
 	"github.com/cyanotype-dev/cyanotype/internal/resolve"
@@ -41,7 +42,15 @@ func (p permissionRules) empty() bool {
 }
 
 // claudeRules returns the Claude permission rules of r's selected entries.
+// An entry's ask group holds its ask rules, then the rules of each key of
+// its enforce.claude.with whose entry is selected too, keys in alphabetical
+// order since a map has none, each key's rules in catalog order.
 func claudeRules(r *resolve.Result) permissionRules {
+	selected := make(map[string]bool, len(r.Entries))
+	for _, e := range r.Entries {
+		selected[e.ID] = true
+	}
+
 	var p permissionRules
 	for _, e := range r.Entries {
 		if e.Enforce == nil || e.Enforce.Claude == nil {
@@ -55,8 +64,15 @@ func claudeRules(r *resolve.Result) permissionRules {
 		if len(deny) > 0 {
 			p.deny = append(p.deny, deny)
 		}
-		if len(c.Ask) > 0 {
-			p.ask = append(p.ask, slices.Clone(c.Ask))
+
+		ask := slices.Clone(c.Ask)
+		for _, key := range slices.Sorted(maps.Keys(c.With)) {
+			if selected[key] {
+				ask = append(ask, c.With[key].Ask...)
+			}
+		}
+		if len(ask) > 0 {
+			p.ask = append(p.ask, ask)
 		}
 	}
 	return p

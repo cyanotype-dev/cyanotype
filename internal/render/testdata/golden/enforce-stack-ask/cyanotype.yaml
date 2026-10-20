@@ -1,0 +1,13 @@
+# An npm project with dependency-approval: the ask rules npm carries under
+# enforce.claude.with apply, and those of pnpm, which is not selected, do
+# not. dependency-approval comes first to show that order does not matter.
+version: 1
+targets: [claude]
+project:
+  name: label-maker
+  goal: Prints shipping labels from a spreadsheet.
+selections:
+  - dependency-approval
+  - typescript
+  - node
+  - npm
