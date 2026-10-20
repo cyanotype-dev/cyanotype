@@ -107,37 +107,37 @@ func TestMergeOrderedKeepsEntryOrder(t *testing.T) {
 	}
 }
 
-// TestRealCatalogPermissionOrder renders every entry of the real catalog
-// that has deny or ask rules, over a settings file holding each entry's
-// rules in reverse, and checks that every entry's rules still come out in
-// catalog order. It fails if a change to merging, or a new entry, breaks
-// the order a negation depends on.
+// TestRealCatalogPermissionOrder renders every entry of the real catalog,
+// over a settings file holding each entry's rules in reverse, and checks
+// that every entry's rules still come out in catalog order. It fails if a
+// change to merging, or a new entry, breaks the order a negation depends
+// on.
 func TestRealCatalogPermissionOrder(t *testing.T) {
 	c, err := catalog.LoadRoot(os.DirFS(filepath.Join("..", "..", "catalog")))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Entries are added directly, without resolving, so exclusive entries
-	// such as npm and pnpm can be checked together.
+	// Every entry is added directly, without resolving, so exclusive
+	// entries such as npm and pnpm are checked together and every key of
+	// enforce.claude.with is selected.
 	r := &resolve.Result{Spec: spec.Spec{Targets: []spec.Target{spec.TargetClaude}}.WithDefaults()}
-	reversed := func(rules []string) []string {
-		out := slices.Clone(rules)
-		slices.Reverse(out)
-		return out
-	}
-	var deny, ask []string
 	for _, e := range c.Entries() {
-		if e.Enforce == nil || e.Enforce.Claude == nil || len(e.Enforce.Claude.Deny)+len(e.Enforce.Claude.Ask) == 0 {
-			continue
-		}
 		r.Entries = append(r.Entries, resolve.Entry{Entry: e})
-		deny = append(deny, reversed(e.Enforce.Claude.Deny)...)
-		ask = append(ask, reversed(e.Enforce.Claude.Ask)...)
 	}
 	rules := claudeRules(r)
 	if len(rules.deny) < 2 || len(rules.ask) < 2 {
 		t.Fatalf("found %d catalog entries with deny rules and %d with ask rules, want several of each", len(rules.deny), len(rules.ask))
 	}
+	reversed := func(groups [][]string) []string {
+		var out []string
+		for _, g := range groups {
+			g = slices.Clone(g)
+			slices.Reverse(g)
+			out = append(out, g...)
+		}
+		return out
+	}
+	deny, ask := reversed(rules.deny), reversed(rules.ask)
 
 	old, err := json.Marshal(map[string]any{"permissions": map[string]any{"deny": deny, "ask": ask}})
 	if err != nil {
@@ -155,6 +155,65 @@ func TestRealCatalogPermissionOrder(t *testing.T) {
 	}
 	checkDenyOrder(t, got.Permissions.Deny, rules.deny)
 	checkDenyOrder(t, got.Permissions.Ask, rules.ask)
+}
+
+func TestClaudeRulesWith(t *testing.T) {
+	entry := func(id string, c *catalog.ClaudeEnforce) resolve.Entry {
+		e := catalog.Entry{ID: id}
+		if c != nil {
+			e.Enforce = &catalog.Enforce{Claude: c}
+		}
+		return resolve.Entry{Entry: e}
+	}
+	pnpm := entry("pnpm", &catalog.ClaudeEnforce{
+		Deny: []string{"Bash(npm *)"},
+		With: map[string]catalog.ClaudeConditional{
+			"dependency-approval": {Ask: []string{"Bash(pnpm add *)", "PowerShell(pnpm add *)"}},
+			"audit-rules":         {Ask: []string{"Bash(pnpm audit *)"}},
+		},
+	})
+	tests := []struct {
+		name     string
+		entries  []resolve.Entry
+		wantDeny [][]string
+		wantAsk  [][]string
+	}{
+		{
+			name:     "key not selected adds nothing",
+			entries:  []resolve.Entry{pnpm},
+			wantDeny: [][]string{{"Bash(npm *)"}},
+		},
+		{
+			name:     "key selected adds its rules to the entry's group",
+			entries:  []resolve.Entry{pnpm, entry("dependency-approval", nil)},
+			wantDeny: [][]string{{"Bash(npm *)"}},
+			wantAsk:  [][]string{{"Bash(pnpm add *)", "PowerShell(pnpm add *)"}},
+		},
+		{
+			name:     "selected before the entry that carries the rules",
+			entries:  []resolve.Entry{entry("dependency-approval", nil), pnpm},
+			wantDeny: [][]string{{"Bash(npm *)"}},
+			wantAsk:  [][]string{{"Bash(pnpm add *)", "PowerShell(pnpm add *)"}},
+		},
+		{
+			name:     "plain ask rules first, then keys in alphabetical order",
+			entries:  []resolve.Entry{entry("dependency-approval", nil), entry("audit-rules", nil), pnpm, entry("spec-guard", &catalog.ClaudeEnforce{Ask: []string{"Edit(/spec.yaml)"}})},
+			wantDeny: [][]string{{"Bash(npm *)"}},
+			wantAsk: [][]string{
+				{"Bash(pnpm audit *)", "Bash(pnpm add *)", "PowerShell(pnpm add *)"},
+				{"Edit(/spec.yaml)"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &resolve.Result{Spec: spec.Spec{Targets: []spec.Target{spec.TargetClaude}}.WithDefaults(), Entries: tt.entries}
+			got := claudeRules(r)
+			if !slices.EqualFunc(got.deny, tt.wantDeny, slices.Equal) || !slices.EqualFunc(got.ask, tt.wantAsk, slices.Equal) {
+				t.Errorf("claudeRules() = deny %q, ask %q\nwant deny %q, ask %q", got.deny, got.ask, tt.wantDeny, tt.wantAsk)
+			}
+		})
+	}
 }
 
 func TestMergeSettingsUnchanged(t *testing.T) {

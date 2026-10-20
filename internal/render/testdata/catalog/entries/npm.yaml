@@ -13,5 +13,8 @@ snippet:
 enforce:
   claude:
     deny: ["Bash(pnpm *)", "Bash(yarn *)", "PowerShell(pnpm *)", "PowerShell(yarn *)"]
+    with:
+      dependency-approval:
+        ask: ["Bash(npm install *)", "Bash(npm i *)", "PowerShell(npm install *)", "PowerShell(npm i *)"]
 detect:
   files: [package-lock.json]
