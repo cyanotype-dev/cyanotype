@@ -107,12 +107,12 @@ func TestMergeOrderedKeepsEntryOrder(t *testing.T) {
 	}
 }
 
-// TestRealCatalogDenyOrder renders every entry of the real catalog that has
-// deny rules, over a settings file holding each entry's rules in reverse,
-// and checks that every entry's rules still come out in catalog order. It
-// fails if a change to merging, or a new entry, breaks the order a negation
-// depends on.
-func TestRealCatalogDenyOrder(t *testing.T) {
+// TestRealCatalogPermissionOrder renders every entry of the real catalog
+// that has deny or ask rules, over a settings file holding each entry's
+// rules in reverse, and checks that every entry's rules still come out in
+// catalog order. It fails if a change to merging, or a new entry, breaks
+// the order a negation depends on.
+func TestRealCatalogPermissionOrder(t *testing.T) {
 	c, err := catalog.LoadRoot(os.DirFS(filepath.Join("..", "..", "catalog")))
 	if err != nil {
 		t.Fatal(err)
@@ -120,22 +120,26 @@ func TestRealCatalogDenyOrder(t *testing.T) {
 	// Entries are added directly, without resolving, so exclusive entries
 	// such as npm and pnpm can be checked together.
 	r := &resolve.Result{Spec: spec.Spec{Targets: []spec.Target{spec.TargetClaude}}.WithDefaults()}
-	var reversed []string
+	reversed := func(rules []string) []string {
+		out := slices.Clone(rules)
+		slices.Reverse(out)
+		return out
+	}
+	var deny, ask []string
 	for _, e := range c.Entries() {
-		if e.Enforce == nil || e.Enforce.Claude == nil || len(e.Enforce.Claude.Deny) == 0 {
+		if e.Enforce == nil || e.Enforce.Claude == nil || len(e.Enforce.Claude.Deny)+len(e.Enforce.Claude.Ask) == 0 {
 			continue
 		}
 		r.Entries = append(r.Entries, resolve.Entry{Entry: e})
-		rules := slices.Clone(e.Enforce.Claude.Deny)
-		slices.Reverse(rules)
-		reversed = append(reversed, rules...)
+		deny = append(deny, reversed(e.Enforce.Claude.Deny)...)
+		ask = append(ask, reversed(e.Enforce.Claude.Ask)...)
 	}
-	groups := denyGroups(r)
-	if len(groups) < 2 {
-		t.Fatalf("found %d catalog entries with deny rules, want several", len(groups))
+	rules := claudeRules(r)
+	if len(rules.deny) < 2 || len(rules.ask) < 2 {
+		t.Fatalf("found %d catalog entries with deny rules and %d with ask rules, want several of each", len(rules.deny), len(rules.ask))
 	}
 
-	old, err := json.Marshal(map[string]any{"permissions": map[string]any{"deny": reversed}})
+	old, err := json.Marshal(map[string]any{"permissions": map[string]any{"deny": deny, "ask": ask}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,19 +148,20 @@ func TestRealCatalogDenyOrder(t *testing.T) {
 		t.Fatalf("renderSettings() = %v, %v", ok, err)
 	}
 	var got struct {
-		Permissions struct{ Deny []string }
+		Permissions struct{ Deny, Ask []string }
 	}
 	if err := json.Unmarshal(f.Content, &got); err != nil {
 		t.Fatal(err)
 	}
-	checkDenyOrder(t, got.Permissions.Deny, groups)
+	checkDenyOrder(t, got.Permissions.Deny, rules.deny)
+	checkDenyOrder(t, got.Permissions.Ask, rules.ask)
 }
 
 func TestMergeSettingsUnchanged(t *testing.T) {
 	// A layout the encoder would change, four-space indent and an inline
 	// object: nothing to add, so the bytes must come back as they were.
 	old := "{\n    \"permissions\": {\"deny\": [\"Read(.env)\", \"Read(!.env.example)\"]}\n}\n"
-	got, err := mergeSettings([]byte(old), [][]string{{"Read(.env)", "Read(!.env.example)"}})
+	got, err := mergeSettings([]byte(old), permissionRules{deny: [][]string{{"Read(.env)", "Read(!.env.example)"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +171,7 @@ func TestMergeSettingsUnchanged(t *testing.T) {
 }
 
 func TestMergeSettingsEmptyFile(t *testing.T) {
-	got, err := mergeSettings([]byte("  \n"), [][]string{{"Read(.env)"}})
+	got, err := mergeSettings([]byte("  \n"), permissionRules{deny: [][]string{{"Read(.env)"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +182,7 @@ func TestMergeSettingsEmptyFile(t *testing.T) {
 }
 
 func TestMergeSettingsKeepsCharacters(t *testing.T) {
-	got, err := mergeSettings([]byte(`{"permissions": {"deny": ["Bash(echo > out)"]}}`), [][]string{{"Bash(a && b)"}})
+	got, err := mergeSettings([]byte(`{"permissions": {"deny": ["Bash(echo > out)"]}}`), permissionRules{deny: [][]string{{"Bash(a && b)"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,12 +204,95 @@ func TestMergeSettingsErrors(t *testing.T) {
 		{"trailing data", `{} {}`, "unexpected data after the object"},
 		{"permissions not an object", `{"permissions": []}`, "permissions: must be a JSON object"},
 		{"deny not a list of strings", `{"permissions": {"deny": [1]}}`, "permissions.deny must be a list of strings"},
+		{"ask not a list of strings", `{"permissions": {"ask": "Bash(npm install *)"}}`, "permissions.ask must be a list of strings"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mergeSettings([]byte(tt.old), [][]string{{"Read(.env)"}})
+			got, err := mergeSettings([]byte(tt.old), permissionRules{deny: [][]string{{"Read(.env)"}}})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("mergeSettings() = %q, error %v\nwant an error containing %q", got, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestMergeSettingsAsk(t *testing.T) {
+	install := [][]string{{"Bash(npm install *)", "Bash(go get *)"}}
+	tests := []struct {
+		name  string
+		old   string // "" for a new file
+		rules permissionRules
+		want  string
+	}{
+		{
+			name:  "new file lists deny before ask",
+			rules: permissionRules{deny: [][]string{{"Bash(yarn *)"}}, ask: install},
+			want: `{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(yarn *)"
+    ],
+    "ask": [
+      "Bash(npm install *)",
+      "Bash(go get *)"
+    ]
+  }
+}
+`,
+		},
+		{
+			name:  "ask only adds no deny list",
+			old:   `{"permissions": {"allow": ["Bash(go test *)"]}}`,
+			rules: permissionRules{ask: install},
+			want: `{
+  "permissions": {
+    "allow": [
+      "Bash(go test *)"
+    ],
+    "ask": [
+      "Bash(npm install *)",
+      "Bash(go get *)"
+    ]
+  }
+}
+`,
+		},
+		{
+			name:  "user ask rules stay first and shared rules are reused",
+			old:   `{"permissions": {"ask": ["Bash(git push *)", "Bash(npm install *)"], "deny": []}}`,
+			rules: permissionRules{ask: install},
+			want: `{
+  "permissions": {
+    "ask": [
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(go get *)"
+    ],
+    "deny": []
+  }
+}
+`,
+		},
+		{
+			name:  "nothing to add keeps the bytes",
+			old:   "{\"permissions\": {\"ask\": [\"Bash(npm install *)\", \"Bash(go get *)\"]}}\n",
+			rules: permissionRules{ask: install},
+			want:  "{\"permissions\": {\"ask\": [\"Bash(npm install *)\", \"Bash(go get *)\"]}}\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var old []byte
+			if tt.old != "" {
+				old = []byte(tt.old)
+			}
+			got, err := mergeSettings(old, tt.rules)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tt.want {
+				t.Errorf("mergeSettings() =\n%s\nwant\n%s", got, tt.want)
 			}
 		})
 	}

@@ -36,7 +36,7 @@ Uses: Go, golangci-lint.
 
 - The user is learning Go. The first time you use a construct or idiom, explain it in one or two sentences. Work in small steps instead of writing whole modules at once. For simple parts, describe what to write and let the user write it, then review their code. Why: The user wants to understand the code, not just receive it.
 - For any change beyond one file, propose a short plan with the files to touch and the approach, and wait for approval before writing code. Why: Correcting a plan costs one message, while correcting finished code costs a rewrite.
-- Never edit the agent instruction files or `cyanotype.yaml` yourself. When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve. Why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
+- Never edit the generated instruction files; regeneration replaces them. Edit `cyanotype.yaml` only when the user explicitly asks, such as to apply a rule they approved. When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve. Why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
 
 ## Code review
 

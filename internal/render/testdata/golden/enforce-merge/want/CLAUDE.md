@@ -26,7 +26,7 @@ Uses: TypeScript, Node.js, npm.
 
 ## Agent workflow
 
-- Never edit the agent instruction files or `cyanotype.yaml` yourself. When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve. Why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
+- Never edit the generated instruction files; regeneration replaces them. Edit `cyanotype.yaml` only when the user explicitly asks, such as to apply a rule they approved. When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve. Why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
 
 ## Safety rules
 
@@ -34,4 +34,4 @@ Uses: TypeScript, Node.js, npm.
 
 ## Claude Code
 
-- Deny rules in .claude/settings.json back the safety rules; when one blocks an action, stop and ask instead of reaching the same result another way.
+- Permission rules in .claude/settings.json back the safety rules: deny rules block an action, ask rules make Claude Code ask the user first. When a rule blocks an action, stop and ask instead of reaching the same result another way.

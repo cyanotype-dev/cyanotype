@@ -12,6 +12,6 @@ snippet:
   why: Mixing package managers creates conflicting lockfiles.
 enforce:
   claude:
-    deny: ["Bash(pnpm:*)", "Bash(yarn:*)"]
+    deny: ["Bash(pnpm *)", "Bash(yarn *)", "PowerShell(pnpm *)", "PowerShell(yarn *)"]
 detect:
   files: [package-lock.json]
