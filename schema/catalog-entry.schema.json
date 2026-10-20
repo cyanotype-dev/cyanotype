@@ -88,7 +88,12 @@
           "additionalProperties": false,
           "properties": {
             "deny": {
-              "description": "Permission rules added to the deny list, such as \"Bash(yarn:*)\".",
+              "description": "Permission rules added to the deny list, such as \"Bash(yarn *)\". A denied action stays blocked even when the user would approve it.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "ask": {
+              "description": "Permission rules added to the ask list, such as \"Bash(npm install *)\", for rules that mean \"ask first\": Claude Code asks the user before the action. A rule may not also be in deny, which wins.",
               "type": "array",
               "items": { "type": "string", "minLength": 1 }
             }
