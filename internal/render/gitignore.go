@@ -3,7 +3,10 @@ package render
 import (
 	"fmt"
 	"io/fs"
+	"slices"
 	"strings"
+
+	"github.com/cyanotype-dev/cyanotype/internal/resolve"
 )
 
 const (
@@ -22,30 +25,45 @@ const (
 // personal rules in docs/DESIGN.md).
 var gitignoreEntries = []string{"cyanotype.local.yaml", ".agents.local/"}
 
+// gitignoreLines returns the lines of cyanotype's block: the personal files
+// first, then the enforce.gitignore lines of every selected entry, entries
+// in selection order and each entry's lines in catalog order. A line two
+// entries share is written once, unless reusing it would break an entry's
+// order, so a negation always stays after the lines it narrows.
+func gitignoreLines(r *resolve.Result) []string {
+	var groups [][]string
+	for _, e := range r.Entries {
+		if e.Enforce != nil && len(e.Enforce.Gitignore) > 0 {
+			groups = append(groups, e.Enforce.Gitignore)
+		}
+	}
+	return mergeOrdered(gitignoreEntries, groups)
+}
+
 // renderGitignore returns .gitignore with cyanotype's block. An existing
 // block is replaced where it is and the rest of the file stays byte for
 // byte; without one, the block is appended after a blank line. The block
 // uses the file's line endings, CRLF when the file has any.
-func renderGitignore(existing fs.FS) (File, error) {
+func renderGitignore(r *resolve.Result, existing fs.FS) (File, error) {
 	old, err := readExisting(existing, gitignorePath)
 	if err != nil {
 		return File{}, err
 	}
-	content, err := mergeGitignore(string(old))
+	content, err := mergeGitignore(string(old), gitignoreLines(r))
 	if err != nil {
 		return File{}, fmt.Errorf("render %s: %w", gitignorePath, err)
 	}
 	return File{Path: gitignorePath, Content: []byte(content)}, nil
 }
 
-// mergeGitignore puts cyanotype's block into the .gitignore content old,
-// which is empty for a new file.
-func mergeGitignore(old string) (string, error) {
+// mergeGitignore puts cyanotype's block, holding lines, into the
+// .gitignore content old, which is empty for a new file.
+func mergeGitignore(old string, lines []string) (string, error) {
 	nl := "\n"
 	if strings.Contains(old, "\r\n") {
 		nl = "\r\n"
 	}
-	block := strings.Join(append(append([]string{gitignoreBeginLine}, gitignoreEntries...), gitignoreEnd), nl)
+	block := strings.Join(slices.Concat([]string{gitignoreBeginLine}, lines, []string{gitignoreEnd}), nl)
 
 	start, end, err := findGitignoreBlock(old)
 	if err != nil {

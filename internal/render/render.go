@@ -41,8 +41,9 @@ const (
 //
 // Targets that have no renderer yet are skipped with a warning, so a spec
 // that also lists them still gets its other files. The .gitignore block is
-// generated whatever the targets, since it protects personal files from
-// every collaborator's commits.
+// generated whatever the targets, since it keeps personal files, and the
+// files selected entries keep out of git such as .env, out of every
+// collaborator's commits.
 func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error) {
 	targets := r.Spec.Targets
 	agents := slices.Contains(targets, spec.TargetAgentsMD)
@@ -68,7 +69,7 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 		warnings = append(warnings, w...)
 	}
 
-	gitignore, err := renderGitignore(existing)
+	gitignore, err := renderGitignore(r, existing)
 	if err != nil {
 		return nil, nil, err
 	}
