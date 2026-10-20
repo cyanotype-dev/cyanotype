@@ -152,7 +152,7 @@ The catalog ships inside every release and is updated only on explicit request, 
 4. **Pinned per project.** `cyanotype.yaml` records the catalog version it was generated with, so regeneration is reproducible. `cyanotype update` moves a project to a newer version with a diff, and blueprints rely on the same pin.
 5. **Additional catalogs.** Organizations can add their own catalog as a second source next to the official one, for internal rules and private presets.
 
-Phase 1 ships the bundled snapshot only; signed updates and additional catalogs arrive in Phase 2.
+Phase 1 ships the bundled snapshot only; signed updates and additional catalogs arrive after v0.6, the last release of Phase 2 (see Roadmap).
 
 The catalog's version lives in its own data, in `catalog/catalog.yaml`, rather than in the code, because a catalog downloaded on its own must carry its version with it:
 
@@ -895,6 +895,18 @@ The MVP is the CLI with simple mode: it proves the value with the least work, an
 &#91;embedded content: roadmap · 4 phases, 3 releases\]
 
 Phases have no dates yet. The catalog grows alongside every phase, including outside contributions after v0.1, and Linux, macOS and Windows builds ship from the first release.
+
+Phase 2 ships as one release per feature, so each one reaches users as soon as it is ready and a problem in one never holds back the others:
+
+| Release | Ships |
+| --- | --- |
+| v0.2 | Stack detection, and handling of existing instruction files, so `init` works in existing projects |
+| v0.3 | `cyanotype.lock` and `cyanotype check` |
+| v0.4 | The shared JSON contract of the CLI and the MCP server, and the MCP server |
+| v0.5 | Category metadata and the TUI |
+| v0.6 | Gemini, Cursor and Copilot renderers, with path-scoped rules |
+
+Signed catalog updates and additional catalogs come after v0.6.
 
 ## Decisions
 
