@@ -1,0 +1,11 @@
+id: npm
+name: npm
+category: package-manager
+select: radio
+summary: Test entry npm
+snippet:
+  rule: Use npm.
+  why: Tests need it.
+detect:
+  files: [package-lock.json]
+  run_script: npm run {script}

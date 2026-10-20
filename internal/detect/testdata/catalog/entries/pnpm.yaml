@@ -1,0 +1,11 @@
+id: pnpm
+name: pnpm
+category: package-manager
+select: radio
+summary: Test entry pnpm
+snippet:
+  rule: Use pnpm.
+  why: Tests need it.
+detect:
+  files: [pnpm-lock.yaml]
+  run_script: pnpm {script}

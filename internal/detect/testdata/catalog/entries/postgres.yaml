@@ -1,0 +1,13 @@
+id: postgres
+name: postgres
+category: database
+select: radio
+summary: Test entry postgres
+snippet:
+  rule: Use postgres.
+  why: Tests need it.
+detect:
+  dependencies:
+    npm: [pg]
+    pypi: [psycopg, psycopg2-binary]
+    go: [github.com/jackc/pgx]

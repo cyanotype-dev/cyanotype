@@ -1,0 +1,11 @@
+id: fastapi
+name: fastapi
+category: backend-framework
+select: radio
+summary: Test entry fastapi
+snippet:
+  rule: Use fastapi.
+  why: Tests need it.
+detect:
+  dependencies:
+    pypi: [fastapi]

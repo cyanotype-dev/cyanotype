@@ -1,0 +1,11 @@
+id: cloud-kv
+name: cloud-kv
+category: storage
+select: checkbox
+summary: Test entry cloud-kv
+snippet:
+  rule: Use cloud-kv.
+  why: Tests need it.
+conflicts: [sqlite]
+detect:
+  files: [kv.toml]

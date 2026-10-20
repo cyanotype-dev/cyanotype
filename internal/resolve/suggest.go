@@ -1,5 +1,13 @@
 package resolve
 
+// Suggest returns the candidate closest to input, for "did you mean" hints
+// outside this package, such as an unknown entry id in a flag. It applies
+// the same rules as the hints of Resolve, so every interface suggests the
+// same thing.
+func Suggest(input string, candidates []string) (string, bool) {
+	return suggest(input, candidates)
+}
+
 // suggest returns the candidate closest to input, for "did you mean"
 // hints. A candidate qualifies when reaching it changes at most a third of
 // the input's characters, and at least one; on a tie the candidate listed

@@ -1,0 +1,15 @@
+id: alpha
+name: Alpha
+category: language
+select: checkbox
+summary: A language for tests
+snippet:
+  rule: Write Alpha.
+  why: Tests need a language.
+detect:
+  files: [alpha.mod]
+  dependencies:
+    npm: ["@alpha/core"]
+    pypi: [alpha-tools]
+    go: [example.com/alpha]
+  run_script: alpha run {script}

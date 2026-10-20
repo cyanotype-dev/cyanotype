@@ -34,3 +34,4 @@ enforce:
           - "PowerShell(npm add *)"
 detect:
   files: [package-lock.json]
+  run_script: npm run {script}

@@ -14,3 +14,6 @@ snippet:
   why: Styles stay next to the markup they affect, and no unused CSS piles up.
 detect:
   files: [tailwind.config.js, tailwind.config.ts]
+  # Tailwind CSS 4 has no config file, so the package is the only sign.
+  dependencies:
+    npm: [tailwindcss]

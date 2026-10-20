@@ -319,12 +319,45 @@ type Answers struct {
 	Agents       []Agent
 }
 
+// Stack is the technology part of a spec: the entries, and the commands
+// and output settings that go with them. A preset gives it to a new
+// project, detection to an existing one; the rest of simple mode is the
+// same for both.
+type Stack struct {
+	// Selections are entry ids in the order they go into the spec.
+	Selections []string
+	// I18nSelections are the entries added after preset.GenericI18n when
+	// the app is multilingual, such as the i18n library of the framework.
+	I18nSelections []string
+	Commands       spec.Commands
+	Output         spec.Output
+}
+
+// PresetStack returns the stack of a preset. The result shares no slices
+// with p.
+func PresetStack(p preset.Preset) Stack {
+	return Stack{
+		Selections:     slices.Clone(p.Selections),
+		I18nSelections: slices.Clone(p.I18nSelections),
+		Commands:       p.Commands,
+		Output:         p.Output,
+	}
+}
+
 // Build returns the spec simple mode writes for a preset and the answers:
 // the preset's stack, then the i18n entries, the rules of the autonomy level
 // and learning mode, with the catalog version pinned. Invalid answers are
 // errors, joined with errors.Join; Build does not resolve the spec against
 // the catalog, which callers do before saving it.
 func Build(c *catalog.Catalog, p preset.Preset, a Answers) (spec.Spec, error) {
+	return BuildStack(c, PresetStack(p), a)
+}
+
+// BuildStack is Build for any stack, such as one detection found. Entries
+// the answers add that the stack already selects, such as
+// conventional-commits detected from a commitlint config, are not added
+// twice.
+func BuildStack(c *catalog.Catalog, st Stack, a Answers) (spec.Spec, error) {
 	var errs []error
 	fail := func(format string, args ...any) { errs = append(errs, fmt.Errorf(format, args...)) }
 
@@ -373,16 +406,31 @@ func Build(c *catalog.Catalog, p preset.Preset, a Answers) (spec.Spec, error) {
 		return spec.Spec{}, errors.Join(errs...)
 	}
 
-	s := p.Spec(spec.Project{Name: strings.TrimSpace(a.Name), Goal: strings.TrimSpace(a.Goal)}, Targets(a.Agents))
-	s.CatalogVersion = c.Version()
-	s.Mode = spec.ModeSimple
+	s := spec.Spec{
+		Version:        spec.CurrentVersion,
+		CatalogVersion: c.Version(),
+		Targets:        Targets(a.Agents),
+		Mode:           spec.ModeSimple,
+		Project:        spec.Project{Name: strings.TrimSpace(a.Name), Goal: strings.TrimSpace(a.Goal)},
+		Commands:       st.Commands,
+		Selections:     slices.Clone(st.Selections),
+		Output:         st.Output,
+	}
+	add := func(ids ...string) {
+		for _, id := range ids {
+			if !slices.Contains(s.Selections, id) {
+				s.Selections = append(s.Selections, id)
+			}
+		}
+	}
 	if i18n != nil {
 		s.I18n = i18n
-		s.Selections = append(s.Selections, p.MultilingualSelections()...)
+		add(preset.GenericI18n)
+		add(st.I18nSelections...)
 	}
-	s.Selections = append(s.Selections, AutonomySelections(a.Autonomy)...)
+	add(AutonomySelections(a.Autonomy)...)
 	if learning != "" {
-		s.Selections = append(s.Selections, learning)
+		add(learning)
 	}
 	// Defaults are never written to the spec, so English stays implicit.
 	if replies := CanonicalLanguage(a.AgentReplies); replies != spec.DefaultLanguage {

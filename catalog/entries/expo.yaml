@@ -22,3 +22,5 @@ enforce:
         ask: ["Bash(npx expo install *)", "PowerShell(npx expo install *)"]
 detect:
   files: [app.json, app.config.js, app.config.ts, eas.json]
+  dependencies:
+    npm: [expo]

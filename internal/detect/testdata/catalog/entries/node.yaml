@@ -1,0 +1,10 @@
+id: node
+name: node
+category: runtime
+select: radio
+summary: Test entry node
+snippet:
+  rule: Use node.
+  why: Tests need it.
+detect:
+  files: [package.json, .nvmrc]

@@ -12,3 +12,5 @@ snippet:
   why: Strict types catch errors at compile time, and `any` silently turns the checks off.
 detect:
   files: [tsconfig.json]
+  dependencies:
+    npm: [typescript]

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 // kebabCase matches ids, categories and topics: lowercase letters and digits
@@ -143,9 +144,82 @@ func validateEntry(name string, e Entry) []error {
 		errs = append(errs, validateGitignore(name, e.Enforce.Gitignore)...)
 	}
 	if e.Detect != nil {
-		errs = append(errs, validateNotBlank(name, "detect.files", e.Detect.Files)...)
+		errs = append(errs, validateDetect(name, *e.Detect)...)
 	}
 	return errs
+}
+
+// validateDetect checks the detect field of an entry.
+func validateDetect(name string, d Detect) []error {
+	errs := validateNotBlank(name, "detect.files", d.Files)
+	add := func(field, format string, args ...any) {
+		errs = append(errs, &ValidationError{File: name, Field: field, Msg: fmt.Sprintf(format, args...)})
+	}
+
+	if deps := d.Dependencies; deps != nil {
+		if len(deps.NPM)+len(deps.PyPI)+len(deps.Go) == 0 {
+			add("detect.dependencies", "lists no dependencies; add some or remove it")
+		}
+		errs = append(errs, validatePackageNames(name, "detect.dependencies.npm", deps.NPM, nil)...)
+		errs = append(errs, validatePackageNames(name, "detect.dependencies.pypi", deps.PyPI, func(n string) string {
+			if want := NormalizePyPI(n); want != n {
+				return fmt.Sprintf("%q must be written in its normalized form, %q", n, want)
+			}
+			return ""
+		})...)
+		errs = append(errs, validatePackageNames(name, "detect.dependencies.go", deps.Go, func(n string) string {
+			if strings.HasSuffix(n, "/") || strings.HasPrefix(n, "/") {
+				return fmt.Sprintf("%q must be a module path without leading or trailing slashes", n)
+			}
+			return ""
+		})...)
+	}
+
+	if d.RunScript != "" {
+		switch {
+		case strings.TrimSpace(d.RunScript) == "" || strings.ContainsAny(d.RunScript, "\r\n"):
+			add("detect.run_script", "must be one line of text")
+		case strings.Count(d.RunScript, ScriptPlaceholder) != 1:
+			add("detect.run_script", "%q must contain %s exactly once, where the script's name goes", d.RunScript, ScriptPlaceholder)
+		}
+	}
+	return errs
+}
+
+// validatePackageNames checks one ecosystem's list of names: none blank,
+// none with spaces, none listed twice. check, when not nil, returns a
+// message for a name the ecosystem does not accept, or "".
+func validatePackageNames(name, field string, names []string, check func(string) string) []error {
+	errs := validateNotBlank(name, field, names)
+	for i, n := range names {
+		f := fmt.Sprintf("%s[%d]", field, i)
+		add := func(msg string) { errs = append(errs, &ValidationError{File: name, Field: f, Msg: msg}) }
+		switch {
+		case strings.TrimSpace(n) == "":
+			// Reported by validateNotBlank.
+		case strings.IndexFunc(n, unicode.IsSpace) >= 0:
+			add(fmt.Sprintf("%q contains spaces; a package name never does", n))
+		case slices.Index(names, n) < i:
+			add(fmt.Sprintf("%q is listed twice", n))
+		case check != nil:
+			if msg := check(n); msg != "" {
+				add(msg)
+			}
+		}
+	}
+	return errs
+}
+
+// pypiSeparators matches the runs of characters PEP 503 treats as one.
+var pypiSeparators = regexp.MustCompile(`[-_.]+`)
+
+// NormalizePyPI returns the normalized form of a Python project name, as
+// PEP 503 defines it: lowercase, with every run of "-", "_" and "."
+// replaced by one hyphen. pip treats "Flask_SQLAlchemy" and
+// "flask-sqlalchemy" as the same project, so detection compares names in
+// this form.
+func NormalizePyPI(name string) string {
+	return pypiSeparators.ReplaceAllString(strings.ToLower(name), "-")
 }
 
 // validateRefs checks a list of entry ids for blanks, self-references and duplicates.

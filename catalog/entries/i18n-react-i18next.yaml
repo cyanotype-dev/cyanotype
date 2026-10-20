@@ -14,3 +14,6 @@ snippet:
     Read every user-facing string through react-i18next: `const { t } = useTranslation()` and `t('key')` in components, and the `Trans` component only for text that contains markup.
     Keep messages in one JSON file per locale under `locales/`, such as `locales/en.json`, and configure i18next once, in a single module imported at the app's entry point.
   why: One setup module and one hook keep every string translatable, so adding a locale means adding a file.
+detect:
+  dependencies:
+    npm: [react-i18next]

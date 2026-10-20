@@ -15,3 +15,5 @@ snippet:
   why: Everything in the client bundle is public, so a secret there is a leaked secret.
 detect:
   files: [vite.config.ts, vite.config.js]
+  dependencies:
+    npm: ["@vitejs/plugin-react", "@vitejs/plugin-react-swc"]

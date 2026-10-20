@@ -1,0 +1,11 @@
+id: pytest
+name: pytest
+category: testing
+select: checkbox
+summary: Test entry pytest
+snippet:
+  rule: Use pytest.
+  why: Tests need it.
+detect:
+  dependencies:
+    pypi: [pytest]

@@ -15,3 +15,5 @@ snippet:
   why: Server Components keep secrets and data fetching on the server and send less JavaScript to the browser.
 detect:
   files: [next.config.js, next.config.mjs, next.config.ts]
+  dependencies:
+    npm: [next]
