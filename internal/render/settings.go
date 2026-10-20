@@ -41,40 +41,6 @@ func denyGroups(r *resolve.Result) [][]string {
 	return groups
 }
 
-// mergeDeny adds the rules of groups to existing, which it keeps unchanged
-// at the start. Each group's rules end up in the result in their original
-// order, as a subsequence: a rule already present is reused only when it
-// comes after the previous rule of the same group, otherwise it is added
-// again at the end. That keeps every negation after the rules it narrows,
-// whatever order the existing list has, at the cost of an occasional
-// duplicate. Merging the result again changes nothing.
-func mergeDeny(existing []string, groups [][]string) []string {
-	out := slices.Clone(existing)
-	for _, group := range groups {
-		last := -1
-		for _, rule := range group {
-			i := indexAfter(out, rule, last)
-			if i < 0 {
-				out = append(out, rule)
-				i = len(out) - 1
-			}
-			last = i
-		}
-	}
-	return out
-}
-
-// indexAfter returns the first index greater than after where list holds
-// s, or -1.
-func indexAfter(list []string, s string, after int) int {
-	for i := after + 1; i < len(list); i++ {
-		if list[i] == s {
-			return i
-		}
-	}
-	return -1
-}
-
 // renderSettings returns .claude/settings.json with the deny rules of the
 // selected entries, and false when there is nothing to write: no rules and
 // no existing file.
@@ -132,7 +98,7 @@ func mergeSettings(old []byte, groups [][]string) ([]byte, error) {
 		}
 	}
 
-	merged := mergeDeny(deny, groups)
+	merged := mergeOrdered(deny, groups)
 	if old != nil && slices.Equal(merged, deny) {
 		return old, nil
 	}

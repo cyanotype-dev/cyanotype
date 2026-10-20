@@ -109,6 +109,9 @@ func validateEntry(name string, e Entry) []error {
 	if e.Enforce != nil && e.Enforce.Claude != nil {
 		errs = append(errs, validateNotBlank(name, "enforce.claude.deny", e.Enforce.Claude.Deny)...)
 	}
+	if e.Enforce != nil {
+		errs = append(errs, validateGitignore(name, e.Enforce.Gitignore)...)
+	}
 	if e.Detect != nil {
 		errs = append(errs, validateNotBlank(name, "detect.files", e.Detect.Files)...)
 	}
@@ -128,6 +131,32 @@ func validateRefs(name, self, field string, ids []string) []error {
 			errs = append(errs, &ValidationError{File: name, Field: f, Msg: "an entry cannot reference itself"})
 		case slices.Index(ids, id) < i:
 			errs = append(errs, &ValidationError{File: name, Field: f, Msg: fmt.Sprintf("%q is listed twice", id)})
+		}
+	}
+	return errs
+}
+
+// validateGitignore checks the lines an entry adds to the .gitignore block.
+// Each must be one pattern on one line: no leading or trailing spaces, which
+// git reads as part of the pattern, and no leading #, which makes a comment
+// and could imitate the block's markers.
+func validateGitignore(name string, lines []string) []error {
+	const field = "enforce.gitignore"
+	errs := validateNotBlank(name, field, lines)
+	for i, line := range lines {
+		f := fmt.Sprintf("%s[%d]", field, i)
+		add := func(msg string) { errs = append(errs, &ValidationError{File: name, Field: f, Msg: msg}) }
+		switch {
+		case strings.TrimSpace(line) == "":
+			// Reported by validateNotBlank.
+		case strings.ContainsAny(line, "\r\n"):
+			add("must be a single line")
+		case strings.TrimSpace(line) != line:
+			add(fmt.Sprintf("%q has leading or trailing spaces, which git reads as part of the pattern", line))
+		case strings.HasPrefix(line, "#"):
+			add(fmt.Sprintf("%q starts with #, which makes it a comment", line))
+		case slices.Index(lines, line) < i:
+			add(fmt.Sprintf("%q is listed twice", line))
 		}
 	}
 	return errs

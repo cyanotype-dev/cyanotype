@@ -4,6 +4,9 @@ dist/
 # cyanotype:begin (generated from cyanotype.yaml; regeneration replaces this block)
 cyanotype.local.yaml
 .agents.local/
+.env
+.env.*
+!.env.example
 # cyanotype:end
 
 # Editor

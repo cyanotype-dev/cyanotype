@@ -57,9 +57,15 @@ type Snippet struct {
 	Why  string `yaml:"why"`
 }
 
-// Enforce lists the real constraints generated alongside the snippet.
+// Enforce lists the real constraints generated alongside the snippet. Each
+// key names where a constraint goes: an agent's settings, or a file of the
+// repository that holds for everyone, humans included.
 type Enforce struct {
 	Claude *ClaudeEnforce `yaml:"claude,omitempty"`
+	// Gitignore holds lines for the .gitignore block cyanotype owns, such
+	// as ".env". They keep the order written here, because a negation such
+	// as "!.env.example" only re-includes what the lines before it ignore.
+	Gitignore []string `yaml:"gitignore,omitempty"`
 }
 
 // ClaudeEnforce holds constraints written to Claude Code settings.

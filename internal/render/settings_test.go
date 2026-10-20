@@ -45,7 +45,7 @@ func checkDenyOrder(t *testing.T, deny []string, groups [][]string) {
 	}
 }
 
-func TestMergeDenyKeepsEntryOrder(t *testing.T) {
+func TestMergeOrderedKeepsEntryOrder(t *testing.T) {
 	tests := []struct {
 		name     string
 		existing []string
@@ -92,15 +92,15 @@ func TestMergeDenyKeepsEntryOrder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mergeDeny(tt.existing, tt.groups)
+			got := mergeOrdered(tt.existing, tt.groups)
 			if !slices.Equal(got, tt.want) {
-				t.Errorf("mergeDeny() =\n%q\nwant\n%q", got, tt.want)
+				t.Errorf("mergeOrdered() =\n%q\nwant\n%q", got, tt.want)
 			}
 			checkDenyOrder(t, got, tt.groups)
 			if !slices.Equal(got[:len(tt.existing)], tt.existing) {
-				t.Errorf("mergeDeny() changed the existing rules: %q", got)
+				t.Errorf("mergeOrdered() changed the existing rules: %q", got)
 			}
-			if again := mergeDeny(got, tt.groups); !slices.Equal(again, got) {
+			if again := mergeOrdered(got, tt.groups); !slices.Equal(again, got) {
 				t.Errorf("merging twice changed the list:\n%q\nthen\n%q", got, again)
 			}
 		})
@@ -249,7 +249,7 @@ func TestMergeGitignore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mergeGitignore(tt.old)
+			got, err := mergeGitignore(tt.old, gitignoreEntries)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -257,6 +257,81 @@ func TestMergeGitignore(t *testing.T) {
 				t.Errorf("mergeGitignore() =\n%q\nwant\n%q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGitignoreLines(t *testing.T) {
+	entry := func(id string, lines ...string) resolve.Entry {
+		return resolve.Entry{Entry: catalog.Entry{ID: id, Enforce: &catalog.Enforce{Gitignore: lines}}}
+	}
+	tests := []struct {
+		name    string
+		entries []resolve.Entry
+		want    []string
+	}{
+		{
+			name: "no entry lines",
+			want: gitignoreEntries,
+		},
+		{
+			name:    "entry lines after the personal files, in catalog order",
+			entries: []resolve.Entry{entry("secrets", ".env", ".env.*", "!.env.example")},
+			want:    []string{"cyanotype.local.yaml", ".agents.local/", ".env", ".env.*", "!.env.example"},
+		},
+		{
+			name:    "entries in selection order, a shared line written once",
+			entries: []resolve.Entry{entry("db", "*.db"), {Entry: catalog.Entry{ID: "plain"}}, entry("cache", "*.db", ".cache/")},
+			want:    []string{"cyanotype.local.yaml", ".agents.local/", "*.db", ".cache/"},
+		},
+		{
+			name: "a line reused before a negation is written again after it",
+			entries: []resolve.Entry{
+				entry("secrets", ".env.*", "!.env.example"),
+				entry("other", "!.env.example", ".env.*"),
+			},
+			want: []string{"cyanotype.local.yaml", ".agents.local/", ".env.*", "!.env.example", ".env.*"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := gitignoreLines(&resolve.Result{Entries: tt.entries})
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("gitignoreLines() =\n%q\nwant\n%q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRealCatalogGitignoreOrder renders the .gitignore block for every
+// entry of the real catalog that has gitignore lines, and checks that each
+// entry's lines come out in catalog order, so negations keep working.
+func TestRealCatalogGitignoreOrder(t *testing.T) {
+	c, err := catalog.LoadRoot(os.DirFS(filepath.Join("..", "..", "catalog")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Entries are added directly, without resolving, so exclusive entries
+	// can be checked together.
+	r := &resolve.Result{}
+	var groups [][]string
+	for _, e := range c.Entries() {
+		if e.Enforce != nil && len(e.Enforce.Gitignore) > 0 {
+			r.Entries = append(r.Entries, resolve.Entry{Entry: e})
+			groups = append(groups, e.Enforce.Gitignore)
+		}
+	}
+	if len(groups) == 0 {
+		t.Fatal("found no catalog entry with gitignore lines")
+	}
+	f, err := renderGitignore(r, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(f.Content), "\n"), "\n")
+	for _, g := range groups {
+		if !isSubsequence(g, lines) {
+			t.Errorf(".gitignore breaks the order of %q:\n%s", g, f.Content)
+		}
 	}
 }
 
@@ -275,7 +350,7 @@ func TestMergeGitignoreErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mergeGitignore(tt.old)
+			got, err := mergeGitignore(tt.old, gitignoreEntries)
 			if err == nil || err.Error() != tt.want {
 				t.Errorf("mergeGitignore() = %q, error %v\nwant error %q", got, err, tt.want)
 			}
