@@ -126,7 +126,7 @@
       }
     },
     "detect": {
-      "description": "What reveals the entry in an existing project.",
+      "description": "What reveals the entry in an existing project. Finding any one of its files or dependencies is enough.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -134,6 +134,37 @@
           "description": "Paths relative to the project root.",
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
+        },
+        "dependencies": {
+          "description": "Package names, per ecosystem, that reveal the entry when a manifest at the project root lists them.",
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "npm": {
+              "description": "Package names read from package.json: dependencies, devDependencies, optionalDependencies and peerDependencies.",
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^\\S+$" }
+            },
+            "pypi": {
+              "description": "Project names read from pyproject.toml and requirements.txt, normalized as PEP 503 says: lowercase, with one hyphen for every run of -, _ and .",
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+            },
+            "go": {
+              "description": "Module paths read from the require directives of go.mod. A path also matches its major versions and subpaths, so github.com/jackc/pgx matches github.com/jackc/pgx/v5.",
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[^/\\s]\\S*[^/\\s]$" }
+            }
+          }
+        },
+        "run_script": {
+          "description": "For package managers: how the tool runs a script of package.json, with {script} standing for the script's name, such as \"pnpm {script}\".",
+          "type": "string",
+          "pattern": "^[^\\r\\n]*\\{script\\}[^\\r\\n]*$"
         }
       }
     }

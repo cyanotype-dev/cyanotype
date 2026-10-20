@@ -136,6 +136,22 @@ func TestLoadInvalid(t *testing.T) {
 			{"alpha.yaml", "enforce.claude.deny[1]", "is empty"},
 			{"alpha.yaml", "detect.files[0]", "is empty"},
 		}},
+		{"bad-detect", []wantErr{
+			{"alpha.yaml", "detect.dependencies.npm[1]", "is empty"},
+			{"alpha.yaml", "detect.dependencies.npm[2]", `"al pha" contains spaces`},
+			{"alpha.yaml", "detect.dependencies.npm[3]", `"alpha" is listed twice`},
+			{"alpha.yaml", "detect.dependencies.pypi[0]", `"Alpha_Tools" must be written in its normalized form, "alpha-tools"`},
+			{"alpha.yaml", "detect.dependencies.go[0]", "without leading or trailing slashes"},
+			{"alpha.yaml", "detect.run_script", "must contain {script} exactly once"},
+		}},
+		{"empty-dependencies", []wantErr{
+			{"alpha.yaml", "detect.dependencies", "lists no dependencies"},
+		}},
+		// Ecosystems are fields, so a misspelled or unsupported one is an
+		// error rather than a list detection never reads.
+		{"unknown-ecosystem", []wantErr{
+			{"alpha.yaml", "", `line 11: unknown field "cargo"`},
+		}},
 		{"bad-ask", []wantErr{
 			{"alpha.yaml", "enforce.claude.ask[1]", "is empty"},
 			{"alpha.yaml", "enforce.claude.ask[2]", `"Bash(beta *)" is also listed in enforce.claude.deny, which wins`},

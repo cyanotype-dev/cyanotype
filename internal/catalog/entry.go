@@ -94,8 +94,41 @@ type ClaudeConditional struct {
 	Ask []string `yaml:"ask"`
 }
 
-// Detect lists what reveals the entry in an existing project.
+// Detect lists what reveals the entry in an existing project. Finding any
+// one of its files or dependencies is enough. The names live here, in the
+// catalog, so detecting a new stack needs no code change; the code only
+// knows how to read each kind of manifest.
 type Detect struct {
 	// Files are paths relative to the project root.
 	Files []string `yaml:"files,omitempty"`
+	// Dependencies are package names, per ecosystem, that reveal the entry
+	// when a manifest at the project root lists them.
+	Dependencies *Dependencies `yaml:"dependencies,omitempty"`
+	// RunScript says how this tool runs a script of package.json, such as
+	// "pnpm {script}", with {script} standing for the script's name. Only
+	// package managers have one: detection uses it to turn the scripts it
+	// finds into the spec's commands, which differ between tools ("npm run
+	// dev", "pnpm dev").
+	RunScript string `yaml:"run_script,omitempty"`
 }
+
+// Dependencies holds package names per ecosystem. Each field is one
+// ecosystem, so a misspelled one is an unknown field rather than a list
+// detection silently never reads.
+type Dependencies struct {
+	// NPM holds package names read from package.json: dependencies,
+	// devDependencies, optionalDependencies and peerDependencies.
+	NPM []string `yaml:"npm,omitempty"`
+	// PyPI holds project names read from pyproject.toml and
+	// requirements.txt, in their normalized form (PEP 503): lowercase, with
+	// hyphens for runs of "-", "_" and ".", so "Flask_SQLAlchemy" is
+	// written "flask-sqlalchemy".
+	PyPI []string `yaml:"pypi,omitempty"`
+	// Go holds module paths read from the require directives of go.mod. A
+	// path also matches its major versions and subpaths:
+	// "github.com/jackc/pgx" matches "github.com/jackc/pgx/v5".
+	Go []string `yaml:"go,omitempty"`
+}
+
+// ScriptPlaceholder is what RunScript holds in place of the script's name.
+const ScriptPlaceholder = "{script}"

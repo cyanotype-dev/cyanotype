@@ -1,0 +1,11 @@
+id: alpha
+name: Alpha
+category: language
+select: checkbox
+summary: A language for tests
+snippet:
+  rule: Write Alpha.
+  why: Tests need a language.
+detect:
+  dependencies:
+    cargo: [alpha]
