@@ -10,12 +10,30 @@
       "Bash(git push -f*)",
       "Bash(git push * -f*)",
       "Bash(gh repo delete*)",
+      "Bash(git tag *)",
+      "Bash(git push *--tags*)",
+      "Bash(git push *--follow-tags*)",
+      "Bash(git push *--mirror*)",
+      "Bash(git push *refs/tags/*)",
+      "Bash(git push * v*)",
+      "Bash(git push *:v*)",
+      "Bash(git push *+v*)",
+      "Bash(gh release *)",
       "PowerShell(Remove-Item *-Recurse*)",
       "PowerShell(git reset --hard*)",
       "PowerShell(git push *--force*)",
       "PowerShell(git push -f*)",
       "PowerShell(git push * -f*)",
-      "PowerShell(gh repo delete*)"
+      "PowerShell(gh repo delete*)",
+      "PowerShell(git tag *)",
+      "PowerShell(git push *--tags*)",
+      "PowerShell(git push *--follow-tags*)",
+      "PowerShell(git push *--mirror*)",
+      "PowerShell(git push *refs/tags/*)",
+      "PowerShell(git push * v*)",
+      "PowerShell(git push *:v*)",
+      "PowerShell(git push *+v*)",
+      "PowerShell(gh release *)"
     ]
   }
 }

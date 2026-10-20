@@ -157,6 +157,48 @@ The install ask rules moved from `dependency-approval` to the entry of each tool
 
 As ask rules, the run of 2026-10-20 checked `npm install *` and `go get *` in Bash and PowerShell, and `npm i *` in Bash. `npm i *` in PowerShell, `npm add *`, `pnpm add *`, `uv add *` and `npx expo install *` have the same form but have not been checked as ask rules; the table under Other entries says so.
 
+## Run of 2026-10-20: tag rules in the repository settings
+
+These rules are in this repository's own `.claude/settings.json`, not in the catalog. They back the rule that only the maintainer creates and pushes tags: a pushed `v*` tag starts the release workflow, which publishes to every channel. The `release` environment's required reviewer is the real guard, since it also stops a tag pushed by mistake from outside an agent; these rules keep agents from getting that far. The same procedure applies.
+
+**Environment:**
+- Claude Code 2.1.299 (`CLAUDE_CODE_EXECPATH`), running in the Claude desktop app on Windows 11. The `claude` CLI on the `PATH` was 2.1.304 and was not the one tested.
+- The session was in auto mode.
+- Git 2.45.1 for Windows and GitHub CLI 2.102.0. `.claude/settings.local.json` allows `PowerShell(git *)` and `Bash(git push *)`, so the run also shows deny winning over allow.
+
+Every case is harmless if a rule fails: tags are only listed, created on a ref that does not exist, or deleted when they do not exist, and every push is a `--dry-run` of a tag that does not exist. In the control run every case ran: listing printed nothing, the tag commands failed on the missing ref or tag, the dry runs reported "Everything up-to-date" or "src refspec does not match any", and `gh release create --help` printed its help. A first choice for creating a tag, on the all-zero object id, exited 0 without creating anything and was replaced by a ref name that does not exist. No tag existed before or after the run.
+
+**Rules** (`Bash(...)` and `PowerShell(...)` versions of each): `git tag *`, `git push *--tags*`, `git push *--follow-tags*`, `git push *--mirror*`, `git push *refs/tags/*`, `git push * v*`, `gh release *`. After the first pass, `git push *:v*` and `git push *+v*` were added for the gap found in it.
+
+| Case | Bash | PowerShell |
+| --- | --- | --- |
+| `git tag -l`, bare `git tag` | Blocked | Blocked (`git tag -l`) |
+| `git tag v0.0.0-dummy does-not-exist-dummy` | Blocked | Blocked |
+| `git tag -d nonexistent-dummy` | Blocked | Blocked |
+| `cd docs && git tag -l` | Blocked | |
+| `& git tag -l` | | Blocked |
+| `git.exe tag -l` | **Not blocked** | Blocked |
+| `git -C . tag -l` | **Not blocked** | **Not blocked** |
+| `git push --dry-run origin --tags` | Blocked | Blocked |
+| `git push --dry-run --follow-tags origin chore/release-v0.1` | Blocked | Blocked |
+| `git push --dry-run --mirror origin` | Blocked | Blocked |
+| `git push --dry-run origin v0.0.0-dummy` | Blocked | Blocked |
+| `git push --dry-run origin refs/tags/dummy` | Blocked | Blocked |
+| `git push --dry-run origin --delete v0.0.0-dummy` | Blocked | |
+| `git push --dry-run origin :v0.0.0-dummy` | **Not blocked** in the first pass; blocked with `git push *:v*` | Blocked |
+| `git push --dry-run origin +v0.0.0-dummy`, `HEAD:v0.0.0-dummy` | Blocked | |
+| `gh release create --help` | Blocked | Blocked |
+| `git push --dry-run origin chore/release-v0.1` | Allowed, as intended | Allowed, as intended |
+| `git describe --tags --always` | Allowed, as intended | |
+
+**Findings:**
+
+- `git tag *` blocks every use of `git tag`, listing included; `git describe --tags` still reads tags.
+- A tag pushed by name, with `--tags`, `--follow-tags`, `--mirror` or a `refs/tags/` refspec is blocked. A deleting refspec, `:v0.1.0`, got around `git push * v*`, which needs a space before the `v`; `git push *:v*` and `git push *+v*` close it and the forced form.
+- The rules are broader than tags in two places: `git push * v*` also blocks pushing a branch whose name starts with `v`, which no branch prefix of this repository does, and `gh release *` also blocks reading releases with `gh release view` or `list`.
+- As with `npm.cmd`, `git.exe` gets around the `Bash` rules, while `PowerShell(git tag *)` also blocks `git.exe` and the call operator.
+- `git -C <dir>` before the subcommand gets around the rules in both shells, like an option before the subcommand of a package manager. Tags without a `v` prefix, pushes through `gh api` and a `push.followTags` setting in git config are not covered either. The required reviewer of the `release` environment is what stops a release in those cases.
+
 ## Known limits
 
 - Results hold for the Claude Code version recorded with each run. Permission matching changes between releases, so rerun the procedure after upgrading.
