@@ -21,6 +21,7 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - Test: `go test ./...`
 - Lint: `golangci-lint run`
 - Run: `go run ./cmd/cyanotype`
+- Release check: `goreleaser check`; snapshot: `goreleaser release --snapshot --clean --skip=sign` (Linux or macOS only)
 
 ## Project structure
 
@@ -36,6 +37,7 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - `internal/simple/`: simple-mode questions and how their answers become a spec.
 - `catalog/`: YAML entries, licensed CC0-1.0 (separate LICENSE). Code is Apache-2.0.
 - `schema/`: JSON Schemas for catalog entries and the spec file.
+- `.goreleaser.yaml`, `packaging/`: release configuration, run by `.github/workflows/release.yml` on v* tags. See docs/RELEASING.md.
 
 ## Code style
 
@@ -69,3 +71,4 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 
 - No destructive commands (`rm -rf`, `git reset --hard`, `git push --force`, deleting branches) without asking first.
 - Never commit secrets; they belong in environment variables, never in the repo.
+- Never create, move or push tags, and never run `gh release`. Why: a pushed v* tag publishes a signed release to every channel; only the maintainer releases.
