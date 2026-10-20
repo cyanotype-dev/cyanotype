@@ -1,0 +1,192 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+#
+# Release configuration. The release workflow runs it when the maintainer
+# pushes a v* tag, and the release check workflow builds a snapshot on pull
+# requests that change it. See docs/RELEASING.md.
+#
+# The GoReleaser version is pinned in both workflows; change it there, in one
+# commit, and let the release check run on the pull request.
+version: 2
+
+project_name: cyanotype
+
+before:
+  hooks:
+    # cyty is the short alias of cyanotype. In tar archives it is a relative
+    # symlink next to the binary, not a second copy of it. GoReleaser stores
+    # symlinks as symlinks, so releases and snapshots run on Linux or macOS.
+    - sh -c "mkdir -p build && ln -sfn cyanotype build/cyty"
+
+# Two builds of the same command, one per archive format: tar archives for
+# Linux and macOS carry the cyty symlink, zip archives for Windows carry
+# cyty.cmd.
+builds:
+  - id: unix
+    main: ./cmd/cyanotype
+    binary: cyanotype
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+  - id: windows
+    main: ./cmd/cyanotype
+    binary: cyanotype
+    env:
+      - CGO_ENABLED=0
+    goos: [windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version=v{{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: unix
+    ids: [unix]
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+      - catalog/LICENSE
+      - src: build/cyty
+        strip_parent: true
+  - id: windows
+    ids: [windows]
+    formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - catalog/LICENSE
+      - src: packaging/windows/cyty.cmd
+        strip_parent: true
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# Keyless signing: cosign gets a short-lived certificate for the release
+# workflow's GitHub OIDC identity, so there is no key to store or leak.
+# Signing the checksum file covers every archive and package it lists.
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - --bundle=${signature}
+      - ${artifact}
+      - --yes
+    output: true
+
+nfpms:
+  - id: packages
+    ids: [unix]
+    package_name: cyanotype
+    vendor: Cyanotype
+    homepage: https://github.com/cyanotype-dev/cyanotype
+    maintainer: Cyanotype maintainers <maintainers@cyanotype.dev>
+    description: Generates instruction files for coding agents from a catalog of choices.
+    # The code is Apache-2.0; the bundled catalog is CC0-1.0.
+    license: Apache-2.0 AND CC0-1.0
+    section: devel
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    contents:
+      - src: /usr/bin/cyanotype
+        dst: /usr/bin/cyty
+        type: symlink
+      - src: LICENSE
+        dst: /usr/share/doc/cyanotype/LICENSE
+      - src: catalog/LICENSE
+        dst: /usr/share/doc/cyanotype/catalog/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/cyanotype/README.md
+
+# A Homebrew formula, although GoReleaser deprecated formulas in favor of
+# casks in v2.10: a formula works on Linux too, installs the cyty alias with
+# install_symlink and is not quarantined by Gatekeeper on macOS. The move to
+# casks waits for signed and notarized macOS binaries; see docs/DESIGN.md.
+brews:
+  - name: cyanotype
+    ids: [unix]
+    repository:
+      owner: cyanotype-dev
+      name: homebrew-tap
+      branch: main
+      git:
+        url: git@github.com:cyanotype-dev/homebrew-tap.git
+        private_key: '{{ index .Env "HOMEBREW_TAP_DEPLOY_KEY" }}'
+    directory: Formula
+    commit_author:
+      name: Cyanotype release
+      email: maintainers@cyanotype.dev
+    commit_msg_template: "chore: update {{ .ProjectName }} to {{ .Tag }}"
+    homepage: https://github.com/cyanotype-dev/cyanotype
+    description: Generate instruction files for coding agents
+    license: Apache-2.0
+    install: |
+      bin.install "cyanotype"
+      bin.install_symlink "cyanotype" => "cyty"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/cyanotype version")
+      assert_match version.to_s, shell_output("#{bin}/cyty version")
+
+# Scoop has no cyty: GoReleaser builds the manifest's bin list from the
+# binaries alone, and a post_install shim would survive an uninstall. The
+# README shows a PowerShell alias instead.
+scoops:
+  - name: cyanotype
+    ids: [windows]
+    repository:
+      owner: cyanotype-dev
+      name: scoop-bucket
+      branch: main
+      git:
+        url: git@github.com:cyanotype-dev/scoop-bucket.git
+        private_key: '{{ index .Env "SCOOP_BUCKET_DEPLOY_KEY" }}'
+    directory: bucket
+    commit_author:
+      name: Cyanotype release
+      email: maintainers@cyanotype.dev
+    commit_msg_template: "chore: update {{ .ProjectName }} to {{ .Tag }}"
+    homepage: https://github.com/cyanotype-dev/cyanotype
+    description: Generate instruction files for coding agents
+    license: Apache-2.0
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^test(\\(.+\\))?!?:"
+      - "^Merge pull request"
+      - "^Merge branch"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Documentation
+      regexp: '^.*?docs(\(.+\))??!?:.+$'
+      order: 2
+    - title: Other changes
+      order: 999
+
+release:
+  github:
+    owner: cyanotype-dev
+    name: cyanotype
+  # Every release is a pre-release for now. "auto" would only mark tags with
+  # a pre-release suffix, such as v0.2.0-rc.1, and v0.1.0 has none. Switch to
+  # auto with the first stable release; see docs/RELEASING.md.
+  prerelease: "true"
+  footer: |
+    **Verifying the download:** see [Verifying a download](https://github.com/cyanotype-dev/cyanotype#verifying-a-download) in the README.

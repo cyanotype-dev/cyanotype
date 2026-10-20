@@ -38,3 +38,6 @@ cyanotype.local.yaml
 
 # Build output
 dist/
+
+# GoReleaser scratch files (the cyty symlink)
+build/
