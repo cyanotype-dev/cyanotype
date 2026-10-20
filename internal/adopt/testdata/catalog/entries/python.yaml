@@ -1,0 +1,9 @@
+id: python
+name: Python
+category: language
+select: checkbox
+summary: General-purpose language
+snippet:
+  rule: Rule of python.
+  why: Reason of python.
+

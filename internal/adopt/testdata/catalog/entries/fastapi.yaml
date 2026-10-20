@@ -1,0 +1,9 @@
+id: fastapi
+name: FastAPI
+category: backend-framework
+select: radio
+summary: Python web framework for APIs
+snippet:
+  rule: Rule of fastapi.
+  why: Reason of fastapi.
+requires: [python]

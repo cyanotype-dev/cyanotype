@@ -21,6 +21,12 @@ type File struct {
 	// Content is the exact bytes to write: LF line endings and one trailing
 	// newline.
 	Content []byte
+	// Header reports that Content opens with the cyanotype header, as every
+	// generated Markdown file does. A file already at Path without the
+	// header was written by someone else; see HasHeader. Files cyanotype
+	// merges into rather than replaces, .gitignore and
+	// .claude/settings.json, have no header.
+	Header bool
 }
 
 // Paths of the main instruction files.
@@ -96,16 +102,25 @@ func Supported(t spec.Target) bool {
 	return t == spec.TargetAgentsMD || t == spec.TargetClaude
 }
 
+// MainPath returns the main instruction file of the targets, the one that
+// holds the shared content: AGENTS.md when it is a target, since CLAUDE.md
+// then only imports it, and CLAUDE.md otherwise. It is "" when no target
+// has a Markdown main file yet.
+func MainPath(targets []spec.Target) string {
+	switch {
+	case slices.Contains(targets, spec.TargetAgentsMD):
+		return agentsPath
+	case slices.Contains(targets, spec.TargetClaude):
+		return claudePath
+	}
+	return ""
+}
+
 // renderInstructions returns the Markdown instruction files: the main file,
 // CLAUDE.md importing it when both targets are set, and the topic files of
 // a split output.
 func renderInstructions(r *resolve.Result, existing fs.FS, agents, claude bool) ([]File, []resolve.Warning, error) {
-	// The main file holds the shared content: AGENTS.md when it is a
-	// target, since CLAUDE.md then only imports it.
-	mainPath := agentsPath
-	if !agents {
-		mainPath = claudePath
-	}
+	mainPath := MainPath(r.Spec.Targets)
 	// enforced reports that .claude/settings.json gets permission rules,
 	// which CLAUDE.md then explains in its Claude Code section.
 	enforced := claude && !claudeRules(r).empty()
@@ -159,7 +174,7 @@ func renderMarkdown(existing fs.FS, path string, doc document) (File, error) {
 	if err != nil {
 		return File{}, fmt.Errorf("render %s: %w", path, err)
 	}
-	return File{Path: path, Content: doc.render(blocks)}, nil
+	return File{Path: path, Content: doc.render(blocks), Header: true}, nil
 }
 
 // readExisting returns the content of path in existing, or nil when the file
