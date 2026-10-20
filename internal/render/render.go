@@ -21,6 +21,12 @@ type File struct {
 	// Content is the exact bytes to write: LF line endings and one trailing
 	// newline.
 	Content []byte
+	// Header reports that Content opens with the cyanotype header, as every
+	// generated Markdown file does. A file already at Path without the
+	// header was written by someone else; see HasHeader. Files cyanotype
+	// merges into rather than replaces, .gitignore and
+	// .claude/settings.json, have no header.
+	Header bool
 }
 
 // Paths of the main instruction files.
@@ -159,7 +165,7 @@ func renderMarkdown(existing fs.FS, path string, doc document) (File, error) {
 	if err != nil {
 		return File{}, fmt.Errorf("render %s: %w", path, err)
 	}
-	return File{Path: path, Content: doc.render(blocks)}, nil
+	return File{Path: path, Content: doc.render(blocks), Header: true}, nil
 }
 
 // readExisting returns the content of path in existing, or nil when the file
