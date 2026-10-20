@@ -56,7 +56,7 @@ The catalog is a folder of YAML files, one per entry: each selectable technology
 | `topic` | no | Which split file the snippet goes to when output is split |
 | `snippet.rule`, `snippet.why` | yes | The rule and its reason |
 | `enforce` | no | Real constraints to generate: Claude Code permission rules in `enforce.claude.deny` and `enforce.claude.ask`, and in `enforce.claude.with` when they depend on another entry, `.gitignore` lines in `enforce.gitignore`; hooks and config files later |
-| `detect` | no | Files or dependencies that reveal the entry in an existing project |
+| `detect` | no | Files or dependencies that reveal the entry in an existing project, and for package managers how they run a script; see Detection |
 
 A technology entry:
 
@@ -78,6 +78,7 @@ enforce:
     deny: ["Bash(npm *)", "Bash(yarn *)", "PowerShell(npm *)", "PowerShell(yarn *)"]
 detect:
   files: [pnpm-lock.yaml]
+  run_script: pnpm {script}
 ```
 
 `requires` means "all of these". When an entry works with any one of several others, `requires_one_of` lists groups of alternatives, and each group is satisfied when at least one of its entries is selected. shadcn/ui needs Tailwind CSS and either Next.js or Vite + React:
@@ -141,6 +142,33 @@ snippet:
 A GitHub Actions check validates every pull request to the catalog (schema, consistent `requires` and `conflicts`) and periodically verifies that every `url` still responds.
 
 The catalog, including snippets and presets, is released under CC0-1.0, separately from the Apache-2.0 code. Snippets are copied into users' instruction files, and those files must carry no attribution or license notice.
+
+### Detection
+
+`detect` tells `internal/detect` what reveals an entry in an existing project. Finding any one of its files or dependencies is enough:
+
+```yaml
+# catalog/entries/postgres.yaml
+detect:
+  dependencies:
+    npm: [pg, postgres]
+    pypi: [psycopg, psycopg2, psycopg2-binary, asyncpg]
+    go: [github.com/jackc/pgx, github.com/lib/pq]
+```
+
+| Field | Read from | Matches |
+| --- | --- | --- |
+| `files` | The project folder | A file or folder at that path, relative to the root |
+| `dependencies.npm` | `package.json`: `dependencies`, `devDependencies`, `optionalDependencies`, `peerDependencies` | The package name exactly |
+| `dependencies.pypi` | `pyproject.toml` and `requirements.txt` | The project name normalized as PEP 503 says: lowercase, one hyphen for every run of `-`, `_` and `.`; the catalog writes names in that form, which validation checks |
+| `dependencies.go` | The `require` directives of `go.mod`, except `// indirect` ones | The module path, or one of its major versions and subpaths: `github.com/jackc/pgx` matches `github.com/jackc/pgx/v5` |
+| `run_script` | | For package managers: how the tool runs a `package.json` script, with `{script}` for its name, such as `npm run {script}` |
+
+The names live in the catalog and the code only knows how to read each manifest, so detecting a new stack needs no code change. Ecosystems are fields rather than map keys, so a misspelled or unsupported one is an unknown field instead of a list nothing ever reads. `run_script` exists because commands differ between tools that run the same scripts: `npm run dev`, `pnpm dev`.
+
+In `pyproject.toml` detection reads `[project]` `dependencies`, every list of `[project.optional-dependencies]` and of `[dependency-groups]`, `[tool.uv]` `dev-dependencies`, and the keys of Poetry's dependency tables except `python`. A small in-house reader handles the TOML these tables use (tables, dotted and quoted keys, strings, arrays, inline tables, comments) and reads past every other value; the standard library has no TOML parser, and a full one would be a dependency for a few lists of strings. Only the files at the project root are read, so a monorepo with a manifest per package is not covered yet. A manifest that cannot be read is a warning, and detection goes on with the rest.
+
+In the MVP, frameworks, libraries, databases, test runners and linters list their packages; Tailwind CSS 4 has no config file, so its package is the only sign. `go-stdlib` has no `detect`, since the standard library is the absence of a framework, and rule entries are detected only where a file reveals them, such as a commitlint config for `conventional-commits`.
 
 ### Distribution
 
@@ -675,7 +703,7 @@ The diff is in-house, in `internal/diff`: Myers' algorithm with three lines of c
 
 ### Creating the spec
 
-`cyanotype init` is simple mode in the terminal. It asks the questions of Simple mode, shows the chosen preset with the name and `summary` of every entry it selects, then the project name and goal, writes `cyanotype.yaml` and, on a terminal, offers to run generate, which then shows its diff and asks before writing as usual. Advanced mode arrives with the TUI; until then the spec is edited by hand.
+`cyanotype init` is simple mode in the terminal. In an existing project it starts from the detected stack once the user confirms it (see Detecting the stack). It asks the questions of Simple mode, shows the chosen preset with the name and `summary` of every entry it selects, then the project name and goal, writes `cyanotype.yaml` and, on a terminal, offers to run generate, which then shows its diff and asks before writing as usual. Advanced mode arrives with the TUI; until then the spec is edited by hand.
 
 Every question has a flag, so agents, scripts and the MCP server can run it without a terminal:
 
@@ -692,6 +720,8 @@ Every question has a flag, so agents, scripts and the MCP server can run it with
 | `--agents` | `claude`, `codex`, `gemini`, `cursor`, `copilot`, `other`, separated by commas |
 | `--name` | Project name; default the folder name. The name is not asked, so the summary shows it and, when it comes from the folder, says so and how to change it: `--name`, or `project.name` in `cyanotype.yaml` |
 | `--dir` | The project folder, as for generate |
+| `--detect` | In an existing project: `yes` to start from the detected stack, `no` to ignore it and pick a starter. See Detecting the stack |
+| `--with`, `--without` | Entry ids to add to the detected stack, or to choose where detection found several, and detected entries the project does not use |
 
 Flags answer their questions and the rest are asked. When stdin is not a terminal, init never reads it: the missing answers are one usage error that lists each missing flag with its allowed values, so an agent can fix its call in one step instead of hanging. Wrong values are usage errors before anything is asked.
 
@@ -700,6 +730,42 @@ init never overwrites a spec. An existing `cyanotype.yaml`, even a symbolic link
 Exit codes are those of generate: 0 written, 1 an error such as an existing spec, 2 wrong usage or missing answers, and, when init runs generate, the code generate ends with, 3 for files not written.
 
 Prompts use the standard library: numbered choices, answered by number or value, and lines of text, re-asked with a reason when wrong. Questions go to stderr and results to stdout, as generate's confirmation does. charmbracelet/huh would give arrow keys and inline validation, but it brings about twenty modules and is part of the TUI that Phase 2 builds with Bubble Tea. The questions are data in `internal/simple`, so a huh form will render the same ones when the TUI pays for that dependency.
+
+#### Detecting the stack
+
+When the folder has no `cyanotype.yaml`, init first runs detection on it (see Detection). If it finds nothing, init is simple mode as described above. If it finds something, init shows every entry with what revealed it, the entries that cannot all be selected, and the `package.json` scripts, then asks whether to start from that stack: yes, yes without some of it, or no, which ignores it and picks a starter. Detection never writes anything; the spec is written at the end, as always. Without a terminal `--detect` answers, and it is the only missing answer reported until given, because the questions that follow depend on it.
+
+```text
+Detected in this project:
+  - Next.js (package.json: next)
+  - Node.js (package.json)
+  - npm (package-lock.json)
+  - pnpm (pnpm-lock.yaml)
+  - TypeScript (package.json: typescript)
+Only one of npm and pnpm can be selected: the project uses one of them.
+Scripts in package.json: build, dev, lint, start
+```
+
+Detection says what the project uses; a preset says what a new project would use. So on an existing project the stack comes from detection, and simple mode never adds a technology detection did not find, such as Supabase to a Next.js app that does not use it. Presets still answer what the files cannot:
+
+| Question or field | With a detected stack |
+| --- | --- |
+| What to build | Skipped when the presets sharing the most entries with the stack are all of one project type; otherwise asked. The type is not stored in the spec: it only decides whether the translation question is asked and which i18n library is offered, so this best guess is enough |
+| Starter | Never asked |
+| Known language | Asked, for learning mode only, which is offered when the stack has a language the user does not know |
+| Translations | Skipped when the stack has an entry some preset adds for translations, such as `i18n-next-intl`: only the locales are asked, and one locale means `later`, several `yes`. Otherwise asked; the closest preset of the project type gives its `i18n_selections`, each only when it fits the stack, so a Next.js library never joins a Vite app |
+| Autonomy, reply language, goal, agents | Asked as for a new project; rules the stack already has are not added twice |
+| `selections` | The detected entries in the order of the closest preset, then in catalog order, with `--without` entries removed and `--with` entries added |
+| `commands` | The `dev`, `build`, `test` and `lint` scripts of `package.json`, run with the selected package manager's `run_script`. A preset's commands are never used, since they may name scripts the project does not have; without matching scripts the summary says there are none |
+
+Partial matches and clashes are completed by the user, never guessed:
+
+- An entry a detected one `requires` is added, and the summary says which entry required it.
+- A `requires_one_of` group with no detected alternative, such as Node.js with neither lockfile, is a question, with the closest preset's alternative as the default.
+- Detected entries of one radio category, such as npm and pnpm from `package-lock.json` and `pnpm-lock.yaml`, or entries that conflict, are a question: which one the project uses. Only the user knows which lockfile is current.
+- A file that reveals something the project does not use, such as an `app.json` that is not Expo's, is removed with "yes, without some of it" or `--without`.
+
+Without a terminal each open question is a missing `--with`, listed with the other missing answers. An id in `--with` replaces the entries of its radio category and those it conflicts with, so `--with pnpm` keeps pnpm and drops npm. `--preset` starts from that starter and skips detection; combining it with `--detect yes`, `--with` or `--without` is a usage error, as are `--with` and `--without` with `--detect no`, unknown ids, which get a "did you mean", and removing an entry detection did not find.
 
 ## Generated file quality
 
@@ -880,7 +946,7 @@ Open question: whether to host a public blueprint gallery, and how to review sub
 
 These turn a one-shot generator into a tool that stays with the project.
 
-- **Stack detection.** On an existing project it reads `package.json`, `pyproject.toml`, `go.mod`, lockfiles and config files through the catalog's `detect` field, and pre-selects what it finds. The user confirms instead of typing.
+- **Stack detection.** On an existing project it reads `package.json`, `pyproject.toml`, `requirements.txt`, `go.mod`, lockfiles and config files through the catalog's `detect` field, and pre-selects what it finds, with commands from `package.json` scripts. The user confirms instead of typing. See Detection and Detecting the stack.
 - **Presets.** Ready combinations ("Next.js + Supabase", "FastAPI + Postgres", "Simple Python script") stored as partial `cyanotype.yaml` files: the stack part of a spec, with the same keys, plus metadata. See Presets. Community presets arrive by pull request.
 - **Protected sections.** Hand-written text between `<!-- cyanotype:custom -->` markers survives regeneration; see Output.
 - **Live preview** in TUI and desktop, updated on every selection.
@@ -944,6 +1010,9 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [x] **Permission rule syntax**: catalog rules use the space syntax, `Bash(npm *)`, which matched the same commands as the legacy `Bash(npm:*)` in the 2026-10-20 check, cover every command a snippet forbids, and pair each `Bash(...)` rule with a `PowerShell(...)` one. See Real constraints.
 - [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; nothing is deleted. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
 - [x] **Init command**: `cyanotype init` asks the Simple mode questions plus the coding agents, which decide the targets, with a flag for every question. Without a terminal, missing answers are one usage error listing the flags. It shows the preset entry by entry, writes the spec exclusively and never overwrites one, and offers to run generate. Autonomy levels, i18n answers, learning mode and agents map to entries and fields as in Simple mode. See Simple mode and Creating the spec.
+- [x] **Detection format**: `detect.files`, `detect.dependencies` with one field per ecosystem (`npm`, `pypi`, `go`), and `detect.run_script` for package managers. Any one match reveals the entry; Python names are written normalized and Go paths match their major versions. Only the project root is read. See Detection.
+- [x] **Reading pyproject.toml**: an in-house reader of the tables that list dependencies, rather than a TOML library, which would be a dependency for a few lists of strings; a file it cannot read is a warning. go.mod is read in-house too, rather than with golang.org/x/mod. See Detection.
+- [x] **Detection and presets**: on an existing project the stack comes from detection, adjusted by the user, and never gains a technology detection did not find; presets give only the project type, the order, open choices' defaults and the i18n library. Commands come from `package.json` scripts and the package manager's `run_script`. Clashes and unmet `requires_one_of` groups are questions, or missing `--with` flags. init asks before starting from a detected stack, or needs `--detect`. See Detecting the stack.
 - [x] **Simple-mode prompts**: standard-library prompts now; charmbracelet/huh with the Phase 2 TUI, which pays for the dependency. Questions and options are data in `internal/simple`, shared by every interface. See Creating the spec.
 - [x] **Line diff**: written in-house in `internal/diff` (Myers, unified output) rather than taken from a library. See Generating files.
 - [x] **Terminal detection**: `golang.org/x/term` tells whether stdin and stdout are terminals, and `golang.org/x/sys/windows`, which x/term already depends on, turns on ANSI colors in Windows consoles. Both are maintained by the Go team and cover every platform; unlike a check for character devices, x/term reports `/dev/null` as not a terminal.
