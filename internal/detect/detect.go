@@ -131,7 +131,7 @@ func Detect(c *catalog.Catalog, project fs.FS) Result {
 			r.Findings = append(r.Findings, Finding{ID: e.ID, Evidence: ev})
 		}
 	}
-	r.Clashes = clashes(c, r.IDs())
+	r.Clashes = Clashes(c, r.IDs())
 	return r
 }
 
@@ -222,9 +222,11 @@ func modulePathMatches(module, path string) bool {
 	return module == path || strings.HasPrefix(module, path+"/")
 }
 
-// clashes returns the groups of ids that cannot be selected together:
+// Clashes returns the groups of ids that cannot be selected together:
 // several entries of one radio category, and pairs that declare a conflict.
-func clashes(c *catalog.Catalog, ids []string) []Clash {
+// Detect uses it on what it finds; simple mode uses it again once the user
+// has added or removed entries. Ids must be in the catalog.
+func Clashes(c *catalog.Catalog, ids []string) []Clash {
 	var out []Clash
 	byCategory := map[string][]string{}
 	var categories []string
