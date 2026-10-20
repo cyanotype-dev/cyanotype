@@ -1,0 +1,106 @@
+name: Release check
+
+# Validates the release configuration and builds a snapshot, without
+# signing or publishing, on pull requests that could change a release.
+on:
+  pull_request:
+    paths:
+      - .goreleaser.yaml
+      - .github/workflows/release.yml
+      - .github/workflows/release-check.yml
+      - packaging/**
+      # The ldflags set main.version, declared here.
+      - cmd/cyanotype/main.go
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          # Keep in sync with release.yml.
+          version: v2.18.3
+          install-only: true
+
+      - name: Check the configuration
+        # goreleaser check exits with 2 when the configuration is valid but
+        # uses deprecated properties. The Homebrew formula (brews) is
+        # deprecated on purpose, see .goreleaser.yaml, so exit code 2 passes
+        # only when brews is the only deprecation reported.
+        run: |
+          set +e
+          goreleaser check 2>&1 | tee check.log
+          code=${PIPESTATUS[0]}
+          set -e
+          if [ "$code" -eq 0 ]; then exit 0; fi
+          if [ "$code" -ne 2 ]; then exit "$code"; fi
+          deprecations=$(grep 'DEPRECATED' check.log || true)
+          others=$(printf '%s\n' "$deprecations" | grep -v 'deprecations#brews' | grep . || true)
+          if [ -z "$deprecations" ] || [ -n "$others" ]; then
+            echo "::error::goreleaser check reported deprecations other than brews"
+            exit 1
+          fi
+          echo "Only the brews deprecation was reported; accepted."
+
+      - name: Build a snapshot
+        run: goreleaser release --snapshot --clean --skip=sign
+
+      - name: Check the archives and packages
+        working-directory: dist
+        run: |
+          set -euo pipefail
+          tarball=$(ls cyanotype_*_linux_amd64.tar.gz)
+          echo "== $tarball"
+          tar -tvzf "$tarball"
+          # cyty must be a symlink to the binary, not a copy of it.
+          tar -tvzf "$tarball" | grep -E '^l.* cyty -> cyanotype$'
+          mkdir extracted
+          tar -xzf "$tarball" -C extracted
+          extracted/cyanotype version
+          extracted/cyty version
+
+          rpm=$(ls cyanotype-*.x86_64.rpm)
+          echo "== $rpm"
+          deb=$(ls cyanotype_*_amd64.deb)
+          echo "== $deb"
+          dpkg-deb -c "$deb"
+          dpkg-deb -c "$deb" | grep -E '\./usr/bin/cyty -> /usr/bin/cyanotype$'
+
+          zip=$(ls cyanotype_*_windows_amd64.zip)
+          echo "== $zip"
+          unzip -l "$zip"
+          unzip -l "$zip" | grep -E ' cyty\.cmd$'
+
+          echo "== Homebrew formula"
+          cat homebrew/Formula/cyanotype.rb
+          echo "== Scoop manifest"
+          cat scoop/bucket/cyanotype.json
+
+      - name: List the release files
+        working-directory: dist
+        run: |
+          {
+            echo "### Snapshot release files"
+            echo
+            echo '```'
+            ls -l -- *.tar.gz *.zip *.deb *.rpm checksums.txt
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

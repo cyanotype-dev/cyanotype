@@ -1,2 +1,5 @@
 # Normalize line endings so gofmt and golden files behave the same on every OS.
 * text=auto eol=lf
+
+# Windows command scripts need CRLF line endings.
+*.cmd text eol=crlf
