@@ -96,6 +96,24 @@
               "description": "Permission rules added to the ask list, such as \"Bash(npm install *)\", for rules that mean \"ask first\": Claude Code asks the user before the action. A rule may not also be in deny, which wins.",
               "type": "array",
               "items": { "type": "string", "minLength": 1 }
+            },
+            "with": {
+              "description": "Rules that apply only when another entry, named by the key, is selected too, such as pnpm's install command under dependency-approval. Only ask rules are supported for now.",
+              "type": "object",
+              "propertyNames": { "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ask"],
+                "properties": {
+                  "ask": {
+                    "description": "Permission rules added to the ask list when the key's entry is selected.",
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
             }
           }
         },

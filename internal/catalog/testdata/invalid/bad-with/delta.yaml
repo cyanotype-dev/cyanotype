@@ -1,0 +1,8 @@
+id: delta
+name: Delta
+category: agent-workflow
+select: checkbox
+summary: Another rule for tests
+snippet:
+  rule: Plan before coding.
+  why: Tests need another rule.

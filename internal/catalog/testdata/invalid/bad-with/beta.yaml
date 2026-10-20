@@ -1,0 +1,8 @@
+id: beta
+name: Beta
+category: package-manager
+select: radio
+summary: Another package manager for tests
+snippet:
+  rule: Use Beta.
+  why: Tests need a second package manager.

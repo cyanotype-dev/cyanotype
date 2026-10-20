@@ -1,0 +1,8 @@
+id: gamma
+name: Gamma
+category: agent-safety
+select: checkbox
+summary: A rule for tests
+snippet:
+  rule: Ask before adding a dependency.
+  why: Tests need a rule.
