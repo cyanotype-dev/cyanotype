@@ -6,7 +6,8 @@ summary: Route every user-facing string through the i18n library, with consisten
 topic: i18n
 snippet:
   rule: |
-    Never hardcode user-facing text; route every string through the i18n library with a key named `area.screen.element`, such as `recipes.list.emptyState`.
+    Never hardcode user-facing text; route every string through the i18n library's translation function with a key named `area.screen.element`, such as `recipes.list.emptyState`.
+    If no i18n library has been chosen yet, propose one that fits the stack and ask before adding it.
     Add each new key to every locale file in the same change, marking untranslated values so they are easy to find.
     Format dates, numbers and currency with the locale APIs, never by hand.
   why: Retrofitting translations means touching every screen, while routing strings from day one makes a new language a configuration change.
