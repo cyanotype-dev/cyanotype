@@ -55,7 +55,7 @@ The catalog is a folder of YAML files, one per entry: each selectable technology
 | `level` | no | Lets simple mode prefer beginner-friendly entries |
 | `topic` | no | Which split file the snippet goes to when output is split |
 | `snippet.rule`, `snippet.why` | yes | The rule and its reason |
-| `enforce` | no | Real constraints to generate (permissions, hooks, config files) |
+| `enforce` | no | Real constraints to generate: Claude Code permission rules in `enforce.claude`, `.gitignore` lines in `enforce.gitignore`; hooks and config files later |
 | `detect` | no | Files or dependencies that reveal the entry in an existing project |
 
 A technology entry:
@@ -598,14 +598,23 @@ The merge is additive: deselecting an entry leaves its old rules in the file, be
 
 #### The `.gitignore` block
 
-Personal files, `cyanotype.local.yaml` and `.agents.local/`, go into `.gitignore` inside a block cyanotype owns, whatever the targets:
+Personal files, `cyanotype.local.yaml` and `.agents.local/`, go into `.gitignore` inside a block cyanotype owns, whatever the targets. The `enforce.gitignore` lines of the selected entries follow them, entries in selection order and each entry's lines in catalog order. With `secrets-in-env` selected:
 
 ```gitignore
 # cyanotype:begin (generated from cyanotype.yaml; regeneration replaces this block)
 cyanotype.local.yaml
 .agents.local/
+.env
+.env.*
+!.env.example
 # cyanotype:end
 ```
+
+`.gitignore` is the repository level of Real constraints: it holds for every agent and for people, so a rule such as "`.env` stays in `.gitignore`" is true from the first `git add .`. Entry lines are generated whatever the targets, like the personal files. Order matters here too: `!.env.example` only re-includes what the lines before it ignore. So the block's lines are merged like deny rules: each entry's lines stay a subsequence in catalog order, and a line two entries share is written once unless reusing it would break an entry's order. In the MVP, `secrets-in-env` ignores `.env` files and `sqlite` its database files; an entry gets lines only when its snippet promises that something stays out of git.
+
+Catalog validation keeps each line one pattern: not blank, on one line, without leading or trailing spaces, which git reads as part of the pattern, not starting with `#`, which would make a comment and could imitate a marker, and not listed twice in the entry.
+
+`.gitignore` only stops untracked files from being added: a `.env` committed before the block existed stays tracked, and its secrets stay in the history. Warning about that is an open item for `cyanotype check` in Decisions.
 
 Regeneration replaces the block where it is and leaves the rest of the file byte for byte; a line starting with `# cyanotype:begin` opens it, so the explanation can change. Without a block, it is appended after a blank line. The block follows the file's line endings, CRLF when the file has any. Entries the user already lists outside the block are not removed or skipped, so the block never depends on the rest of the file. A second block, or a marker without its partner, is an error.
 
@@ -710,7 +719,8 @@ An optional decision log, `docs/agents/decisions.md`, lets the agent record arch
 - dependencies or config files found in the repo but missing from the spec (via `detect`);
 - generated files edited by hand or out of sync with the spec;
 - a newer catalog with changes to selected entries;
-- files over the line threshold, and references to files that no longer exist.
+- files over the line threshold, and references to files that no longer exist;
+- files that match an `enforce.gitignore` line but are already tracked by git, such as a committed `.env` (open item in Decisions).
 
 `cyanotype update` then applies catalog updates, showing a diff before writing anything.
 
@@ -895,7 +905,7 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [x] **Main file layout**: each standard section has a fixed source, catalog topics map to sections, unknown topics get their own section, and each entry is one `rule Why: why` bullet. With both targets, CLAUDE.md imports AGENTS.md and adds only Claude-specific content. See The main file.
 - [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
 - [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
-- [x] **Generated constraints**: `.claude/settings.json` deny rules are merged into the existing file, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; the merge is additive. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place. See Real constraints.
+- [x] **Generated constraints**: `.claude/settings.json` deny rules are merged into the existing file, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; the merge is additive. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place, holding the personal files and the selected entries' `enforce.gitignore` lines, merged with the same order guarantee. See Real constraints.
 - [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; nothing is deleted. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
 - [x] **Init command**: `cyanotype init` asks the Simple mode questions plus the coding agents, which decide the targets, with a flag for every question. Without a terminal, missing answers are one usage error listing the flags. It shows the preset entry by entry, writes the spec exclusively and never overwrites one, and offers to run generate. Autonomy levels, i18n answers, learning mode and agents map to entries and fields as in Simple mode. See Simple mode and Creating the spec.
 - [x] **Simple-mode prompts**: standard-library prompts now; charmbracelet/huh with the Phase 2 TUI, which pays for the dependency. Questions and options are data in `internal/simple`, shared by every interface. See Creating the spec.
@@ -904,5 +914,6 @@ Phases have no dates yet. The catalog grows alongside every phase, including out
 - [ ] **`--json` output for generate**: the MCP server section says the CLI mirrors every MCP tool with `--json`. The JSON of `generate` is a public contract shared with the MCP tools `preview` and `generate`, so it is designed together with them; `generate.Change` (path, status, old and new content, diff) is the shape it will encode.
 - [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
 - [ ] **`ask` permissions in `enforce`**: `enforce.claude` only has `deny`, which blocks an action even after the user approves it. Some rules need "ask first" instead: `dependency-approval` would generate `ask` rules for install commands such as `npm install *`, `pnpm add *` and `uv add *`, and is the first entry to use it. Adding the field changes the JSON Schema, the catalog validation and the Claude renderer.
+- [ ] **Tracked files that should be ignored**: `cyanotype check` should warn when a file matched by an `enforce.gitignore` line of a selected entry is already tracked by git, such as a committed `.env`. `.gitignore` does not untrack a file, so the generated block alone gives a false sense of safety in a repository where the secret was committed before. The warning should name the file and say that untracking it (`git rm --cached`) does not remove it from the history, so a committed secret must also be rotated.
 - [ ] **Generated-state file**: a file such as `cyanotype.lock` recording the files and the deny rules cyanotype produced. Without it, generated output cannot be told apart from what people wrote, which leaves three known limits: deny rules of deselected entries stay in `.claude/settings.json`, topic files from an earlier split stay on disk, and `cyanotype check` cannot detect generated files edited by hand. One record solves all three. Not implemented yet.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
