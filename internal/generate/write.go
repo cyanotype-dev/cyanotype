@@ -22,9 +22,10 @@ const (
 // and returns the paths it wrote, in order. Unchanged files are not
 // touched, and no file is ever deleted.
 //
-// Every path is checked before anything is written: a path that leaves the
-// project root, or whose target is a symbolic link or not a regular file,
-// stops the whole write. Root itself refuses to follow a symbolic link out
+// Every path is checked before anything is written: a hand-written
+// instruction file (see Change.HandWritten), a path that leaves the project
+// root, or a target that is a symbolic link or not a regular file, stops
+// the whole write. Root itself refuses to follow a symbolic link out
 // of the project. Each file is written to a temporary file in its folder and
 // then renamed over the target, so a crash never leaves a half-written
 // file. Missing folders are created.
@@ -35,6 +36,9 @@ func Write(root *os.Root, changes []Change) (written []string, err error) {
 	for _, c := range changes {
 		if c.Status == Unchanged {
 			continue
+		}
+		if c.HandWritten {
+			return nil, fmt.Errorf("refusing to replace %s: %w", c.Path, ErrHandWritten)
 		}
 		if err := checkTarget(root, c.Path); err != nil {
 			return nil, err

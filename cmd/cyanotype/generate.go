@@ -96,6 +96,14 @@ func (g *generation) run() error {
 	if err != nil {
 		return g.reportErrors(root, err)
 	}
+	if hw := generate.HandWritten(changes); len(hw) > 0 {
+		label := paint(g.console.colorErr, red, "error")
+		for _, path := range hw {
+			fmt.Fprintf(g.errOut, "%s: %s has no cyanotype header, so it was written by hand; generate never replaces it\n", label, path)
+		}
+		fmt.Fprintln(g.errOut, "Nothing was written.")
+		return &exitError{code: codeError}
+	}
 
 	pending := 0
 	for _, ch := range changes {
