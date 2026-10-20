@@ -48,11 +48,13 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 
 - Table-driven tests for logic; golden files in `testdata/` for generated output. Why: renderers must produce exact files.
 - Never edit, skip or delete an existing test to make it pass. Fix the code, or stop and ask.
+- Change catalog permission rules (enforce.claude) only together with a run of docs/enforce-checks.md, recorded there. Why: go test cannot check what Claude Code matches at run time; this run found npm.cmd and pip -q install getting around rules that looked complete.
 
 ## Git workflow
 
 - One branch per task, merged through a pull request. Never commit directly to `main`.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`), small commits.
+- Order commits so each one builds and passes tests on its own, catalog data before the code and tests that depend on it. Why: small commits only help bisect and revert when every one of them is green.
 
 ## Agent workflow
 
