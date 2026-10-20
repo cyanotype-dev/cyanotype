@@ -1,0 +1,12 @@
+id: nextjs
+name: nextjs
+category: frontend-framework
+select: radio
+summary: Test entry nextjs
+snippet:
+  rule: Use nextjs.
+  why: Tests need it.
+detect:
+  files: [next.config.ts]
+  dependencies:
+    npm: [next]

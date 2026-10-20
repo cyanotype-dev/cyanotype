@@ -1,0 +1,9 @@
+id: plan-before-code
+name: plan-before-code
+category: agent-workflow
+select: checkbox
+summary: Test entry plan-before-code
+snippet:
+  rule: Use plan-before-code.
+  why: Tests need it.
+

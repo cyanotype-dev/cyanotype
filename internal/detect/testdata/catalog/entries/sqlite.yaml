@@ -1,0 +1,12 @@
+id: sqlite
+name: sqlite
+category: database
+select: radio
+summary: Test entry sqlite
+snippet:
+  rule: Use sqlite.
+  why: Tests need it.
+conflicts: [cloud-kv]
+detect:
+  dependencies:
+    go: [modernc.org/sqlite]
