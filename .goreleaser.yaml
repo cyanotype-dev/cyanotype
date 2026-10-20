@@ -96,6 +96,9 @@ nfpms:
     license: Apache-2.0 AND CC0-1.0
     section: devel
     formats: [deb, rpm]
+    # Each format's usual name, such as cyanotype_0.1.0_amd64.deb and
+    # cyanotype-0.1.0-1.x86_64.rpm, rather than the archives' naming.
+    file_name_template: "{{ .ConventionalFileName }}"
     bindir: /usr/bin
     contents:
       - src: /usr/bin/cyanotype

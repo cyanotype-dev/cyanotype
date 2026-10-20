@@ -77,6 +77,8 @@ jobs:
           extracted/cyanotype version
           extracted/cyty version
 
+          rpm=$(ls cyanotype-*.x86_64.rpm)
+          echo "== $rpm"
           deb=$(ls cyanotype_*_amd64.deb)
           echo "== $deb"
           dpkg-deb -c "$deb"
