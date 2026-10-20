@@ -158,7 +158,7 @@ func handWrittenFiles(project fs.FS) []string {
 // redirected or piped to an agent, and what to do with it on stderr.
 func printImportPrompt(out, errOut io.Writer, prompt string, paths []string, regenerate string) {
 	fmt.Fprint(out, prompt)
-	fmt.Fprintf(errOut, "\nNothing was written. The prompt above, on stdout, asks your coding agent to turn %s into cyanotype.yaml.\n"+
+	fmt.Fprintf(errOut, "\nNothing was written. The prompt printed on stdout asks your coding agent to turn %s into cyanotype.yaml.\n"+
 		"Give it to the agent, for example by piping this command into it, then review cyanotype.yaml and run \"%s\".\n",
 		andList(paths), regenerate)
 }
