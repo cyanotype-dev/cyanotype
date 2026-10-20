@@ -12,3 +12,9 @@ snippet:
     Change the schema only through migration files committed with the code; never alter tables by hand.
     Pass values as query parameters, never by concatenating them into SQL.
   why: Migrations rebuild the same schema in every environment, and parameters prevent SQL injection.
+detect:
+  # Client libraries: a database server leaves no file in the project.
+  dependencies:
+    npm: [pg, postgres]
+    pypi: [psycopg, psycopg2, psycopg2-binary, asyncpg]
+    go: [github.com/jackc/pgx, github.com/lib/pq]

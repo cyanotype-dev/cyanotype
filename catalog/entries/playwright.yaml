@@ -15,3 +15,6 @@ snippet:
   why: Locators and web-first assertions wait and retry, so tests stay stable when timing or markup changes.
 detect:
   files: [playwright.config.ts, playwright.config.js]
+  dependencies:
+    npm: ["@playwright/test"]
+    pypi: [playwright, pytest-playwright]

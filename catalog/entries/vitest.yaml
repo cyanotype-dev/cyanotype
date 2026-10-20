@@ -15,3 +15,5 @@ snippet:
   why: A watch-mode run blocks the shell until someone stops it.
 detect:
   files: [vitest.config.ts, vitest.config.js, vitest.config.mts]
+  dependencies:
+    npm: [vitest]

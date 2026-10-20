@@ -15,3 +15,5 @@ snippet:
   why: One API on both sides of the server boundary keeps every string translatable.
 detect:
   files: [i18n/request.ts, src/i18n/request.ts]
+  dependencies:
+    npm: [next-intl]

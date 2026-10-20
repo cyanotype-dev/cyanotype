@@ -15,3 +15,6 @@ snippet:
   why: Clients query the database directly, so Row Level Security policies are the only thing protecting the data.
 detect:
   files: [supabase/config.toml]
+  dependencies:
+    npm: ["@supabase/supabase-js", "@supabase/ssr"]
+    pypi: [supabase]

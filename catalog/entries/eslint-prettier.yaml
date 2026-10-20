@@ -15,3 +15,5 @@ snippet:
   why: Overlapping rules make the tools undo each other's changes, and disable comments hide real bugs.
 detect:
   files: [eslint.config.js, eslint.config.mjs, eslint.config.ts, .prettierrc]
+  dependencies:
+    npm: [eslint, prettier]

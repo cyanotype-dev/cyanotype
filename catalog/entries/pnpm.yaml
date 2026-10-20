@@ -30,3 +30,4 @@ enforce:
         ask: ["Bash(pnpm add *)", "PowerShell(pnpm add *)"]
 detect:
   files: [pnpm-lock.yaml]
+  run_script: pnpm {script}

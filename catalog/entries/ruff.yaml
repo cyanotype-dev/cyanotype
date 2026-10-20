@@ -15,3 +15,5 @@ snippet:
   why: A suppression that names its rule can be reviewed, while a bare one hides every future problem on that line.
 detect:
   files: [ruff.toml, .ruff.toml]
+  dependencies:
+    pypi: [ruff]

@@ -15,3 +15,5 @@ snippet:
   why: pytest finds tests by name and turns a failing plain assert into a detailed message.
 detect:
   files: [pytest.ini, conftest.py]
+  dependencies:
+    pypi: [pytest]
