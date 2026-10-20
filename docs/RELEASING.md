@@ -34,7 +34,9 @@ No token or key is ever written in this repository. The workflow uses the automa
 
    Delete the local private key files afterwards; a lost key is replaced by generating a new one.
 4. **Tag ruleset (optional).** Under **Settings → Rules → Rulesets**, add a tag ruleset for `v*` that restricts creation, updates and deletion, so a release tag cannot be moved or removed once it is published.
-5. **Maintainer address.** The `.deb` and `.rpm` packages and the tap and bucket commits name `Cyanotype maintainers <maintainers@cyanotype.dev>`. Before the first release, check that the address receives mail.
+5. **Maintainer address.** The `.deb` and `.rpm` packages name the maintainer, as `nfpms.maintainer` in `.goreleaser.yaml`, and users write to that address about the packages. It must receive mail. The tap and bucket commits use `maintainers@cyanotype.dev` as their author email, which nobody writes to.
+
+   TODO: the packages name the maintainer's GitHub noreply address, `Omar Della Mazza <49613994+Shred0@users.noreply.github.com>`, because `cyanotype.dev` is not registered yet. Once the domain is registered and mail sent to `maintainers@cyanotype.dev` is verified to arrive, switch `nfpms.maintainer` back to `Cyanotype maintainers <maintainers@cyanotype.dev>`.
 
 ## Making a release
 

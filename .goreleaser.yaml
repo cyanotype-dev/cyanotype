@@ -90,7 +90,9 @@ nfpms:
     package_name: cyanotype
     vendor: Cyanotype
     homepage: https://github.com/cyanotype-dev/cyanotype
-    maintainer: Cyanotype maintainers <maintainers@cyanotype.dev>
+    # The maintainer's GitHub noreply address until cyanotype.dev and its
+    # mail forwarding are verified; see the TODO in docs/RELEASING.md.
+    maintainer: Omar Della Mazza <49613994+Shred0@users.noreply.github.com>
     description: Generates instruction files for coding agents from a catalog of choices.
     # The code is Apache-2.0; the bundled catalog is CC0-1.0.
     license: Apache-2.0 AND CC0-1.0
