@@ -1,6 +1,11 @@
 package main
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +30,25 @@ func newRootCmdWithConsole(version string, detect func() console) *cobra.Command
 		SilenceErrors: true,
 		// Shell completion is not part of Phase 0.
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
+		// Without Args of its own, cobra reports an unknown subcommand as a
+		// plain error while it looks the command up, which would exit 1.
+		// With Args set it calls unknownCommand instead, but only for a
+		// runnable command, hence RunE, which shows the help as before.
+		Args: unknownCommand,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Help()
+		},
+		// Cobra applies this default only on its own lookup path, which
+		// unknownCommand replaces, so it is set here.
+		SuggestionsMinimumDistance: 2,
 	}
-	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		// In "cyanotype genrate --dir x" the root parses the flags of a
+		// subcommand it does not have; the mistyped command is the real
+		// mistake, so report it rather than the flag.
+		if !cmd.HasParent() && cmd.Flags().NArg() > 0 {
+			return unknownCommand(cmd, cmd.Flags().Args())
+		}
 		return usageError(err)
 	})
 
@@ -37,10 +59,37 @@ func newRootCmdWithConsole(version string, detect func() console) *cobra.Command
 	return root
 }
 
-// noArgs rejects positional arguments as a usage error.
-func noArgs(cmd *cobra.Command, args []string) error {
-	if err := cobra.NoArgs(cmd, args); err != nil {
-		return usageError(err)
+// unknownCommand rejects any argument to the root command as a usage
+// error: the root has only subcommands, so an argument is a mistyped or
+// missing one. It suggests close subcommand names, as cobra would.
+func unknownCommand(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
 	}
-	return nil
+	msg := fmt.Sprintf("unknown command %q for %q", args[0], cmd.CommandPath())
+	if suggestions := cmd.SuggestionsFor(args[0]); len(suggestions) > 0 {
+		msg += "; did you mean " + orList(quoteAll(suggestions), "or") + "?"
+	} else {
+		msg += fmt.Sprintf("; run %q to list the commands", cmd.CommandPath()+" --help")
+	}
+	return usageError(errors.New(msg))
+}
+
+// noArgs rejects positional arguments as a usage error. It builds its own
+// message rather than using cobra.NoArgs, whose "unknown command" text
+// suggests a subcommand where the mistake is an extra argument.
+func noArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	return usageError(fmt.Errorf("%q takes no arguments, got %s", cmd.CommandPath(), strings.Join(quoteAll(args), ", ")))
+}
+
+// quoteAll returns each string Go-quoted, for messages: ["a", "b"].
+func quoteAll(items []string) []string {
+	out := make([]string, len(items))
+	for i, s := range items {
+		out[i] = strconv.Quote(s)
+	}
+	return out
 }

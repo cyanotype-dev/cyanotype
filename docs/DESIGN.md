@@ -638,8 +638,10 @@ When stdin is not a terminal and `--yes` is not given, the command never reads s
 | --- | --- |
 | 0 | Files written, or already up to date |
 | 1 | Error: a problem in the spec or in existing files, or an I/O error |
-| 2 | Wrong usage: unknown flags, arguments, `--yes` with `--dry-run` |
+| 2 | Wrong usage: unknown commands or flags, arguments, `--yes` with `--dry-run` |
 | 3 | Changes found but not written: `--dry-run`, a declined confirmation, or no terminal to ask on |
+
+Usage errors name the real mistake: `unknown command "genrate" for "cyanotype"; did you mean "generate"?` for a mistyped command, even when flags follow it, and `"cyanotype generate" takes no arguments, got "extra"` for an extra argument. Cobra reports an unknown command as a plain error while it looks the command up, before any flag handling, so the root command validates its own arguments to turn it into a usage error, without matching cobra's message text.
 
 Code 3 lets scripts check that generated files are current with `cyanotype generate --dry-run`, as `git diff --exit-code` does, until `cyanotype check` exists, and makes a script that forgets `--yes` fail instead of succeeding without writing.
 

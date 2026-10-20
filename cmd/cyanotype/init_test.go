@@ -231,7 +231,7 @@ func TestInitInvalidFlags(t *testing.T) {
 		{"empty goal", []string{"--goal", " "}, "--goal is empty"},
 		{"i18n for a script", []string{"--preset", "go-cli", "--i18n", "later", "--autonomy", "balanced",
 			"--goal", "x", "--agents", "claude"}, "--i18n and --locales apply only to websites and mobile apps"},
-		{"argument", []string{"extra"}, `unknown command "extra"`},
+		{"argument", []string{"extra"}, `"cyanotype init" takes no arguments, got "extra"`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
