@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	bundled "github.com/cyanotype-dev/cyanotype/catalog"
+	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/detect"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
@@ -43,6 +45,8 @@ type initOptions struct {
 	detect  string
 	with    []string
 	without []string
+	// existing says what to do with instruction files written by hand.
+	existing string
 }
 
 // Answers to "Use the detected stack?".
@@ -96,6 +100,7 @@ func newInitCmd(detect func() console) *cobra.Command {
 	f.StringVar(&opts.detect, "detect", "", "in an existing project: yes to start from the detected stack, no to ignore it")
 	f.StringSliceVar(&opts.with, "with", nil, "catalog entries to add to the detected stack, or to choose where detection found several, such as pnpm")
 	f.StringSliceVar(&opts.without, "without", nil, "detected catalog entries the project does not use")
+	f.StringVar(&opts.existing, "existing", "", existingFlagHelp)
 	return cmd
 }
 
@@ -115,6 +120,10 @@ type initRun struct {
 	ask *prompter
 	// found is what detection found in the project folder.
 	found detect.Result
+	// handWritten are the main instruction files written by hand, and
+	// choices what to do with each, which the generate step applies.
+	handWritten []string
+	choices     generate.Choices
 }
 
 // start is where the spec's stack comes from: a starter preset, or the
@@ -163,6 +172,14 @@ func (r *initRun) run() error {
 	r.found = detect.Detect(r.cat, root.FS())
 	for _, p := range r.found.Problems {
 		fmt.Fprintf(r.errOut, "%s: %s; detection skipped it\n", paint(r.console.colorErr, yellow, "warning"), p.Error())
+	}
+	// Instruction files written by hand come first: importing them with an
+	// agent makes every other question moot.
+	if r.handWritten = handWrittenFiles(root.FS()); len(r.handWritten) > 0 {
+		done, err := r.chooseExisting(root)
+		if err != nil || done {
+			return err
+		}
 	}
 	detected, err := r.useDetected()
 	if err != nil {
@@ -223,8 +240,101 @@ func (r *initRun) run() error {
 		console:  r.console,
 		dirFlag:  r.changed("dir"),
 		specPath: filepath.Join(r.opts.dir, generate.SpecFile),
+		choices:  r.choices,
 	}
 	return g.run()
+}
+
+// chooseExisting decides what to do with the instruction files written by
+// hand, before any other question. Import prints the prompt, with a draft
+// spec from detection, and ends init: done is true and nothing is written.
+// Without a terminal, a missing --existing is reported together with a
+// missing --detect, so one more run with both flags is enough.
+func (r *initRun) chooseExisting(root *os.Root) (done bool, err error) {
+	if r.opts.existing == "" && r.ask == nil {
+		missing := []missingFlag{{"existing", fmt.Sprintf("what to do with %s, written by hand: import (recommended: prints a prompt for your coding agent and writes nothing), keep, move or replace",
+			andList(r.handWritten))}}
+		if r.usesDetection() && r.opts.detect == "" {
+			missing = append(missing, missingFlag{"detect", "yes to start from the detected stack, no to ignore it and pick a starter"})
+		}
+		return true, usageError(missingError(missing))
+	}
+	x := existingChooser{flag: r.opts.existing, ask: r.ask, dir: root.Name(), topicDir: spec.DefaultTopicDir, errOut: r.errOut}
+	if r.choices, err = x.choose(r.handWritten); err != nil {
+		return true, err
+	}
+	imports := importPaths(r.choices)
+	if len(imports) == 0 {
+		return false, nil
+	}
+	draft, stack, err := r.draft()
+	if err != nil {
+		return true, err
+	}
+	found := r.found
+	if !r.usesDetection() {
+		found = detect.Result{}
+	}
+	prompt := adopt.Prompt(r.cat, adopt.PromptInput{Files: imports, Draft: draft, Found: found, Stack: stack})
+	g := generation{opts: generateOptions{dir: r.opts.dir}, dirFlag: r.changed("dir")}
+	printImportPrompt(r.out, r.errOut, prompt, imports, g.command("--existing", "replace"))
+	return true, nil
+}
+
+// usesDetection reports whether the spec may start from the detected
+// stack: something was found, and no flag says to ignore it.
+func (r *initRun) usesDetection() bool {
+	return !r.found.Empty() && r.opts.preset == "" && r.opts.detect != detectNo
+}
+
+// draft returns the spec cyanotype can fill in for the import prompt
+// before any question: the targets of --agents, or of the hand-written
+// files, the project name, and the detected stack with its commands. It
+// also returns the stack, which decides the entries the prompt lists.
+func (r *initRun) draft() ([]byte, []string, error) {
+	var targets []spec.Target
+	if len(r.opts.agents) > 0 {
+		targets = simple.Targets(agentsOf(r.opts.agents))
+	} else {
+		for _, t := range []struct {
+			file   string
+			target spec.Target
+		}{{"CLAUDE.md", spec.TargetClaude}, {"AGENTS.md", spec.TargetAgentsMD}} {
+			if slices.Contains(r.handWritten, t.file) {
+				targets = append(targets, t.target)
+			}
+		}
+	}
+	name := strings.TrimSpace(r.opts.name)
+	if name == "" {
+		name = folderName(r.opts.dir)
+	}
+	// The goal is required and only the files can tell it, so the draft
+	// holds a placeholder the prompt asks the agent to replace.
+	s := spec.Spec{Version: spec.CurrentVersion, CatalogVersion: r.cat.Version(), Targets: targets,
+		Project: spec.Project{Name: name, Goal: adopt.GoalPlaceholder}}
+	var stack []string
+	if r.usesDetection() {
+		stack = r.found.IDs()
+		if d, err := simple.DetectStack(r.cat, r.presets, r.found, r.opts.with, r.opts.without); err == nil {
+			stack, s.Commands = d.Selections, d.Commands
+		}
+		s.Selections = stack
+	}
+	var buf bytes.Buffer
+	if err := spec.New(s).Save(&buf); err != nil {
+		return nil, nil, fmt.Errorf("write the draft spec: %w", err)
+	}
+	return buf.Bytes(), stack, nil
+}
+
+// agentsOf turns --agents values into agents.
+func agentsOf(values []string) []simple.Agent {
+	agents := make([]simple.Agent, len(values))
+	for i, v := range values {
+		agents[i] = simple.Agent(v)
+	}
+	return agents
 }
 
 // refuseExisting explains why init stops when the project has a spec.
@@ -235,9 +345,13 @@ func refuseExisting(err error) error {
 	return err
 }
 
-// generateCommand spells out the generate command for this project.
+// generateCommand spells out the generate command for this project,
+// with the choice made for files written by hand.
 func (r *initRun) generateCommand() string {
 	g := generation{opts: generateOptions{dir: r.opts.dir}, dirFlag: r.changed("dir")}
+	if len(r.handWritten) > 0 && r.opts.existing != "" {
+		return g.command("--existing", r.opts.existing)
+	}
 	return g.command()
 }
 
@@ -308,6 +422,9 @@ func (r *initRun) checkFlags() error {
 	}
 
 	oneOf("detect", r.opts.detect, detectOptions())
+	if err := checkExistingFlag(r.opts.existing, r.changed("existing")); err != nil {
+		errs = append(errs, err)
+	}
 	adjusts := r.changed("with") || r.changed("without")
 	switch {
 	case r.changed("preset") && r.opts.detect == detectYes:

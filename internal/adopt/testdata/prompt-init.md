@@ -27,7 +27,7 @@ Only one of `npm` and `pnpm` can be selected. Keep the one the instruction files
 
 ## Draft
 
-Start from this draft, which cyanotype filled in from the project's files. `project.goal` is required and still empty.
+Start from this draft, which cyanotype filled in from the project's files. Replace the placeholder in `project.goal`, which is required, with the goal the instruction files give.
 
 ```yaml
 version: 1
@@ -39,7 +39,7 @@ targets:
 
 project:
   name: shop
-  goal: ""
+  goal: "TODO: the goal of the project in one or two sentences, from the instruction files"
 
 selections:
   - node

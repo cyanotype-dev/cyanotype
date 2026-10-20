@@ -9,6 +9,12 @@ import (
 	"github.com/cyanotype-dev/cyanotype/internal/detect"
 )
 
+// GoalPlaceholder is the project.goal of a draft spec, which only the
+// instruction files can fill in. A goal is required, so a draft without
+// one would not be a valid spec; the placeholder says what to put there,
+// and stays visible in generated files if nobody replaces it.
+const GoalPlaceholder = "TODO: the goal of the project in one or two sentences, from the instruction files"
+
 // PromptInput is what Prompt needs to know about the project.
 type PromptInput struct {
 	// Files are the hand-written instruction files to convert, such as
@@ -94,7 +100,7 @@ func Prompt(c *catalog.Catalog, in PromptInput) string {
 		writeYAML(&b, in.Spec)
 	case in.Draft != nil:
 		b.WriteString("\n## Draft\n\n")
-		b.WriteString("Start from this draft, which cyanotype filled in from the project's files. `project.goal` is required and still empty.\n\n")
+		b.WriteString("Start from this draft, which cyanotype filled in from the project's files. Replace the placeholder in `project.goal`, which is required, with the goal the instruction files give.\n\n")
 		writeYAML(&b, in.Draft)
 	}
 

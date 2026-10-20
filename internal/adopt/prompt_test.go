@@ -58,7 +58,7 @@ func TestPromptInit(t *testing.T) {
 		},
 		Clashes: []detect.Clash{{IDs: []string{"npm", "pnpm"}, Category: "package-manager"}},
 	}
-	draft := "version: 1\n\ncatalog_version: \"2026.10\"\n\ntargets:\n  - claude\n\nproject:\n  name: shop\n  goal: \"\"\n\nselections:\n  - node\n  - npm\n  - pnpm\n  - nextjs\n"
+	draft := "version: 1\n\ncatalog_version: \"2026.10\"\n\ntargets:\n  - claude\n\nproject:\n  name: shop\n  goal: \"" + GoalPlaceholder + "\"\n\nselections:\n  - node\n  - npm\n  - pnpm\n  - nextjs\n"
 	got := Prompt(c, PromptInput{Files: []string{"CLAUDE.md"}, Draft: []byte(draft), Found: found, Stack: found.IDs()})
 	golden(t, "prompt-init.md", got)
 }

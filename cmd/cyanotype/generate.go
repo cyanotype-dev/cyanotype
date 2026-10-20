@@ -5,14 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	bundled "github.com/cyanotype-dev/cyanotype/catalog"
+	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
+	"github.com/cyanotype-dev/cyanotype/internal/detect"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
 	"github.com/cyanotype-dev/cyanotype/internal/resolve"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
@@ -20,9 +24,10 @@ import (
 
 // generateOptions holds the flags of the generate command.
 type generateOptions struct {
-	dir    string
-	dryRun bool
-	yes    bool
+	dir      string
+	dryRun   bool
+	yes      bool
+	existing string
 }
 
 // newGenerateCmd builds the generate command. detect tells it about the
@@ -34,13 +39,18 @@ func newGenerateCmd(detect func() console) *cobra.Command {
 		Short: "Generate instruction files and constraints from cyanotype.yaml",
 		Long: "Generate reads cyanotype.yaml, resolves it against the bundled catalog and\n" +
 			"shows the files it would write as a diff. It asks before writing, and never\n" +
-			"deletes files.\n\n" +
+			"deletes files. An instruction file written by hand, without the cyanotype\n" +
+			"header, is never replaced silently: generate asks what to do with it, or\n" +
+			"takes the answer from --existing.\n\n" +
 			"Exit codes: 0 written or already up to date, 1 error, 2 wrong usage,\n" +
 			"3 changes found but not written (--dry-run, declined, or no terminal to ask on).",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if opts.dryRun && opts.yes {
 				return usageError(errors.New("--dry-run and --yes cannot be used together"))
+			}
+			if err := checkExistingFlag(opts.existing, cmd.Flags().Changed("existing")); err != nil {
+				return usageError(err)
 			}
 			g := &generation{
 				opts:     opts,
@@ -57,6 +67,7 @@ func newGenerateCmd(detect func() console) *cobra.Command {
 	cmd.Flags().StringVar(&opts.dir, "dir", ".", "project folder holding cyanotype.yaml")
 	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "show the changes and write nothing")
 	cmd.Flags().BoolVarP(&opts.yes, "yes", "y", false, "write the changes without asking")
+	cmd.Flags().StringVar(&opts.existing, "existing", "", existingFlagHelp)
 	return cmd
 }
 
@@ -70,6 +81,9 @@ type generation struct {
 	dirFlag bool
 	// specPath is the spec as the user knows it, for messages.
 	specPath string
+	// choices are what to do with hand-written files, when init has
+	// already asked; nil means generate decides.
+	choices generate.Choices
 }
 
 func (g *generation) run() error {
@@ -96,24 +110,34 @@ func (g *generation) run() error {
 	if err != nil {
 		return g.reportErrors(root, err)
 	}
+	topicDir := f.Spec.WithDefaults().Output.TopicDir
 	if hw := generate.HandWritten(changes); len(hw) > 0 {
-		label := paint(g.console.colorErr, red, "error")
-		for _, path := range hw {
-			fmt.Fprintf(g.errOut, "%s: %s has no cyanotype header, so it was written by hand; generate never replaces it\n", label, path)
+		choices, err := g.chooseExisting(root, hw, topicDir)
+		if err != nil {
+			return err
 		}
-		fmt.Fprintln(g.errOut, "Nothing was written.")
-		return &exitError{code: codeError}
+		if imports := importPaths(choices); len(imports) > 0 {
+			return g.printImport(root, c, f, imports)
+		}
+		if choices != nil {
+			changes, _, err = generate.PreviewChoices(c, f, root.FS(), choices)
+			if err != nil {
+				return g.reportErrors(root, err)
+			}
+		}
 	}
 
-	pending := 0
+	pending, waiting := 0, generate.HandWritten(changes)
 	for _, ch := range changes {
-		if ch.Status != generate.Unchanged {
+		// A hand-written file still waiting for a choice gets no diff:
+		// nothing will replace it.
+		if ch.Status != generate.Unchanged && (!ch.HandWritten || ch.Choice != "") {
 			g.printDiff(ch.Diff())
 			pending++
 		}
 	}
-	g.printSummary(changes)
-	if pending == 0 {
+	g.printSummary(changes, topicDir)
+	if pending == 0 && len(waiting) == 0 {
 		fmt.Fprintln(g.out, "Everything is up to date; nothing to write.")
 		return nil
 	}
@@ -121,6 +145,11 @@ func (g *generation) run() error {
 	switch {
 	case g.opts.dryRun:
 		fmt.Fprintln(g.out, "Dry run: nothing was written.")
+		for _, ch := range changes {
+			if ch.HandWritten && ch.Choice == "" {
+				fmt.Fprintf(g.out, "%s was written by hand: choose what to do with it with --existing import, keep, move or replace.\n", ch.Path)
+			}
+		}
 		return &exitError{code: codeNotWritten}
 	case g.opts.yes:
 	case !g.console.interactive:
@@ -143,6 +172,78 @@ func (g *generation) run() error {
 	}
 	fmt.Fprintf(g.out, "Wrote %s.\n", plural(len(written), "file"))
 	return nil
+}
+
+// chooseExisting decides what to do with the hand-written files at paths:
+// the choices init already made, --existing, or the user's answers. A dry
+// run without --existing asks nothing and returns nil, leaving the files
+// waiting for a choice, so it can still show everything else.
+func (g *generation) chooseExisting(root *os.Root, paths []string, topicDir string) (generate.Choices, error) {
+	// Choices init made apply only to files this run would replace: a
+	// hand-written CLAUDE.md that is not a target stays as it is.
+	chosen := generate.Choices{}
+	var open []string
+	for _, p := range paths {
+		if c, ok := g.choices[p]; ok {
+			chosen[p] = c
+		} else {
+			open = append(open, p)
+		}
+	}
+	if len(open) == 0 {
+		return chosen, nil
+	}
+	if g.opts.dryRun && g.opts.existing == "" {
+		return nil, nil
+	}
+	x := existingChooser{flag: g.opts.existing, dir: root.Name(), topicDir: topicDir, errOut: g.errOut}
+	if g.console.interactive && !g.opts.yes && !g.opts.dryRun {
+		in := bufio.NewReader(g.in)
+		g.in = in // confirm reads the same buffer later
+		x.ask = newPrompter(in, g.errOut)
+	}
+	choices, err := x.choose(open)
+	if err != nil {
+		var ee *exitError
+		if !errors.As(err, &ee) {
+			fmt.Fprintf(g.errOut, "%s: %v\nNothing was written.\n", paint(g.console.colorErr, red, "error"), err)
+			return nil, &exitError{code: codeError}
+		}
+		return nil, err
+	}
+	maps.Copy(chosen, choices)
+	return chosen, nil
+}
+
+// printImport prints the prompt that converts the files at paths into
+// the project's cyanotype.yaml, and writes nothing.
+func (g *generation) printImport(root *os.Root, c *catalog.Catalog, f *spec.File, paths []string) error {
+	current, err := root.ReadFile(generate.SpecFile)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", generate.SpecFile, err)
+	}
+	found := detect.Detect(c, root.FS())
+	stack := slices.Clone(f.Spec.Selections)
+	for _, id := range found.IDs() {
+		if !slices.Contains(stack, id) {
+			stack = append(stack, id)
+		}
+	}
+	prompt := adopt.Prompt(c, adopt.PromptInput{Files: paths, Spec: current, Found: found, Stack: stack})
+	printImportPrompt(g.out, g.errOut, prompt, paths, g.command("--existing", "replace"))
+	return nil
+}
+
+// importPaths returns the paths chosen for import, sorted.
+func importPaths(choices generate.Choices) []string {
+	var paths []string
+	for p, c := range choices {
+		if c == adopt.Import {
+			paths = append(paths, p)
+		}
+	}
+	slices.Sort(paths)
+	return paths
 }
 
 // confirm asks whether to write and reads one line of answer. Only "y" and
@@ -254,15 +355,15 @@ func (g *generation) printDiff(d string) {
 
 // printSummary lists every generated file with its status, then counts
 // them.
-func (g *generation) printSummary(changes []generate.Change) {
+func (g *generation) printSummary(changes []generate.Change, topicDir string) {
 	fmt.Fprintln(g.out)
 	counts := map[generate.Status]int{}
 	for _, ch := range changes {
 		counts[ch.Status]++
 		color := map[generate.Status]string{generate.Created: green, generate.Modified: yellow, generate.Unchanged: dim}[ch.Status]
 		label := paint(g.console.colorOut, color, fmt.Sprintf("%-10s", ch.Status))
-		note := ""
-		if ch.CRLF {
+		note := choiceNote(ch, topicDir)
+		if ch.CRLF && !ch.HandWritten {
 			note = " (line endings change from CRLF to LF)"
 		}
 		fmt.Fprintf(g.out, "  %s %s%s\n", label, ch.Path, note)
