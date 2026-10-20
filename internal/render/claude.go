@@ -6,12 +6,14 @@ import "slices"
 // CLAUDE.md only, so AGENTS.md stays readable by any agent.
 const titleClaude = "Claude Code"
 
-// claudeSection tells Claude what the generated deny rules are for. A
-// denied action invites a workaround, such as writing the file through the
-// shell instead; the deny rules only work if the agent stops instead.
+// claudeSection tells Claude what the generated permission rules are for.
+// A denied action invites a workaround, such as writing the file through
+// the shell instead; the rules only work if the agent stops instead. It
+// also says what an ask rule means, so a prompt to the user reads as part
+// of the safety rules rather than as an obstacle.
 func claudeSection() section {
 	return section{title: titleClaude, body: []string{
-		"- Deny rules in .claude/settings.json back the safety rules; when one blocks an action, stop and ask instead of reaching the same result another way.",
+		"- Permission rules in .claude/settings.json back the safety rules: deny rules block an action, ask rules make Claude Code ask the user first. When a rule blocks an action, stop and ask instead of reaching the same result another way.",
 	}}
 }
 
@@ -20,7 +22,7 @@ func claudeSection() section {
 // CLAUDE.md that is present stops AGENTS.md from being read, so without the
 // import Claude would see none of the shared rules. Only Claude-specific
 // content belongs here: the Claude Code section when enforced reports that
-// deny rules are generated.
+// permission rules are generated.
 func claudeImportDocument(enforced bool) document {
 	d := document{preamble: []string{"@" + agentsPath}}
 	if enforced {

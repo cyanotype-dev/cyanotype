@@ -24,7 +24,7 @@ Uses: Go, golangci-lint.
 
 ## Claude Code
 
-- Deny rules in .claude/settings.json back the safety rules; when one blocks an action, stop and ask instead of reaching the same result another way.
+- Permission rules in .claude/settings.json back the safety rules: deny rules block an action, ask rules make Claude Code ask the user first. When a rule blocks an action, stop and ask instead of reaching the same result another way.
 
 ## Further reading
 

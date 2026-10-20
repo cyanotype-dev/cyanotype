@@ -70,8 +70,13 @@ type Enforce struct {
 
 // ClaudeEnforce holds constraints written to Claude Code settings.
 type ClaudeEnforce struct {
-	// Deny holds permission rules added to the deny list.
+	// Deny holds permission rules added to the deny list. A denied action
+	// stays blocked even when the user would approve it.
 	Deny []string `yaml:"deny,omitempty"`
+	// Ask holds permission rules added to the ask list, for rules that mean
+	// "ask first" rather than "never": Claude Code asks the user before the
+	// action, so an approved change can still happen.
+	Ask []string `yaml:"ask,omitempty"`
 }
 
 // Detect lists what reveals the entry in an existing project.

@@ -11,8 +11,10 @@
       "Read(!.env.example)",
       "Bash(curl:*)",
       "Read(.env)",
-      "Bash(pnpm:*)",
-      "Bash(yarn:*)",
+      "Bash(pnpm *)",
+      "Bash(yarn *)",
+      "PowerShell(pnpm *)",
+      "PowerShell(yarn *)",
       "Read(.env.*)",
       "Read(!.env.example)",
       "Edit(.env)",
@@ -23,10 +25,12 @@
       "Edit(/GEMINI.md)",
       "Edit(/.github/copilot-instructions.md)",
       "Edit(/.cursor/rules/**)",
-      "Edit(/cyanotype.yaml)",
       "Edit(/docs/agents/**)"
     ],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "ask": [
+      "Edit(/cyanotype.yaml)"
+    ]
   },
   "hooks": {}
 }

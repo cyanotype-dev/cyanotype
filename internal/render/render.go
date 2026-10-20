@@ -106,9 +106,9 @@ func renderInstructions(r *resolve.Result, existing fs.FS, agents, claude bool) 
 	if !agents {
 		mainPath = claudePath
 	}
-	// enforced reports that .claude/settings.json gets deny rules, which
-	// CLAUDE.md then explains in its Claude Code section.
-	enforced := claude && len(denyGroups(r)) > 0
+	// enforced reports that .claude/settings.json gets permission rules,
+	// which CLAUDE.md then explains in its Claude Code section.
+	enforced := claude && !claudeRules(r).empty()
 	build := func(l layout) document {
 		d := mainDocument(r, l)
 		if mainPath == claudePath && enforced {

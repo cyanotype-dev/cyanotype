@@ -107,7 +107,16 @@ func validateEntry(name string, e Entry) []error {
 	}
 
 	if e.Enforce != nil && e.Enforce.Claude != nil {
-		errs = append(errs, validateNotBlank(name, "enforce.claude.deny", e.Enforce.Claude.Deny)...)
+		c := e.Enforce.Claude
+		errs = append(errs, validateNotBlank(name, "enforce.claude.deny", c.Deny)...)
+		errs = append(errs, validateNotBlank(name, "enforce.claude.ask", c.Ask)...)
+		// Deny wins over ask in Claude Code, so a rule in both lists would
+		// never ask: the entry must say which one it means.
+		for i, rule := range c.Ask {
+			if strings.TrimSpace(rule) != "" && slices.Contains(c.Deny, rule) {
+				add(fmt.Sprintf("enforce.claude.ask[%d]", i), "%q is also listed in enforce.claude.deny, which wins; keep it in one list", rule)
+			}
+		}
 	}
 	if e.Enforce != nil {
 		errs = append(errs, validateGitignore(name, e.Enforce.Gitignore)...)

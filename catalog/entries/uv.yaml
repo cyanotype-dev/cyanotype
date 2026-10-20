@@ -13,6 +13,22 @@ snippet:
   why: pip bypasses uv.lock, so installs stop being reproducible.
 enforce:
   claude:
-    deny: ["Bash(pip install *)", "Bash(pip3 install *)", "Bash(python -m pip install *)"]
+    # Every way the snippet's "pip install" is usually spelled, including the
+    # Windows py launcher and uv's own pip interface, which also bypasses
+    # uv.lock. Checked with Claude Code 2.1.299 (docs/enforce-checks.md). Not
+    # blocked: options before the subcommand, such as pip -q install.
+    deny:
+      - "Bash(pip install *)"
+      - "Bash(pip3 install *)"
+      - "Bash(python -m pip install *)"
+      - "Bash(python3 -m pip install *)"
+      - "Bash(py -m pip install *)"
+      - "Bash(uv pip install *)"
+      - "PowerShell(pip install *)"
+      - "PowerShell(pip3 install *)"
+      - "PowerShell(python -m pip install *)"
+      - "PowerShell(python3 -m pip install *)"
+      - "PowerShell(py -m pip install *)"
+      - "PowerShell(uv pip install *)"
 detect:
   files: [uv.lock]

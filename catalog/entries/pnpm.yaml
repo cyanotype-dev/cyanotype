@@ -13,6 +13,15 @@ snippet:
   why: Mixing package managers creates conflicting lockfiles.
 enforce:
   claude:
-    deny: ["Bash(npm install:*)", "Bash(yarn:*)"]
+    # The snippet forbids npm and yarn entirely, so the rules cover the whole
+    # command, bare or with any subcommand (npm i, ci, add, run...); npx is
+    # not matched. Checked with Claude Code 2.1.299 (docs/enforce-checks.md).
+    # Bash and PowerShell both, since a rule on one shell does not cover the
+    # other. Not blocked: npm.cmd in Bash, and scripts.
+    deny:
+      - "Bash(npm *)"
+      - "Bash(yarn *)"
+      - "PowerShell(npm *)"
+      - "PowerShell(yarn *)"
 detect:
   files: [pnpm-lock.yaml]

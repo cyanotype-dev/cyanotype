@@ -13,8 +13,10 @@
       "Edit(/GEMINI.md)",
       "Edit(/.github/copilot-instructions.md)",
       "Edit(/.cursor/rules/**)",
-      "Edit(/cyanotype.yaml)",
       "Edit(/agents-rules/**)"
+    ],
+    "ask": [
+      "Edit(/cyanotype.yaml)"
     ]
   }
 }

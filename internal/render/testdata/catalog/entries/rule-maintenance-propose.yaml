@@ -6,7 +6,7 @@ summary: The agent proposes new rules instead of editing instruction files
 topic: workflow
 snippet:
   rule: |
-    Never edit the agent instruction files or `cyanotype.yaml` yourself.
+    Never edit the generated instruction files; regeneration replaces them. Edit `cyanotype.yaml` only when the user explicitly asks, such as to apply a rule they approved.
     When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve.
   why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
 enforce:
@@ -19,4 +19,5 @@ enforce:
       - "Edit(/GEMINI.md)"
       - "Edit(/.github/copilot-instructions.md)"
       - "Edit(/.cursor/rules/**)"
+    ask:
       - "Edit(/cyanotype.yaml)"

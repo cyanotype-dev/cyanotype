@@ -136,6 +136,10 @@ func TestLoadInvalid(t *testing.T) {
 			{"alpha.yaml", "enforce.claude.deny[1]", "is empty"},
 			{"alpha.yaml", "detect.files[0]", "is empty"},
 		}},
+		{"bad-ask", []wantErr{
+			{"alpha.yaml", "enforce.claude.ask[1]", "is empty"},
+			{"alpha.yaml", "enforce.claude.ask[2]", `"Bash(beta *)" is also listed in enforce.claude.deny, which wins`},
+		}},
 		{"bad-gitignore", []wantErr{
 			{"alpha.yaml", "enforce.gitignore[4]", "is empty"},
 			{"alpha.yaml", "enforce.gitignore[1]", "leading or trailing spaces"},
