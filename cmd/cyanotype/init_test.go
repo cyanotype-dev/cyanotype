@@ -117,6 +117,8 @@ i18n:
 		"\nStack\n  - TypeScript: ",
 		"\nTranslations (en, it; en is the default)\n",
 		"\nAgent rules (autonomy: asks often)\n",
+		"Project name: recipe-box (the folder name; to change it, pass --name or edit project.name in cyanotype.yaml)\n",
+		"Goal: Web app where families save and share recipes.\n",
 		"Agents: Codex, Claude Code\n",
 		"Instruction files: CLAUDE.md, AGENTS.md\n",
 		"Wrote cyanotype.yaml",
@@ -160,6 +162,11 @@ func TestInitPresetImpliedByType(t *testing.T) {
 		if strings.Contains(got, s) {
 			t.Errorf("cyanotype.yaml has %q, which the answers did not ask for:\n%s", s, got)
 		}
+	}
+	// A name given with --name is shown as it is, without the hint about
+	// the folder name.
+	if !strings.Contains(r.stdout, "Project name: photo-renamer\n") || strings.Contains(r.stdout, "the folder name") {
+		t.Errorf("summary does not show the --name project name plainly:\n%s", r.stdout)
 	}
 }
 

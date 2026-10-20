@@ -659,7 +659,7 @@ The diff is in-house, in `internal/diff`: Myers' algorithm with three lines of c
 
 ### Creating the spec
 
-`cyanotype init` is simple mode in the terminal. It asks the questions of Simple mode, shows the chosen preset with the name and `summary` of every entry it selects, writes `cyanotype.yaml` and, on a terminal, offers to run generate, which then shows its diff and asks before writing as usual. Advanced mode arrives with the TUI; until then the spec is edited by hand.
+`cyanotype init` is simple mode in the terminal. It asks the questions of Simple mode, shows the chosen preset with the name and `summary` of every entry it selects, then the project name and goal, writes `cyanotype.yaml` and, on a terminal, offers to run generate, which then shows its diff and asks before writing as usual. Advanced mode arrives with the TUI; until then the spec is edited by hand.
 
 Every question has a flag, so agents, scripts and the MCP server can run it without a terminal:
 
@@ -674,7 +674,7 @@ Every question has a flag, so agents, scripts and the MCP server can run it with
 | `--replies` | Language of the agent's replies; default English |
 | `--goal` | The project in one or two sentences |
 | `--agents` | `claude`, `codex`, `gemini`, `cursor`, `copilot`, `other`, separated by commas |
-| `--name` | Project name; default the folder name |
+| `--name` | Project name; default the folder name. The name is not asked, so the summary shows it and, when it comes from the folder, says so and how to change it: `--name`, or `project.name` in `cyanotype.yaml` |
 | `--dir` | The project folder, as for generate |
 
 Flags answer their questions and the rest are asked. When stdin is not a terminal, init never reads it: the missing answers are one usage error that lists each missing flag with its allowed values, so an agent can fix its call in one step instead of hanging. Wrong values are usage errors before anything is asked.
