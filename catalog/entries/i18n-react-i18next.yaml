@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../../schema/catalog-entry.schema.json
+id: i18n-react-i18next
+name: react-i18next
+category: i18n-library
+select: radio
+url: https://react.i18next.com
+summary: Internationalization for React and React Native apps, built on i18next
+requires_one_of:
+  - [vite-react, expo]
+level: beginner
+topic: i18n
+snippet:
+  rule: |
+    Read every user-facing string through react-i18next: `const { t } = useTranslation()` and `t('key')` in components, and the `Trans` component only for text that contains markup.
+    Keep messages in one JSON file per locale under `locales/`, such as `locales/en.json`, and configure i18next once, in a single module imported at the app's entry point.
+  why: One setup module and one hook keep every string translatable, so adding a locale means adding a file.

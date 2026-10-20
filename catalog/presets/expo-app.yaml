@@ -4,6 +4,7 @@ name: Expo app
 summary: Mobile app for iOS and Android from one TypeScript codebase
 project_type: mobile-app
 selections: [typescript, node, npm, expo, eslint-prettier]
+i18n_selections: [i18n-react-i18next]
 commands:
   dev: npx expo start
   lint: npx expo lint

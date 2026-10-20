@@ -499,7 +499,13 @@ func (r *initRun) printSummary(p preset.Preset, a simple.Answers, s spec.Spec) {
 		}
 	}
 
-	fmt.Fprintf(r.out, "\n%s %s: %s\n", heading("Project:"), s.Project.Name, s.Project.Goal)
+	// The name is never asked, so say where it comes from and how to change
+	// it: a folder named "app" or "tmp" is rarely the name people want.
+	fmt.Fprintf(r.out, "\n%s %s", heading("Project name:"), s.Project.Name)
+	if strings.TrimSpace(r.opts.name) == "" {
+		fmt.Fprint(r.out, " (the folder name; to change it, pass --name or edit project.name in cyanotype.yaml)")
+	}
+	fmt.Fprintf(r.out, "\n%s %s\n", heading("Goal:"), s.Project.Goal)
 	if s.Languages.AgentReplies != "" {
 		fmt.Fprintf(r.out, "%s %s\n", heading("Agent replies:"), s.Languages.AgentReplies)
 	}

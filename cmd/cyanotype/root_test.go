@@ -6,6 +6,39 @@ import (
 	"testing"
 )
 
+// TestUsageErrors checks that mistakes in commands and arguments exit with
+// the usage code, 2, and say what the mistake is.
+func TestUsageErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"unknown command", []string{"foo"}, `unknown command "foo" for "cyanotype"; run "cyanotype --help" to list the commands`},
+		{"mistyped command", []string{"genrate"}, `unknown command "genrate" for "cyanotype"; did you mean "generate"?`},
+		{"unknown command before a flag", []string{"foo", "--dir", "."}, `unknown command "foo" for "cyanotype"`},
+		{"argument to version", []string{"version", "extra"}, `"cyanotype version" takes no arguments, got "extra"`},
+		{"several arguments", []string{"generate", "a", "b"}, `"cyanotype generate" takes no arguments, got "a", "b"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := runCLI(t, nonInteractive, failReader{t}, tt.args...)
+			if r.code != codeUsage || r.err == nil || !strings.Contains(r.err.Error(), tt.want) {
+				t.Errorf("exit code %d, error %v; want %d and an error containing %q", r.code, r.err, codeUsage, tt.want)
+			}
+		})
+	}
+}
+
+// TestRootWithoutArguments checks that cyanotype alone still shows the help
+// and succeeds, now that the root command has a RunE of its own.
+func TestRootWithoutArguments(t *testing.T) {
+	r := runCLI(t, nonInteractive, failReader{t})
+	if r.code != codeOK || r.err != nil || !strings.Contains(r.stdout, "Usage:") {
+		t.Errorf("exit code %d, error %v; want 0 and the help, got:\n%s", r.code, r.err, r.stdout)
+	}
+}
+
 func TestRootCmd(t *testing.T) {
 	tests := []struct {
 		name         string

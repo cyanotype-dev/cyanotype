@@ -427,7 +427,7 @@ func TestGenerateErrors(t *testing.T) {
 			files: map[string]string{"cyanotype.yaml": minimalSpec},
 			args:  []string{"extra"},
 			code:  codeUsage,
-			err:   `unknown command "extra"`,
+			err:   `"cyanotype generate" takes no arguments, got "extra"`,
 		},
 	}
 	for _, tt := range tests {

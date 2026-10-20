@@ -4,6 +4,7 @@ name: Vite + React
 summary: Single-page web app that runs in the browser, with no server of its own
 project_type: website
 selections: [typescript, node, pnpm, vite-react, tailwind, shadcn-ui, vitest, eslint-prettier]
+i18n_selections: [i18n-react-i18next]
 commands:
   dev: pnpm dev
   build: pnpm build
