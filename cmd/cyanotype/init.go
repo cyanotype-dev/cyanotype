@@ -14,6 +14,7 @@ import (
 
 	bundled "github.com/cyanotype-dev/cyanotype/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
+	"github.com/cyanotype-dev/cyanotype/internal/detect"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
 	"github.com/cyanotype-dev/cyanotype/internal/preset"
 	"github.com/cyanotype-dev/cyanotype/internal/render"
@@ -37,7 +38,19 @@ type initOptions struct {
 	locales     []string
 	replies     string
 	agents      []string
+	// detect, with and without answer the questions about a stack found
+	// in an existing project.
+	detect  string
+	with    []string
+	without []string
 }
+
+// Answers to "Use the detected stack?".
+const (
+	detectYes  = "yes"
+	detectNo   = "no"
+	detectEdit = "edit" // interactive only: use it without some entries
+)
 
 // newInitCmd builds the init command. detect tells it about the terminal
 // when it runs.
@@ -47,7 +60,9 @@ func newInitCmd(detect func() console) *cobra.Command {
 		Use:   "init",
 		Short: "Create cyanotype.yaml by answering a few questions",
 		Long: "Init asks what you are building and how you work with coding agents, picks\n" +
-			"a starter preset and writes cyanotype.yaml. Every question can be answered\n" +
+			"a starter preset and writes cyanotype.yaml. In an existing project it first\n" +
+			"detects the stack from its files and dependencies, shows what it found and\n" +
+			"why, and starts from it once you confirm. Every question can be answered\n" +
 			"with a flag; without a terminal, init never asks and reports the missing\n" +
 			"flags instead. It never overwrites an existing cyanotype.yaml.\n\n" +
 			"Exit codes: 0 written, 1 error, 2 wrong usage or missing answers,\n" +
@@ -78,6 +93,9 @@ func newInitCmd(detect func() console) *cobra.Command {
 	f.StringSliceVar(&opts.locales, "locales", nil, "the app's locales, the default one first, such as en,it")
 	f.StringVar(&opts.replies, "replies", "", "language of the agent's replies (default english)")
 	f.StringSliceVar(&opts.agents, "agents", nil, "coding agents you work with: "+values(simple.AgentOptions()))
+	f.StringVar(&opts.detect, "detect", "", "in an existing project: yes to start from the detected stack, no to ignore it")
+	f.StringSliceVar(&opts.with, "with", nil, "catalog entries to add to the detected stack, or to choose where detection found several, such as pnpm")
+	f.StringSliceVar(&opts.without, "without", nil, "detected catalog entries the project does not use")
 	return cmd
 }
 
@@ -95,6 +113,26 @@ type initRun struct {
 	presets []preset.Preset
 	// ask is the prompter, nil when stdin is not a terminal.
 	ask *prompter
+	// found is what detection found in the project folder.
+	found detect.Result
+}
+
+// start is where the spec's stack comes from: a starter preset, or the
+// stack detected in an existing project. Exactly one is set once the
+// answers are collected.
+type start struct {
+	preset   *preset.Preset
+	detected *simple.Detected
+	// projectType is the preset's type, or the detected stack's.
+	projectType preset.ProjectType
+}
+
+// stack returns the stack the spec is built from.
+func (r *initRun) stack(s start) (simple.Stack, error) {
+	if s.preset != nil {
+		return simple.PresetStack(*s.preset), nil
+	}
+	return s.detected.Stack(r.cat, r.presets, s.projectType)
 }
 
 func (r *initRun) run() error {
@@ -121,24 +159,41 @@ func (r *initRun) run() error {
 		r.ask = newPrompter(r.in, r.errOut)
 	}
 
-	answers, chosen, err := r.collect()
+	// Detection only reads; nothing is written before the spec at the end.
+	r.found = detect.Detect(r.cat, root.FS())
+	for _, p := range r.found.Problems {
+		fmt.Fprintf(r.errOut, "%s: %s; detection skipped it\n", paint(r.console.colorErr, yellow, "warning"), p.Error())
+	}
+	detected, err := r.useDetected()
 	if err != nil {
 		return err
 	}
-	s, err := simple.Build(r.cat, chosen, answers)
+
+	answers, from, err := r.collect(detected)
+	if err != nil {
+		return err
+	}
+	st, err := r.stack(from)
+	if err != nil {
+		return err
+	}
+	s, err := simple.BuildStack(r.cat, st, answers)
 	if err != nil {
 		return err
 	}
 	f := spec.New(s)
 	_, warnings, err := resolve.Resolve(r.cat, f)
-	if err != nil {
-		return fmt.Errorf("the spec for preset %q does not resolve, which is a bug in cyanotype: %w", chosen.ID, err)
+	switch {
+	case err != nil && from.preset != nil:
+		return fmt.Errorf("the spec for preset %q does not resolve, which is a bug in cyanotype: %w", from.preset.ID, err)
+	case err != nil:
+		return fmt.Errorf("the spec for the detected stack does not resolve: %w", err)
 	}
 	for _, w := range warnings {
 		fmt.Fprintf(r.errOut, "%s: %s\n", paint(r.console.colorErr, yellow, "warning"), w)
 	}
 
-	r.printSummary(chosen, answers, s)
+	r.printSummary(from, st, answers, s)
 	if err := generate.CreateSpec(root, f); err != nil {
 		if errors.Is(err, generate.ErrSpecExists) {
 			return refuseExisting(err)
@@ -251,7 +306,175 @@ func (r *initRun) checkFlags() error {
 	for _, a := range r.opts.agents {
 		oneOf("agents", a, simple.AgentOptions())
 	}
+
+	oneOf("detect", r.opts.detect, detectOptions())
+	adjusts := r.changed("with") || r.changed("without")
+	switch {
+	case r.changed("preset") && r.opts.detect == detectYes:
+		fail("--preset starts from a starter instead of the detected stack; drop --detect yes or --preset")
+	case r.changed("preset") && adjusts:
+		fail("--with and --without change the detected stack, which --preset does not use; drop them or --preset")
+	case r.opts.detect == detectNo && adjusts:
+		fail("--with and --without change the detected stack, which --detect no ignores; drop them or --detect no")
+	}
 	return errors.Join(errs...)
+}
+
+// detectOptions returns the answers --detect accepts.
+func detectOptions() []simple.Option {
+	return []simple.Option{
+		{Value: detectYes, Label: "Yes", Help: "start from the detected stack"},
+		{Value: detectNo, Label: "No", Help: "ignore it and pick a starter"},
+	}
+}
+
+// useDetected decides whether the spec starts from the stack detection
+// found, and returns it adjusted by --with and --without, or nil to start
+// from a preset. It shows what detection found and why before asking, and
+// without a terminal it needs --detect: starting from the files of a
+// project is a choice the user makes, never one cyanotype makes alone.
+func (r *initRun) useDetected() (*simple.Detected, error) {
+	if r.found.Empty() || r.opts.preset != "" || r.opts.detect == detectNo {
+		return nil, nil
+	}
+	without := slices.Clone(r.opts.without)
+	d, err := simple.DetectStack(r.cat, r.presets, r.found, r.opts.with, without)
+	if err != nil {
+		return nil, usageError(err)
+	}
+	r.printDetected()
+
+	choice := r.opts.detect
+	switch {
+	case choice != "":
+	case r.ask == nil:
+		return nil, usageError(missingError([]missingFlag{{"detect", "yes to start from the stack detected above, no to ignore it and pick a starter"}}))
+	default:
+		o, err := r.ask.choose("Start from the detected stack?", []simple.Option{
+			{Value: detectYes, Label: "Yes"},
+			{Value: detectEdit, Label: "Yes, without some of it", Help: "for a file that revealed something the project does not use"},
+			{Value: detectNo, Label: "No", Help: "ignore it and pick a starter"},
+		}, detectYes)
+		if err != nil {
+			return nil, err
+		}
+		choice = o.Value
+	}
+
+	switch choice {
+	case detectNo:
+		return nil, nil
+	case detectEdit:
+		var opts []simple.Option
+		for _, f := range r.found.Findings {
+			if !slices.Contains(without, f.ID) && !slices.Contains(r.opts.with, f.ID) {
+				e, _ := r.cat.Get(f.ID)
+				opts = append(opts, simple.Option{Value: f.ID, Label: e.Name, Help: evidenceList(f.Evidence)})
+			}
+		}
+		drop, err := r.ask.chooseMany("Which of these does the project not use?", opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range drop {
+			without = append(without, o.Value)
+		}
+		if d, err = simple.DetectStack(r.cat, r.presets, r.found, r.opts.with, without); err != nil {
+			return nil, err
+		}
+	}
+	r.opts.without = without
+	if len(d.Selections) == 0 {
+		fmt.Fprintln(r.errOut, "Nothing is left of the detected stack, so init starts from a starter instead.")
+		return nil, nil
+	}
+	return &d, nil
+}
+
+// printDetected shows what detection found, and why, on stdout.
+func (r *initRun) printDetected() {
+	heading := func(s string) string { return paint(r.console.colorOut, bold, s) }
+	where := "this project"
+	if r.opts.dir != "." {
+		where = r.opts.dir
+	}
+	fmt.Fprintf(r.out, "%s\n", heading("Detected in "+where+":"))
+	for _, f := range r.found.Findings {
+		e, _ := r.cat.Get(f.ID)
+		fmt.Fprintf(r.out, "  - %s (%s)\n", e.Name, evidenceList(f.Evidence))
+	}
+	for _, c := range r.found.Clashes {
+		fmt.Fprintf(r.out, "Only one of %s can be selected: the project uses one of them.\n", r.entryNames(c.IDs, "and"))
+	}
+	if len(r.found.Scripts) > 0 {
+		fmt.Fprintf(r.out, "Scripts in package.json: %s\n", strings.Join(r.found.Scripts, ", "))
+	}
+}
+
+// evidenceList joins the reasons an entry was detected: "package.json: next, next.config.ts".
+func evidenceList(ev []detect.Evidence) string {
+	parts := make([]string, len(ev))
+	for i, e := range ev {
+		parts[i] = e.String()
+	}
+	return strings.Join(parts, ", ")
+}
+
+// entryNames names entries as an English list: "npm or pnpm".
+func (r *initRun) entryNames(ids []string, conj string) string {
+	names := make([]string, len(ids))
+	for i, id := range ids {
+		e, _ := r.cat.Get(id)
+		names[i] = e.Name
+	}
+	return orList(names, conj)
+}
+
+// choiceQuestion says why a detected stack needs the user to choose.
+func (r *initRun) choiceQuestion(ch simple.Choice) string {
+	switch {
+	case ch.Kind == simple.ChoiceGroup:
+		by, _ := r.cat.Get(ch.By)
+		return fmt.Sprintf("%s needs %s, and detection found neither. Which one does the project use?",
+			by.Name, r.entryNames(ch.IDs, "or"))
+	case ch.Category != "":
+		return fmt.Sprintf("Detection found %s, but a project uses only one %s. Which one does it use?",
+			r.entryNames(ch.IDs, "and"), ch.Category)
+	default:
+		return fmt.Sprintf("Detection found %s, which conflict with each other. Which one does the project use?",
+			r.entryNames(ch.IDs, "and"))
+	}
+}
+
+// choiceOptions offers the entries of a choice, each with why it was
+// detected.
+func (r *initRun) choiceOptions(ch simple.Choice) []simple.Option {
+	opts := make([]simple.Option, len(ch.IDs))
+	for i, id := range ch.IDs {
+		e, _ := r.cat.Get(id)
+		help := "not detected"
+		if f, ok := r.found.Find(id); ok {
+			help = "found " + evidenceList(f.Evidence)
+		}
+		opts[i] = simple.Option{Value: id, Label: e.Name, Help: help}
+	}
+	return opts
+}
+
+// choiceHelp explains a choice in the list of missing flags.
+func (r *initRun) choiceHelp(ch simple.Choice) string {
+	var reason string
+	if ch.Kind == simple.ChoiceGroup {
+		by, _ := r.cat.Get(ch.By)
+		reason = by.Name + " needs one, and detection found none"
+	} else {
+		var found []string
+		for _, o := range r.choiceOptions(ch) {
+			found = append(found, o.Value+" "+o.Help)
+		}
+		reason = strings.Join(found, ", ") + "; only one can be selected"
+	}
+	return orList(ch.IDs, "or") + ": the one the project uses (" + reason + ")"
 }
 
 // missingFlag is a question nobody answered, named by its flag.
@@ -262,7 +485,11 @@ type missingFlag struct {
 // collect gathers the answers, from flags first, then by asking on the
 // terminal. Without a terminal it never reads stdin: every missing answer
 // is collected into one usage error naming its flag.
-func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
+//
+// With a detected stack, the questions detection answers are skipped: the
+// starter always, and what to build when the closest presets agree. The
+// choices the stack leaves open, such as two lockfiles, come first.
+func (r *initRun) collect(d *simple.Detected) (simple.Answers, start, error) {
 	var (
 		a       simple.Answers
 		missing []missingFlag
@@ -270,18 +497,47 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 		pt      preset.ProjectType
 	)
 	miss := func(flag, help string) { missing = append(missing, missingFlag{flag, help}) }
+	fail := func(err error) (simple.Answers, start, error) { return a, start{}, err }
 
-	// 1. What to build, which --preset implies.
+	// 0. The choices a detected stack leaves open, each answered by adding
+	// the chosen entry as --with would.
+	if d != nil {
+		with := slices.Clone(r.opts.with)
+		for len(d.Choices) > 0 {
+			if r.ask == nil {
+				for _, ch := range d.Choices {
+					miss("with", r.choiceHelp(ch))
+				}
+				break
+			}
+			ch := d.Choices[0]
+			o, err := r.ask.choose(r.choiceQuestion(ch), r.choiceOptions(ch), ch.Default)
+			if err != nil {
+				return fail(err)
+			}
+			with = append(with, o.Value)
+			next, err := simple.DetectStack(r.cat, r.presets, r.found, with, r.opts.without)
+			if err != nil {
+				return fail(err)
+			}
+			d = &next
+		}
+	}
+
+	// 1. What to build, which --preset implies, and a detected stack too
+	// when the presets closest to it build one kind of project.
 	switch {
 	case r.opts.preset != "":
 		p, _ := r.findPreset(r.opts.preset) // checked by checkFlags
 		chosen, pt = &p, p.ProjectType
 	case r.opts.projectType != "":
 		pt = preset.ProjectType(r.opts.projectType)
+	case d != nil && d.ProjectType != "":
+		pt = d.ProjectType
 	case r.ask != nil:
 		o, err := r.ask.choose("What do you want to build?", simple.ProjectTypeOptions(), "")
 		if err != nil {
-			return a, preset.Preset{}, err
+			return fail(err)
 		}
 		pt = preset.ProjectType(o.Value)
 	default:
@@ -294,23 +550,24 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 	if language == "" && r.ask != nil {
 		o, err := r.ask.choose("Do you already know a programming language?", simple.LanguageOptions(r.cat), "")
 		if err != nil {
-			return a, preset.Preset{}, err
+			return fail(err)
 		}
 		language = o.Value
 	}
 
-	// The starter preset, asked only when several fit.
-	if chosen == nil && pt != "" {
+	// The starter preset, asked only when several fit; a detected stack
+	// needs none.
+	if chosen == nil && pt != "" && d == nil {
 		candidates := simple.Candidates(r.cat, r.presets, pt, language)
 		switch {
 		case len(candidates) == 0:
-			return a, preset.Preset{}, fmt.Errorf("no preset builds a %s, which is a bug in cyanotype", pt)
+			return fail(fmt.Errorf("no preset builds a %s, which is a bug in cyanotype", pt))
 		case len(candidates) == 1:
 			chosen = &candidates[0]
 		case r.ask != nil:
 			o, err := r.ask.choose("Which starter fits best?", presetOptions(candidates), candidates[0].ID)
 			if err != nil {
-				return a, preset.Preset{}, err
+				return fail(err)
 			}
 			p, _ := r.findPreset(o.Value)
 			chosen = &p
@@ -319,14 +576,22 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 		}
 	}
 
-	// Learning mode: offered only to users who do not know the preset's
+	// Learning mode: offered only to users who do not know the stack's
 	// languages, and never on by default.
+	var stackIDs []string
+	switch {
+	case chosen != nil:
+		stackIDs = chosen.Selections
+	case d != nil:
+		stackIDs = d.Selections
+	}
+	langs := simple.Languages(r.cat, stackIDs)
 	a.Learning = r.opts.learning
-	if a.Learning == "" && r.ask != nil && chosen != nil && simple.OffersLearning(r.cat, *chosen, language) {
-		question := fmt.Sprintf("Turn on learning mode, to learn %s while the agent works?", r.languageNames(*chosen))
+	if a.Learning == "" && r.ask != nil && len(langs) > 0 && simple.OffersLearningFor(r.cat, stackIDs, language) {
+		question := fmt.Sprintf("Turn on learning mode, to learn %s while the agent works?", r.entryNames(langs, "and"))
 		o, err := r.ask.choose(question, simple.LearningOptions(r.cat), simple.LearningOff)
 		if err != nil {
-			return a, preset.Preset{}, err
+			return fail(err)
 		}
 		a.Learning = o.Value
 	}
@@ -339,15 +604,15 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 		} else {
 			o, err := r.ask.choose("How much autonomy should the agent have?", simple.AutonomyOptions(), string(simple.Balanced))
 			if err != nil {
-				return a, preset.Preset{}, err
+				return fail(err)
 			}
 			a.Autonomy = simple.Autonomy(o.Value)
 		}
 	}
 
 	// 4. Translations, for apps with a user interface only.
-	if err := r.collectI18n(&a, pt, miss); err != nil {
-		return a, preset.Preset{}, err
+	if err := r.collectI18n(&a, pt, d != nil && d.Multilingual, miss); err != nil {
+		return fail(err)
 	}
 
 	// 5. The language of the agent's replies; English unless asked otherwise.
@@ -355,7 +620,7 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 	if a.AgentReplies == "" && r.ask != nil {
 		answer, err := r.ask.text("Language for the agent's replies", spec.DefaultLanguage, checkLanguage)
 		if err != nil {
-			return a, preset.Preset{}, err
+			return fail(err)
 		}
 		a.AgentReplies = simple.CanonicalLanguage(answer)
 	}
@@ -368,7 +633,7 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 		} else {
 			answer, err := r.ask.text("Describe the project in one or two sentences", "", nil)
 			if err != nil {
-				return a, preset.Preset{}, err
+				return fail(err)
 			}
 			a.Goal = answer
 		}
@@ -384,7 +649,7 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 		} else {
 			opts, err := r.ask.chooseMany("Which coding agents do you work with?", simple.AgentOptions())
 			if err != nil {
-				return a, preset.Preset{}, err
+				return fail(err)
 			}
 			for _, o := range opts {
 				a.Agents = append(a.Agents, simple.Agent(o.Value))
@@ -401,19 +666,43 @@ func (r *initRun) collect() (simple.Answers, preset.Preset, error) {
 	}
 
 	if len(missing) > 0 {
-		return a, preset.Preset{}, usageError(missingError(missing))
+		return fail(usageError(missingError(missing)))
 	}
-	return a, *chosen, nil
+	return a, start{preset: chosen, detected: d, projectType: pt}, nil
 }
 
 // collectI18n answers the translation question when it applies to pt.
-func (r *initRun) collectI18n(a *simple.Answers, pt preset.ProjectType, miss func(flag, help string)) error {
+// translated reports that the detected stack has a translation library, so
+// the app is translated already and only its locales are left to ask.
+func (r *initRun) collectI18n(a *simple.Answers, pt preset.ProjectType, translated bool, miss func(flag, help string)) error {
 	if pt == "" {
 		return nil // what to build is itself missing
 	}
 	if !simple.AsksI18n(pt) {
 		if r.opts.i18n != "" || len(r.opts.locales) > 0 {
 			return usageError(fmt.Errorf("--i18n and --locales apply only to websites and mobile apps, not to a %s", pt))
+		}
+		return nil
+	}
+
+	if translated && r.opts.i18n == "" {
+		a.Locales = r.opts.locales
+		if len(a.Locales) == 0 {
+			if r.ask == nil {
+				miss("locales", "the app's locales, the default one first, such as en,it; the detected stack has a translation library")
+				return nil
+			}
+			answer, err := r.ask.text("The app uses a translation library. Which locales does it support? Locale tags separated by commas, the default one first",
+				simple.DefaultLocale, checkSomeLocales)
+			if err != nil {
+				return err
+			}
+			a.Locales = splitLocales(answer)
+		}
+		// One locale is an app ready for more, several a multilingual one.
+		a.I18n = simple.I18nLater
+		if len(a.Locales) > 1 {
+			a.I18n = simple.I18nYes
 		}
 		return nil
 	}
@@ -469,34 +758,60 @@ func missingError(missing []missingFlag) error {
 
 // printSummary shows the chosen preset with a short explanation of every
 // entry, grouped by where it comes from, and the files the targets produce.
-func (r *initRun) printSummary(p preset.Preset, a simple.Answers, s spec.Spec) {
+func (r *initRun) printSummary(from start, st simple.Stack, a simple.Answers, s spec.Spec) {
 	type group struct {
 		title string
 		ids   []string
 	}
-	groups := []group{
-		{"Stack", p.Selections},
-		{fmt.Sprintf("Agent rules (autonomy: %s)", strings.ToLower(label(simple.AutonomyOptions(), string(a.Autonomy)))), simple.AutonomySelections(a.Autonomy)},
+	// Each group lists the entries it adds to the spec; an entry the
+	// stack already has, such as conventional-commits detected from a
+	// commitlint config, is listed once, in the stack.
+	listed := slices.Clone(st.Selections)
+	adds := func(ids []string) []string {
+		var out []string
+		for _, id := range ids {
+			if !slices.Contains(listed, id) {
+				out = append(out, id)
+				listed = append(listed, id)
+			}
+		}
+		return out
 	}
+	groups := []group{{"Stack", st.Selections}}
 	if s.I18n != nil {
 		title := fmt.Sprintf("Translations (default locale %s)", s.I18n.DefaultLocale)
 		if len(s.I18n.Locales) > 0 {
 			title = fmt.Sprintf("Translations (%s; %s is the default)", strings.Join(s.I18n.Locales, ", "), s.I18n.DefaultLocale)
 		}
-		groups = slices.Insert(groups, 1, group{title, p.MultilingualSelections()})
+		groups = append(groups, group{title, adds(append([]string{preset.GenericI18n}, st.I18nSelections...))})
 	}
+	groups = append(groups, group{
+		fmt.Sprintf("Agent rules (autonomy: %s)", strings.ToLower(label(simple.AutonomyOptions(), string(a.Autonomy)))),
+		adds(simple.AutonomySelections(a.Autonomy)),
+	})
 	if a.Learning != "" && a.Learning != simple.LearningOff {
 		groups = append(groups, group{"Learning mode", []string{"learning-" + a.Learning}})
 	}
 
 	heading := func(s string) string { return paint(r.console.colorOut, bold, s) }
-	fmt.Fprintf(r.out, "\n%s %s\n%s.\n", heading("Starter:"), p.Name, p.Summary)
+	if p := from.preset; p != nil {
+		fmt.Fprintf(r.out, "\n%s %s\n%s.\n", heading("Starter:"), p.Name, p.Summary)
+	} else {
+		fmt.Fprintf(r.out, "\n%s the stack detected in the project\n%s %s\n", heading("Starting from:"),
+			heading("Project type:"), label(simple.ProjectTypeOptions(), string(from.projectType)))
+	}
 	for _, g := range groups {
+		if len(g.ids) == 0 {
+			continue
+		}
 		fmt.Fprintf(r.out, "\n%s\n", heading(g.title))
 		for _, id := range g.ids {
 			e, _ := r.cat.Get(id)
-			fmt.Fprintf(r.out, "  - %s: %s\n", e.Name, e.Summary)
+			fmt.Fprintf(r.out, "  - %s: %s%s\n", e.Name, e.Summary, r.origin(from, id))
 		}
+	}
+	if from.detected != nil {
+		r.printDetectedCommands(*from.detected)
 	}
 
 	// The name is never asked, so say where it comes from and how to change
@@ -528,6 +843,42 @@ func (r *initRun) printSummary(p preset.Preset, a simple.Answers, s spec.Spec) {
 	}
 }
 
+// origin says where an entry of a detected stack comes from, as a suffix
+// for the summary: what revealed it, the entry that requires it, or the
+// user's choice. Entries of a preset need no explanation.
+func (r *initRun) origin(from start, id string) string {
+	d := from.detected
+	if d == nil || !slices.Contains(d.Selections, id) {
+		return ""
+	}
+	if f, ok := r.found.Find(id); ok && !slices.Contains(r.opts.without, id) {
+		return " (found " + evidenceList(f.Evidence) + ")"
+	}
+	for _, req := range d.Added {
+		if req.ID == id {
+			by, _ := r.cat.Get(req.By)
+			return " (required by " + by.Name + ")"
+		}
+	}
+	return " (your choice)"
+}
+
+// printDetectedCommands shows the commands taken from package.json, or
+// says there are none, since a spec without commands leaves the agent
+// guessing how to build and test.
+func (r *initRun) printDetectedCommands(d simple.Detected) {
+	heading := func(s string) string { return paint(r.console.colorOut, bold, s) }
+	if len(d.CommandScripts) == 0 {
+		fmt.Fprintf(r.out, "\n%s none detected; add them under commands in %s.\n", heading("Commands:"), generate.SpecFile)
+		return
+	}
+	fmt.Fprintf(r.out, "\n%s\n", heading("Commands (from package.json scripts)"))
+	cmds := map[string]string{"dev": d.Commands.Dev, "build": d.Commands.Build, "test": d.Commands.Test, "lint": d.Commands.Lint}
+	for _, name := range d.CommandScripts {
+		fmt.Fprintf(r.out, "  - %s: %s\n", name, cmds[name])
+	}
+}
+
 // targetFiles names the main file each supported target produces.
 var targetFiles = map[spec.Target]string{
 	spec.TargetClaude:   "CLAUDE.md",
@@ -541,16 +892,6 @@ func (r *initRun) findPreset(id string) (preset.Preset, bool) {
 		return preset.Preset{}, false
 	}
 	return r.presets[i], true
-}
-
-// languageNames names the languages of a preset as an English list.
-func (r *initRun) languageNames(p preset.Preset) string {
-	var names []string
-	for _, id := range p.Languages(r.cat) {
-		e, _ := r.cat.Get(id)
-		names = append(names, e.Name)
-	}
-	return orList(names, "and")
 }
 
 // presetOptions turns presets into the options of the starter question.
@@ -639,6 +980,20 @@ func checkLocales(answer string) error {
 	}
 	if len(locales) < 2 {
 		return errors.New("enter at least two locales, the default one first, such as en,it")
+	}
+	return nil
+}
+
+// checkSomeLocales rejects an answer that is not one or more locale tags.
+func checkSomeLocales(answer string) error {
+	locales := splitLocales(answer)
+	if len(locales) == 0 {
+		return errors.New("enter at least one locale tag, such as en")
+	}
+	for _, l := range locales {
+		if !spec.ValidLocale(l) {
+			return fmt.Errorf("enter locale tags such as en or pt-BR; %q is not one", l)
+		}
 	}
 	return nil
 }
