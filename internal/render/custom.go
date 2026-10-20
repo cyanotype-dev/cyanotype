@@ -13,6 +13,14 @@ const (
 	customEnd   = "<!-- /cyanotype:custom -->"
 )
 
+// CustomBegin and CustomEnd are the markers of a protected block, for
+// packages that write blocks of their own, such as one keeping a whole
+// hand-written file.
+const (
+	CustomBegin = customBegin
+	CustomEnd   = customEnd
+)
+
 // customBlock is a protected block found in an existing file.
 type customBlock struct {
 	// anchor is the title of the nearest "## " heading above the block, or

@@ -102,16 +102,25 @@ func Supported(t spec.Target) bool {
 	return t == spec.TargetAgentsMD || t == spec.TargetClaude
 }
 
+// MainPath returns the main instruction file of the targets, the one that
+// holds the shared content: AGENTS.md when it is a target, since CLAUDE.md
+// then only imports it, and CLAUDE.md otherwise. It is "" when no target
+// has a Markdown main file yet.
+func MainPath(targets []spec.Target) string {
+	switch {
+	case slices.Contains(targets, spec.TargetAgentsMD):
+		return agentsPath
+	case slices.Contains(targets, spec.TargetClaude):
+		return claudePath
+	}
+	return ""
+}
+
 // renderInstructions returns the Markdown instruction files: the main file,
 // CLAUDE.md importing it when both targets are set, and the topic files of
 // a split output.
 func renderInstructions(r *resolve.Result, existing fs.FS, agents, claude bool) ([]File, []resolve.Warning, error) {
-	// The main file holds the shared content: AGENTS.md when it is a
-	// target, since CLAUDE.md then only imports it.
-	mainPath := agentsPath
-	if !agents {
-		mainPath = claudePath
-	}
+	mainPath := MainPath(r.Spec.Targets)
 	// enforced reports that .claude/settings.json gets permission rules,
 	// which CLAUDE.md then explains in its Claude Code section.
 	enforced := claude && !claudeRules(r).empty()

@@ -7,7 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 )
 
 // Permissions of what Write creates. Generated files belong to the
@@ -22,29 +25,42 @@ const (
 // and returns the paths it wrote, in order. Unchanged files are not
 // touched, and no file is ever deleted.
 //
-// Every path is checked before anything is written: a hand-written
-// instruction file (see Change.HandWritten), a path that leaves the project
-// root, or a target that is a symbolic link or not a regular file, stops
-// the whole write. Root itself refuses to follow a symbolic link out
-// of the project. Each file is written to a temporary file in its folder and
+// Every path is checked before anything is written, and any of these stops
+// the whole write: a hand-written instruction file (see Change.HandWritten)
+// without a choice that writes, or chosen for replacing when git could not
+// give it back (see adopt.Git); a moved file whose destination exists; a
+// path that leaves the project root; a target that is a symbolic link or
+// not a regular file. Root itself refuses to follow a symbolic link out of
+// the project. Each file is written to a temporary file in its folder and
 // then renamed over the target, so a crash never leaves a half-written
 // file. Missing folders are created.
 //
-// When writing one file fails, the files written before it stay, and
-// written lists them so the caller can say so.
+// Moved files are written first, so a hand-written file is replaced only
+// once its content is safe in its new place. When writing one file fails,
+// the files written before it stay, and written lists them so the caller
+// can say so.
 func Write(root *os.Root, changes []Change) (written []string, err error) {
 	for _, c := range changes {
 		if c.Status == Unchanged {
 			continue
 		}
-		if c.HandWritten {
-			return nil, fmt.Errorf("refusing to replace %s: %w", c.Path, ErrHandWritten)
+		if err := checkChange(root, c); err != nil {
+			return nil, err
 		}
 		if err := checkTarget(root, c.Path); err != nil {
 			return nil, err
 		}
 	}
+	// Moved files first, then the rest, each group in its order.
+	var moved, rest []Change
 	for _, c := range changes {
+		if c.MovedFrom != "" {
+			moved = append(moved, c)
+		} else {
+			rest = append(rest, c)
+		}
+	}
+	for _, c := range slices.Concat(moved, rest) {
 		if c.Status == Unchanged {
 			continue
 		}
@@ -54,6 +70,25 @@ func Write(root *os.Root, changes []Change) (written []string, err error) {
 		written = append(written, c.Path)
 	}
 	return written, nil
+}
+
+// checkChange reports a change Write must not make because of what is at
+// its path: a hand-written file nobody chose to replace, one git could not
+// give back, or the destination of a moved file that already exists.
+func checkChange(root *os.Root, c Change) error {
+	switch {
+	case c.HandWritten && !c.Choice.Writes():
+		return fmt.Errorf("refusing to replace %s: %w", c.Path, ErrHandWritten)
+	case c.HandWritten && c.Choice == adopt.Replace:
+		if err := (adopt.Git{}).CheckRecoverable(root.Name(), c.Path); err != nil {
+			return fmt.Errorf("refusing to replace %s: %w", c.Path, err)
+		}
+	case c.MovedFrom != "":
+		if _, err := root.Lstat(filepath.FromSlash(c.Path)); !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("refusing to move %s to %s: that path already exists", c.MovedFrom, c.Path)
+		}
+	}
+	return nil
 }
 
 // checkTarget reports a path Write must not write to.

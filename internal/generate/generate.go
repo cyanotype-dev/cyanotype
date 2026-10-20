@@ -14,7 +14,10 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
+	"strings"
 
+	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/diff"
 	"github.com/cyanotype-dev/cyanotype/internal/render"
@@ -90,6 +93,13 @@ type Change struct {
 	// interface or its flags, so hand-written rules are never lost
 	// silently; see render.HasHeader.
 	HandWritten bool
+	// Choice is what the user chose for a hand-written file, or "" when
+	// nothing was chosen. Write replaces a hand-written file only with a
+	// choice that writes.
+	Choice adopt.Choice
+	// MovedFrom names the hand-written file whose content this created
+	// file holds, for a change that adopt.Move made, or "".
+	MovedFrom string
 }
 
 // ErrHandWritten reports a Write that would replace an instruction file
@@ -133,11 +143,35 @@ func (c Change) Diff() string {
 // spec. Warnings are returned with errors too, and get the line of their
 // field when they name one, so the user sees where each comes from.
 func Preview(c *catalog.Catalog, f *spec.File, existing fs.FS) ([]Change, []resolve.Warning, error) {
+	return PreviewChoices(c, f, existing, nil)
+}
+
+// Choices maps the path of a hand-written instruction file to what to do
+// with it. Interfaces fill it from the user's answers once Preview has
+// reported the files, then call PreviewChoices.
+type Choices map[string]adopt.Choice
+
+// PreviewChoices is Preview with the choices made for hand-written
+// instruction files applied, as adopt.Apply describes: the renderer reads
+// the project with each file kept, moved or allowed to be replaced, while
+// every change is still compared with the project as it is on disk, so the
+// diff shows what writing really does. A moved file's content comes back
+// as one more created change. Changes of chosen files carry their choice,
+// which lets Write replace them.
+func PreviewChoices(c *catalog.Catalog, f *spec.File, existing fs.FS, choices Choices) ([]Change, []resolve.Warning, error) {
 	res, warnings, err := resolve.Resolve(c, f)
 	if err != nil {
 		return nil, warnings, err
 	}
-	files, renderWarnings, err := render.Render(res, existing)
+	view := existing
+	var moved []adopt.MovedFile
+	if len(choices) > 0 {
+		view, moved, err = adopt.Apply(existing, choices, render.MainPath(res.Spec.Targets), res.Spec.Output.TopicDir)
+		if err != nil {
+			return nil, warnings, err
+		}
+	}
+	files, renderWarnings, err := render.Render(res, view)
 	for _, w := range renderWarnings {
 		if w.Line == 0 && w.Field != "" {
 			w.Line = f.Line(w.Field)
@@ -148,14 +182,21 @@ func Preview(c *catalog.Catalog, f *spec.File, existing fs.FS) ([]Change, []reso
 		return nil, warnings, err
 	}
 
-	changes := make([]Change, 0, len(files))
+	changes := make([]Change, 0, len(files)+len(moved))
 	for _, file := range files {
 		ch, err := compare(existing, file)
 		if err != nil {
 			return nil, warnings, err
 		}
+		if ch.HandWritten {
+			ch.Choice = choices[ch.Path]
+		}
 		changes = append(changes, ch)
 	}
+	for _, m := range moved {
+		changes = append(changes, Change{Path: m.Path, Status: Created, New: m.Content, MovedFrom: m.From})
+	}
+	slices.SortFunc(changes, func(a, b Change) int { return strings.Compare(a.Path, b.Path) })
 	return changes, warnings, nil
 }
 
