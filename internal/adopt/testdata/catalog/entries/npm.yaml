@@ -1,0 +1,9 @@
+id: npm
+name: npm
+category: package-manager
+select: radio
+summary: The package manager bundled with Node.js
+snippet:
+  rule: Rule of npm.
+  why: Reason of npm.
+requires: [node]

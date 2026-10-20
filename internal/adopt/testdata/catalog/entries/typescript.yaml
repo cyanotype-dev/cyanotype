@@ -1,0 +1,9 @@
+id: typescript
+name: TypeScript
+category: language
+select: checkbox
+summary: JavaScript with static types
+snippet:
+  rule: Rule of typescript.
+  why: Reason of typescript.
+

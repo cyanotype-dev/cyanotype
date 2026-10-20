@@ -1,0 +1,10 @@
+id: node
+name: Node.js
+category: runtime
+select: radio
+summary: JavaScript runtime
+snippet:
+  rule: Rule of node.
+  why: Reason of node.
+requires_one_of:
+  - [npm, pnpm]

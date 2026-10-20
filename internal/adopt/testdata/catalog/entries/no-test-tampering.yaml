@@ -1,0 +1,9 @@
+id: no-test-tampering
+name: Never weaken tests to make them pass
+category: agent-safety
+select: checkbox
+summary: The agent may not edit or delete tests to make them pass
+snippet:
+  rule: Rule of no-test-tampering.
+  why: Reason of no-test-tampering.
+

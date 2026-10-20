@@ -1,0 +1,9 @@
+id: nextjs
+name: Next.js
+category: frontend-framework
+select: radio
+summary: React framework for full-stack web apps
+snippet:
+  rule: Rule of nextjs.
+  why: Reason of nextjs.
+requires: [node]

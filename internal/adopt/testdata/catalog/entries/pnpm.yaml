@@ -1,0 +1,9 @@
+id: pnpm
+name: pnpm
+category: package-manager
+select: radio
+summary: Fast, disk-efficient package manager
+snippet:
+  rule: Rule of pnpm.
+  why: Reason of pnpm.
+requires: [node]
