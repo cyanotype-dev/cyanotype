@@ -31,6 +31,7 @@ func (f *File) Save(w io.Writer) error {
 	if err := fresh.Encode(f.Spec); err != nil {
 		return fmt.Errorf("encode spec: %w", err)
 	}
+	quoteCatalogVersion(&fresh)
 	if f.doc == nil {
 		f.doc = &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{&fresh}}
 	} else {
@@ -68,6 +69,19 @@ func (f *File) Save(w io.Writer) error {
 		return fmt.Errorf("write spec: %w", err)
 	}
 	return nil
+}
+
+// quoteCatalogVersion double-quotes catalog_version in the freshly encoded
+// mapping m. yaml.v3 quotes only the values YAML would read as something
+// else, such as 2026.10 as a number, and leaves 2026.10.1 plain; a pin is
+// always written quoted, so every new spec looks the same whatever its
+// version. A pin already in a loaded file keeps its style (see mergeScalar).
+func quoteCatalogVersion(m *yaml.Node) {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == "catalog_version" {
+			m.Content[i+1].Style = yaml.DoubleQuotedStyle
+		}
+	}
 }
 
 func encode(w io.Writer, n *yaml.Node) error {
