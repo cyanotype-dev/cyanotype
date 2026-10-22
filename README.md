@@ -6,13 +6,13 @@ Your choices live in a `cyanotype.yaml` spec in your repo; the agent files are r
 
 ## Status
 
-**Pre-alpha.** v0.1.0 is a pre-release: commands, flags and the `cyanotype.yaml` format may still change. `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset, and `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code deny rules and a `.gitignore` block from it; files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
+**Pre-alpha.** v0.2.0 is a pre-release: commands, flags and the `cyanotype.yaml` format may still change. `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset or, in an existing project, from the stack it detects, and `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code deny rules and a `.gitignore` block from it, never replacing instruction files written by hand without your choice; files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
 
 ## Installation
 
 Cyanotype is a single binary with no runtime dependencies, for Linux, macOS and Windows on x86-64 (amd64) and ARM64. Every channel except `go install` and Scoop also installs `cyty`, a short alias for `cyanotype`.
 
-Release files are on the [v0.1.0 release page](https://github.com/cyanotype-dev/cyanotype/releases/tag/v0.1.0). Since v0.1.0 is a pre-release, GitHub does not list it as the latest release, so the links below name the version.
+Release files are on the [v0.2.0 release page](https://github.com/cyanotype-dev/cyanotype/releases/tag/v0.2.0). Since v0.2.0 is a pre-release, GitHub does not list it as the latest release, so the links below name the version.
 
 ### Homebrew (macOS and Linux)
 
@@ -38,27 +38,27 @@ Set-Alias cyty cyanotype
 Download the package for your architecture and install it with apt:
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.1.0/cyanotype_0.1.0_amd64.deb
-sudo apt install ./cyanotype_0.1.0_amd64.deb
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.2.0/cyanotype_0.2.0_amd64.deb
+sudo apt install ./cyanotype_0.2.0_amd64.deb
 ```
 
-On ARM64, use `cyanotype_0.1.0_arm64.deb`.
+On ARM64, use `cyanotype_0.2.0_arm64.deb`.
 
 ### Fedora, RHEL and openSUSE
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.1.0/cyanotype-0.1.0-1.x86_64.rpm
-sudo dnf install ./cyanotype-0.1.0-1.x86_64.rpm
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.2.0/cyanotype-0.2.0-1.x86_64.rpm
+sudo dnf install ./cyanotype-0.2.0-1.x86_64.rpm
 ```
 
-On ARM64, use `cyanotype-0.1.0-1.aarch64.rpm`; on openSUSE, install it with `sudo zypper install`.
+On ARM64, use `cyanotype-0.2.0-1.aarch64.rpm`; on openSUSE, install it with `sudo zypper install`.
 
 ### Go
 
 With the Go version in [go.mod](go.mod) or newer (Go downloads it for you if needed):
 
 ```sh
-go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.1.0
+go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.2.0
 ```
 
 This installs `cyanotype` only, in `$(go env GOPATH)/bin`. For the alias:
@@ -71,15 +71,15 @@ ln -s cyanotype "$(go env GOPATH)/bin/cyty"
 
 Each archive holds the binary, the `cyty` alias and the licenses.
 
-- Linux: `cyanotype_0.1.0_linux_amd64.tar.gz` or `cyanotype_0.1.0_linux_arm64.tar.gz`
-- macOS: `cyanotype_0.1.0_darwin_arm64.tar.gz` (Apple Silicon) or `cyanotype_0.1.0_darwin_amd64.tar.gz` (Intel)
-- Windows: `cyanotype_0.1.0_windows_amd64.zip` or `cyanotype_0.1.0_windows_arm64.zip`
+- Linux: `cyanotype_0.2.0_linux_amd64.tar.gz` or `cyanotype_0.2.0_linux_arm64.tar.gz`
+- macOS: `cyanotype_0.2.0_darwin_arm64.tar.gz` (Apple Silicon) or `cyanotype_0.2.0_darwin_amd64.tar.gz` (Intel)
+- Windows: `cyanotype_0.2.0_windows_amd64.zip` or `cyanotype_0.2.0_windows_arm64.zip`
 
 On Linux and macOS, `cyty` is a symlink to `cyanotype`; move both into a folder on your `PATH`:
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.1.0/cyanotype_0.1.0_linux_amd64.tar.gz
-tar -xzf cyanotype_0.1.0_linux_amd64.tar.gz
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.2.0/cyanotype_0.2.0_linux_amd64.tar.gz
+tar -xzf cyanotype_0.2.0_linux_amd64.tar.gz
 sudo mv cyanotype cyty /usr/local/bin/
 ```
 
@@ -108,7 +108,7 @@ Download both files next to your archive or package, then check the signature:
 ```sh
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity https://github.com/cyanotype-dev/cyanotype/.github/workflows/release.yml@refs/tags/v0.1.0 \
+  --certificate-identity https://github.com/cyanotype-dev/cyanotype/.github/workflows/release.yml@refs/tags/v0.2.0 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
 ```
@@ -125,8 +125,8 @@ shasum -a 256 --ignore-missing -c checksums.txt
 On Windows, in PowerShell, compare the hash with the file's line in `checksums.txt`:
 
 ```powershell
-(Get-FileHash .\cyanotype_0.1.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
-Select-String cyanotype_0.1.0_windows_amd64.zip checksums.txt
+(Get-FileHash .\cyanotype_0.2.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+Select-String cyanotype_0.2.0_windows_amd64.zip checksums.txt
 ```
 
 ## Quick start
@@ -138,6 +138,49 @@ cyanotype init
 ```
 
 It asks what you are building, which language you know, how much autonomy the agent gets, whether the app is multilingual, the language of the agent's replies, the goal and your coding agents, then writes `cyanotype.yaml` and offers to generate the files. Every question has a flag, so scripts and agents can run it without a terminal; `cyanotype init --help` lists them. It never overwrites an existing `cyanotype.yaml`, which you can also write by hand (the Project spec section of [docs/DESIGN.md](docs/DESIGN.md) has an example).
+
+### In an existing project
+
+When the folder already has code, init first detects the stack, shows each entry with the file that revealed it, and asks whether to start from it: yes, yes without some of it, or no to pick a starter instead. For a Next.js app with two lockfiles:
+
+```text
+Detected in this project:
+  - Next.js (package.json: next)
+  - Node.js (package.json)
+  - npm (package-lock.json)
+  - pnpm (pnpm-lock.yaml)
+  - TypeScript (package.json: typescript)
+  - Vitest (package.json: vitest)
+Only one of npm and pnpm can be selected: the project uses one of them.
+Scripts in package.json: build, dev, lint, start, test
+```
+
+The stack comes from detection, never from a preset, and init asks when detection finds a clash, such as the two lockfiles above. The `dev`, `build`, `test` and `lint` commands come from the `package.json` scripts, run with the package manager you keep: here `pnpm dev`, `pnpm build`, `pnpm test` and `pnpm lint`.
+
+Without a terminal, `--detect yes` starts from the detected stack and `--detect no` ignores it; `--with` adds entries or picks one where detection found several, and `--without` drops detected entries the project does not use. init lists every missing flag with its allowed values, for example:
+
+```sh
+cyanotype init --detect yes --with pnpm --existing keep --autonomy balanced --i18n no --goal "An online shop for handmade prints." --agents claude
+```
+
+### Instruction files written by hand
+
+A CLAUDE.md or AGENTS.md without the cyanotype header was written by hand, and cyanotype never replaces it silently, not even with `--yes`. init asks about it right after detection, before any other question, and generate before writing; without a terminal, `--existing` answers:
+
+- `import` (recommended): prints a prompt for your coding agent, which turns the file's rules into `cyanotype.yaml`. Nothing is written.
+- `keep`: the whole file goes in a `cyanotype:custom` block, which regeneration keeps.
+- `move`: its content goes to `docs/agents/original-claude.md` (for CLAUDE.md), which the main file tells the agent to read.
+- `replace`: the generated file overwrites it, only when git has it committed with no pending changes, so `git show HEAD:CLAUDE.md` gives it back.
+
+The import prompt goes to stdout. The agent asks you questions and writes `cyanotype.yaml`, so use it in a normal interactive session: save it to a file,
+
+```sh
+cyanotype init --existing import > import-prompt.md
+```
+
+then ask your agent to follow the instructions in `import-prompt.md`, and delete the file when it is done, so it does not end up in a commit. Review `cyanotype.yaml`, then run `cyanotype generate --existing replace`.
+
+### Generating the files
 
 To write the files after changing the spec, run:
 
