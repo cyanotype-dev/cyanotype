@@ -6,13 +6,13 @@ Your choices live in a `cyanotype.yaml` spec in your repo; the agent files are r
 
 ## Status
 
-**Pre-alpha.** v0.2.0 is a pre-release: commands, flags and the `cyanotype.yaml` format may still change. `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset or, in an existing project, from the stack it detects, and `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code permission rules and a `.gitignore` block from it, never replacing instruction files written by hand without your choice. `cyanotype.lock` records what was generated, so regeneration removes its own leftovers, and `cyanotype check` reports drift in a hook or in CI. Files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
+**Pre-alpha.** v0.3.0 is a pre-release: commands, flags and the `cyanotype.yaml` format may still change. `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset or, in an existing project, from the stack it detects, and `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code permission rules and a `.gitignore` block from it, never replacing instruction files written by hand without your choice. `cyanotype.lock` records what was generated, so regeneration removes its own leftovers, and `cyanotype check` reports drift in a hook or in CI. Files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
 
 ## Installation
 
 Cyanotype is a single binary with no runtime dependencies, for Linux, macOS and Windows on x86-64 (amd64) and ARM64. Every channel except `go install` and Scoop also installs `cyty`, a short alias for `cyanotype`.
 
-Release files are on the [v0.2.0 release page](https://github.com/cyanotype-dev/cyanotype/releases/tag/v0.2.0). Since v0.2.0 is a pre-release, GitHub does not list it as the latest release, so the links below name the version.
+Release files are on the [v0.3.0 release page](https://github.com/cyanotype-dev/cyanotype/releases/tag/v0.3.0). Since v0.3.0 is a pre-release, GitHub does not list it as the latest release, so the links below name the version.
 
 ### Homebrew (macOS and Linux)
 
@@ -38,27 +38,27 @@ Set-Alias cyty cyanotype
 Download the package for your architecture and install it with apt:
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.2.0/cyanotype_0.2.0_amd64.deb
-sudo apt install ./cyanotype_0.2.0_amd64.deb
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.3.0/cyanotype_0.3.0_amd64.deb
+sudo apt install ./cyanotype_0.3.0_amd64.deb
 ```
 
-On ARM64, use `cyanotype_0.2.0_arm64.deb`.
+On ARM64, use `cyanotype_0.3.0_arm64.deb`.
 
 ### Fedora, RHEL and openSUSE
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.2.0/cyanotype-0.2.0-1.x86_64.rpm
-sudo dnf install ./cyanotype-0.2.0-1.x86_64.rpm
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.3.0/cyanotype-0.3.0-1.x86_64.rpm
+sudo dnf install ./cyanotype-0.3.0-1.x86_64.rpm
 ```
 
-On ARM64, use `cyanotype-0.2.0-1.aarch64.rpm`; on openSUSE, install it with `sudo zypper install`.
+On ARM64, use `cyanotype-0.3.0-1.aarch64.rpm`; on openSUSE, install it with `sudo zypper install`.
 
 ### Go
 
 With the Go version in [go.mod](go.mod) or newer (Go downloads it for you if needed):
 
 ```sh
-go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.2.0
+go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.3.0
 ```
 
 This installs `cyanotype` only, in `$(go env GOPATH)/bin`. For the alias:
@@ -71,15 +71,15 @@ ln -s cyanotype "$(go env GOPATH)/bin/cyty"
 
 Each archive holds the binary, the `cyty` alias and the licenses.
 
-- Linux: `cyanotype_0.2.0_linux_amd64.tar.gz` or `cyanotype_0.2.0_linux_arm64.tar.gz`
-- macOS: `cyanotype_0.2.0_darwin_arm64.tar.gz` (Apple Silicon) or `cyanotype_0.2.0_darwin_amd64.tar.gz` (Intel)
-- Windows: `cyanotype_0.2.0_windows_amd64.zip` or `cyanotype_0.2.0_windows_arm64.zip`
+- Linux: `cyanotype_0.3.0_linux_amd64.tar.gz` or `cyanotype_0.3.0_linux_arm64.tar.gz`
+- macOS: `cyanotype_0.3.0_darwin_arm64.tar.gz` (Apple Silicon) or `cyanotype_0.3.0_darwin_amd64.tar.gz` (Intel)
+- Windows: `cyanotype_0.3.0_windows_amd64.zip` or `cyanotype_0.3.0_windows_arm64.zip`
 
 On Linux and macOS, `cyty` is a symlink to `cyanotype`; move both into a folder on your `PATH`:
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.2.0/cyanotype_0.2.0_linux_amd64.tar.gz
-tar -xzf cyanotype_0.2.0_linux_amd64.tar.gz
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.3.0/cyanotype_0.3.0_linux_amd64.tar.gz
+tar -xzf cyanotype_0.3.0_linux_amd64.tar.gz
 sudo mv cyanotype cyty /usr/local/bin/
 ```
 
@@ -108,7 +108,7 @@ Download both files next to your archive or package, then check the signature:
 ```sh
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity https://github.com/cyanotype-dev/cyanotype/.github/workflows/release.yml@refs/tags/v0.2.0 \
+  --certificate-identity https://github.com/cyanotype-dev/cyanotype/.github/workflows/release.yml@refs/tags/v0.3.0 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
 ```
@@ -125,8 +125,8 @@ shasum -a 256 --ignore-missing -c checksums.txt
 On Windows, in PowerShell, compare the hash with the file's line in `checksums.txt`:
 
 ```powershell
-(Get-FileHash .\cyanotype_0.2.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
-Select-String cyanotype_0.2.0_windows_amd64.zip checksums.txt
+(Get-FileHash .\cyanotype_0.3.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+Select-String cyanotype_0.3.0_windows_amd64.zip checksums.txt
 ```
 
 ## Quick start
@@ -296,7 +296,7 @@ In CI, install cyanotype and run check; its errors fail the job. In GitHub Actio
 - uses: actions/setup-go@v7
   with:
     go-version: stable
-- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.2.0
+- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.3.0
 - run: cyanotype check
 ```
 
