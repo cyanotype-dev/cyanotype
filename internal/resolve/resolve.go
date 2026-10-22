@@ -45,6 +45,11 @@ type Entry struct {
 // Warning is a problem worth telling the user about that does not stop
 // generation, such as a catalog_version pin older than the loaded catalog.
 type Warning struct {
+	// Code names the kind of warning, such as CodeCatalogOlder, for
+	// interfaces that report warnings as data, such as cyanotype check; ""
+	// for a kind nothing needs to tell apart. Codes are stable, while
+	// messages may change.
+	Code string
 	// File is the project file the warning is about, such as
 	// "docs/agents/git.md", or "" when it is about the spec.
 	File string
@@ -63,6 +68,26 @@ func (w Warning) String() string {
 	}
 	return (&spec.ValidationError{Field: w.Field, Line: w.Line, Msg: w.Msg}).Error()
 }
+
+// Codes of the warnings resolve and render return; see Warning.Code.
+const (
+	// CodeCatalogOlder: the spec pins a catalog older than the loaded one.
+	CodeCatalogOlder = "catalog-older"
+	// CodeUnsupportedTarget: a target cyanotype cannot generate files for
+	// yet.
+	CodeUnsupportedTarget = "unsupported-target"
+	// CodeTooLong: a main file longer than output.max_lines.
+	CodeTooLong = "too-long"
+	// CodeStale: a file cyanotype generated earlier and no longer
+	// generates, kept because someone changed it.
+	CodeStale = "stale"
+	// CodeUnrecorded: a file with the cyanotype header that is not
+	// generated and that no cyanotype.lock records.
+	CodeUnrecorded = "unrecorded"
+	// CodeUnownedRules: permission rules found in .claude/settings.json
+	// before any cyanotype.lock existed, which are treated as the user's.
+	CodeUnownedRules = "unowned-rules"
+)
 
 // knownQuestions lists the answer keys a spec may use. Questions are not in
 // the catalog yet; they will move there together with category metadata.
@@ -118,8 +143,8 @@ func (r *resolver) errorf(field, format string, args ...any) {
 	r.errs = append(r.errs, &spec.ValidationError{Field: field, Line: r.file.Line(field), Msg: fmt.Sprintf(format, args...)})
 }
 
-func (r *resolver) warnf(field, format string, args ...any) {
-	r.warnings = append(r.warnings, Warning{Field: field, Line: r.file.Line(field), Msg: fmt.Sprintf(format, args...)})
+func (r *resolver) warnf(code, field, format string, args ...any) {
+	r.warnings = append(r.warnings, Warning{Code: code, Field: field, Line: r.file.Line(field), Msg: fmt.Sprintf(format, args...)})
 }
 
 // addLines fills in the line of each error spec.Validate returned, which
@@ -155,7 +180,7 @@ func (r *resolver) checkCatalogVersion() {
 	case -1:
 		// cyanotype update does not exist yet, so the message says how to
 		// move the pin by hand.
-		r.warnf("catalog_version", "the spec pins %s but this cyanotype's catalog is %s, whose entries may have changed; "+
+		r.warnf(CodeCatalogOlder, "catalog_version", "the spec pins %s but this cyanotype's catalog is %s, whose entries may have changed; "+
 			"review the changes with cyanotype generate --dry-run, then set catalog_version to %q", pin, loaded, loaded)
 	}
 }

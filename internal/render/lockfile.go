@@ -138,7 +138,7 @@ func staleFile(existing fs.FS, p, hash string) (del *File, warnings []resolve.Wa
 		return nil, nil, false, nil
 	}
 	warn := func(why string) []resolve.Warning {
-		return []resolve.Warning{{File: p, Msg: "is no longer generated, but " + why +
+		return []resolve.Warning{{Code: resolve.CodeStale, File: p, Msg: "is no longer generated, but " + why +
 			", so it was not deleted; delete it, or remove its header to keep it as your own"}}
 	}
 	blocks, blocksErr := parseCustomBlocks(data)
@@ -182,7 +182,7 @@ func unrecordedFiles(r *resolve.Result, existing fs.FS, prev *lock.Lock, generat
 			return nil, err
 		}
 		if HasHeader(data) {
-			warnings = append(warnings, resolve.Warning{File: p, Msg: "has the cyanotype header but is not generated, and " +
+			warnings = append(warnings, resolve.Warning{Code: resolve.CodeUnrecorded, File: p, Msg: "has the cyanotype header but is not generated, and " +
 				lock.Path + " does not record it, so cyanotype cannot tell whether someone edited it; delete it if it is no longer needed"})
 		}
 	}
@@ -244,7 +244,7 @@ func unownedRules(r *resolve.Result, existing fs.FS) ([]resolve.Warning, error) 
 	msg := lock.Path + " does not exist yet, so cyanotype treats the rules already in this file as yours and never removes them: " +
 		strings.Join(found, ", and ") + ". If an older cyanotype added them, delete them from the file and run cyanotype generate again; " +
 		"it adds back the ones still generated, and removes them once they are not"
-	return []resolve.Warning{{File: settingsPath, Msg: msg}}, nil
+	return []resolve.Warning{{Code: resolve.CodeUnownedRules, File: settingsPath, Msg: msg}}, nil
 }
 
 // catalogRules returns every permission rule some catalog entry can

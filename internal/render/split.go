@@ -147,7 +147,7 @@ func lengthWarning(f File, l layout, maxLines int) []resolve.Warning {
 	if l.split {
 		msg = fmt.Sprintf("%s still has %d lines after splitting, more than %d", f.Path, n, maxLines)
 	}
-	return []resolve.Warning{{Field: "output.max_lines", Msg: msg}}
+	return []resolve.Warning{{Code: resolve.CodeTooLong, Field: "output.max_lines", Msg: msg}}
 }
 
 // lineCount counts the lines of generated content, which always ends with a
