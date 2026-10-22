@@ -165,10 +165,11 @@ func TestGenerateExistingImport(t *testing.T) {
 			t.Errorf("prompt is missing %q", s)
 		}
 	}
-	// The prompt alone is on stdout, so it can be piped to an agent.
+	// The prompt alone is on stdout, so it can be copied into a session.
 	if strings.Contains(r.stdout, "Nothing was written") || !strings.Contains(r.stderr, "Nothing was written.") {
 		t.Errorf("what to do with the prompt belongs on stderr:\nstderr:\n%s", r.stderr)
 	}
+	assertImportGuidance(t, r.stderr, commandLine("generate", "--dir", dir, "--existing", "import"))
 	if files := keys(tree(t, dir)); len(files) != 4 {
 		t.Errorf("files = %q; import writes nothing", files)
 	}
@@ -276,9 +277,26 @@ func TestInitExistingImport(t *testing.T) {
 	if strings.Contains(r.stdout, "Detected in") {
 		t.Errorf("import asks no question, so it shows no confirmation:\n%s", r.stdout)
 	}
+	assertImportGuidance(t, r.stderr, commandLine("init", "--dir", dir, "--name", "shop", "--existing", "import"))
 	assertNoSpec(t, dir)
 	if files := keys(tree(t, dir)); len(files) != 3 {
 		t.Errorf("files = %q; import writes nothing", files)
+	}
+}
+
+// assertImportGuidance checks what stderr says to do with the import
+// prompt: have an agent in an interactive session run rerun, never pipe
+// the prompt, and leave every open choice to the user.
+func assertImportGuidance(t *testing.T, stderr, rerun string) {
+	t.Helper()
+	for _, s := range []string{
+		"ask your agent in an interactive session to run \"" + rerun + "\" and follow what it prints, or copy the prompt into the session.",
+		"Do not pipe it into the agent: piped, the agent runs without a session, so it cannot ask you questions or for permissions.",
+		"Coding agent: ask the user about every choice the prompt leaves open; never make one yourself.",
+	} {
+		if !strings.Contains(stderr, s) {
+			t.Errorf("stderr is missing %q:\n%s", s, stderr)
+		}
 	}
 }
 
