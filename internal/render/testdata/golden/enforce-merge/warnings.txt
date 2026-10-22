@@ -1,0 +1,1 @@
+.claude/settings.json: cyanotype.lock does not exist yet, so cyanotype treats the rules already in this file as yours and never removes them: 2 match rules it generates. If an older cyanotype added them, delete them from the file and run cyanotype generate again; it adds back the ones still generated, and removes them once they are not

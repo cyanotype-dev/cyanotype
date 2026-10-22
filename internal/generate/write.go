@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cyanotype-dev/cyanotype/internal/adopt"
+	"github.com/cyanotype-dev/cyanotype/internal/lock"
 )
 
 // Permissions of what Write creates. Generated files belong to the
@@ -21,9 +23,11 @@ const (
 	dirPerm  fs.FileMode = 0o755
 )
 
-// Write puts the created and modified files of changes on disk under root
-// and returns the paths it wrote, in order. Unchanged files are not
-// touched, and no file is ever deleted.
+// Write puts the created and modified files of changes on disk under root,
+// removes the deleted ones, and returns the paths it wrote or removed, in
+// order. Unchanged files are not touched. The only files ever removed are
+// those of Deleted changes: files cyanotype generated, no longer generates,
+// and nobody changed since.
 //
 // Every path is checked before anything is written, and any of these stops
 // the whole write: a hand-written instruction file (see Change.HandWritten)
@@ -33,12 +37,16 @@ const (
 // not a regular file. Root itself refuses to follow a symbolic link out of
 // the project. Each file is written to a temporary file in its folder and
 // then renamed over the target, so a crash never leaves a half-written
-// file. Missing folders are created.
+// file. Missing folders are created; folders are never removed.
 //
 // Moved files are written first, so a hand-written file is replaced only
-// once its content is safe in its new place. When writing one file fails,
-// the files written before it stay, and written lists them so the caller
-// can say so.
+// once its content is safe in its new place. cyanotype.lock comes next:
+// should a later write fail, a lock that claims a rule never written
+// forgets it on the next run, while a lock left behind would leave rules
+// nobody owns. Deleted files come last, and each is read again just before
+// it is removed: one that changed since Preview is refused. When one file
+// fails, the files written before it stay, and written lists them so the
+// caller can say so.
 func Write(root *os.Root, changes []Change) (written []string, err error) {
 	for _, c := range changes {
 		if c.Status == Unchanged {
@@ -51,16 +59,22 @@ func Write(root *os.Root, changes []Change) (written []string, err error) {
 			return nil, err
 		}
 	}
-	// Moved files first, then the rest, each group in its order.
-	var moved, rest []Change
+	// Moved files, the lock, the rest, then deletions, each group in its
+	// order.
+	var moved, locks, rest, deleted []Change
 	for _, c := range changes {
-		if c.MovedFrom != "" {
+		switch {
+		case c.MovedFrom != "":
 			moved = append(moved, c)
-		} else {
+		case c.Path == lock.Path:
+			locks = append(locks, c)
+		case c.Status == Deleted:
+			deleted = append(deleted, c)
+		default:
 			rest = append(rest, c)
 		}
 	}
-	for _, c := range slices.Concat(moved, rest) {
+	for _, c := range slices.Concat(moved, locks, rest) {
 		if c.Status == Unchanged {
 			continue
 		}
@@ -69,7 +83,31 @@ func Write(root *os.Root, changes []Change) (written []string, err error) {
 		}
 		written = append(written, c.Path)
 	}
+	for _, c := range deleted {
+		if err := deleteFile(root, c); err != nil {
+			return written, err
+		}
+		written = append(written, c.Path)
+	}
 	return written, nil
+}
+
+// deleteFile removes the file of a Deleted change, once it has checked that
+// the file still holds what Preview read: an edit made since, while the
+// user looked at the diff, must not be lost.
+func deleteFile(root *os.Root, c Change) error {
+	name := filepath.FromSlash(c.Path)
+	now, err := root.ReadFile(name)
+	if err != nil {
+		return fmt.Errorf("delete %s: %w", c.Path, err)
+	}
+	if !bytes.Equal(now, c.Old) {
+		return fmt.Errorf("refusing to delete %s: it changed after cyanotype compared it; run cyanotype generate again", c.Path)
+	}
+	if err := root.Remove(name); err != nil {
+		return fmt.Errorf("delete %s: %w", c.Path, err)
+	}
+	return nil
 }
 
 // checkChange reports a change Write must not make because of what is at

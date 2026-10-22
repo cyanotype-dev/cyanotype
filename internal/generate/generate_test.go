@@ -12,6 +12,7 @@ import (
 
 	bundled "github.com/cyanotype-dev/cyanotype/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
+	"github.com/cyanotype-dev/cyanotype/internal/lock"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
 
@@ -127,7 +128,7 @@ func TestPreviewErrors(t *testing.T) {
 func TestPreviewAndWrite(t *testing.T) {
 	dir, root := project(t, nil)
 	changes := preview(t, root)
-	want := map[string]Status{".gitignore": Created, "AGENTS.md": Created}
+	want := map[string]Status{".gitignore": Created, "AGENTS.md": Created, lock.Path: Created}
 	if got := statuses(changes); !mapsEqual(got, want) {
 		t.Fatalf("first preview = %v, want %v", got, want)
 	}
@@ -141,9 +142,11 @@ func TestPreviewAndWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Write() error: %v", err)
 	}
-	if !slices.Equal(written, []string{".gitignore", "AGENTS.md"}) {
+	// The lock is written first; see Write.
+	if !slices.Equal(written, []string{lock.Path, ".gitignore", "AGENTS.md"}) {
 		t.Errorf("Write() wrote %q", written)
 	}
+	checkLockRecords(t, changes)
 	for _, c := range changes {
 		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(c.Path))) //nolint:gosec // test temp dir
 		if err != nil || !bytes.Equal(got, c.New) {
@@ -153,7 +156,7 @@ func TestPreviewAndWrite(t *testing.T) {
 	assertNoTempFiles(t, dir)
 
 	again := preview(t, root)
-	want = map[string]Status{".gitignore": Unchanged, "AGENTS.md": Unchanged}
+	want = map[string]Status{".gitignore": Unchanged, "AGENTS.md": Unchanged, lock.Path: Unchanged}
 	if got := statuses(again); !mapsEqual(got, want) {
 		t.Errorf("second preview = %v, want %v", got, want)
 	}

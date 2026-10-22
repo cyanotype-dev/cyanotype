@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/designdoctest"
+	"github.com/cyanotype-dev/cyanotype/internal/lock"
 	"github.com/cyanotype-dev/cyanotype/internal/resolve"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
@@ -244,9 +246,9 @@ output:
 		maxLines  int
 		wantFiles []string
 	}{
-		{n + 1, []string{".gitignore", "AGENTS.md"}},
-		{n, []string{".gitignore", "AGENTS.md"}},
-		{n - 1, []string{".gitignore", "AGENTS.md", "docs/agents/style.md", "docs/agents/workflow.md"}},
+		{n + 1, []string{".gitignore", "AGENTS.md", lock.Path}},
+		{n, []string{".gitignore", "AGENTS.md", lock.Path}},
+		{n - 1, []string{".gitignore", "AGENTS.md", lock.Path, "docs/agents/style.md", "docs/agents/workflow.md"}},
 	}
 	for _, tt := range tests {
 		files, _, err := Render(resolveSpec(t, base+"  max_lines: "+strconv.Itoa(tt.maxLines)+"\n"), nil)
@@ -259,6 +261,15 @@ output:
 		}
 		if !slices.Equal(got, tt.wantFiles) {
 			t.Errorf("unsplit file has %d lines; with max_lines %d Render() returned %q, want %q", n, tt.maxLines, got, tt.wantFiles)
+		}
+		// The lock records every other file, whichever layout was chosen.
+		l, err := lock.Parse(fileContent(t, files, lock.Path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		recorded := slices.Sorted(maps.Keys(l.Files))
+		if want := slices.DeleteFunc(slices.Clone(tt.wantFiles), func(p string) bool { return p == lock.Path }); !slices.Equal(recorded, want) {
+			t.Errorf("with max_lines %d the lock records %q, want %q", tt.maxLines, recorded, want)
 		}
 	}
 }

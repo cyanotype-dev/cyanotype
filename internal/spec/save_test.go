@@ -117,6 +117,12 @@ func TestSaveMerge(t *testing.T) {
 			want: "version: 1\n\ncatalog_version: \"2026.10\"\n" + strings.TrimPrefix(head, "version: 1\n"),
 		},
 		{
+			name: "new catalog version is quoted even when YAML would read it as a string",
+			in:   head,
+			edit: func(s *Spec) { s.CatalogVersion = "2026.10.1" },
+			want: "version: 1\n\ncatalog_version: \"2026.10.1\"\n" + strings.TrimPrefix(head, "version: 1\n"),
+		},
+		{
 			name: "cleared block is removed",
 			in:   head + "i18n:\n  default_locale: en # main market\n",
 			edit: func(s *Spec) { s.I18n = nil },

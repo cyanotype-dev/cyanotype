@@ -21,6 +21,11 @@ type Result struct {
 	// with, which a spec without catalog_version can pin; empty for a
 	// catalog without a manifest.
 	CatalogVersion string
+	// Catalog is the catalog the result was resolved with. Renderers read
+	// its entries as the catalog writes them, placeholders unfilled, and
+	// the rules of entries that are not selected, to tell the user about
+	// rules an older cyanotype may have left behind.
+	Catalog *catalog.Catalog
 	// Entries are the selected entries in the order of spec.selections,
 	// which is the order their text appears in generated files.
 	Entries []Entry
@@ -40,6 +45,9 @@ type Entry struct {
 // Warning is a problem worth telling the user about that does not stop
 // generation, such as a catalog_version pin older than the loaded catalog.
 type Warning struct {
+	// File is the project file the warning is about, such as
+	// "docs/agents/git.md", or "" when it is about the spec.
+	File string
 	// Field is a YAML path such as "catalog_version".
 	Field string
 	// Line is the 1-based line of the field, or 0 when unknown.
@@ -47,8 +55,12 @@ type Warning struct {
 	Msg  string
 }
 
-// String formats w like a *spec.ValidationError: "line 3: field: message".
+// String formats w like a *spec.ValidationError: "line 3: field: message",
+// or "path: message" for a warning about another file.
 func (w Warning) String() string {
+	if w.File != "" {
+		return w.File + ": " + w.Msg
+	}
 	return (&spec.ValidationError{Field: w.Field, Line: w.Line, Msg: w.Msg}).Error()
 }
 
@@ -88,6 +100,7 @@ func Resolve(c *catalog.Catalog, f *spec.File) (*Result, []Warning, error) {
 	return &Result{
 		Spec:           f.Spec.WithDefaults(),
 		CatalogVersion: c.Version(),
+		Catalog:        c,
 		Entries:        entries,
 	}, r.warnings, nil
 }
@@ -140,7 +153,10 @@ func (r *resolver) checkCatalogVersion() {
 	case 1:
 		r.errorf("catalog_version", "%q is newer than this cyanotype's catalog (%s); upgrade cyanotype", pin, loaded)
 	case -1:
-		r.warnf("catalog_version", "the spec pins %s but this cyanotype's catalog is %s; entries may have changed since the files were generated", pin, loaded)
+		// cyanotype update does not exist yet, so the message says how to
+		// move the pin by hand.
+		r.warnf("catalog_version", "the spec pins %s but this cyanotype's catalog is %s, whose entries may have changed; "+
+			"review the changes with cyanotype generate --dry-run, then set catalog_version to %q", pin, loaded, loaded)
 	}
 }
 

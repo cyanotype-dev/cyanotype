@@ -194,10 +194,12 @@ The entries stay in `catalog/entries/`. When a spec's `catalog_version` differs 
 | --- | --- | --- |
 | Missing | The loaded catalog is used | The spec has not pinned one yet |
 | Same as the catalog | Nothing to report | |
-| Older than the catalog | Warning: entries may have changed since the files were generated | The bundled catalog is the only one available; refusing it would make every spec unusable after an upgrade |
+| Older than the catalog | Warning: entries may have changed since the files were generated; review the changes with `cyanotype generate --dry-run`, then set `catalog_version` to the bundled version | The bundled catalog is the only one available; refusing it would make every spec unusable after an upgrade. Until `cyanotype update` exists, the warning says how to move the pin by hand |
 | Newer than the catalog | Error: upgrade cyanotype | The spec may select entries this catalog does not have, as with a newer spec `version` |
 
 An unknown selection under a different pin says so, since the entry may have been renamed or removed. From Phase 2 the tool loads the pinned version when it has it, and this table applies only when it does not.
+
+The version changes whenever the generated output of some entry changes, not for changes that only reach detection: otherwise a pin would no longer say which catalog the files came from, and `cyanotype check` could never report an older one. v0.3 moves it to `2026.10.1`, for the new `rule-maintenance-propose` rule on `cyanotype.lock`.
 
 ### MVP entries
 
@@ -614,7 +616,7 @@ In the MVP every topic file is read on demand, for every target: the main file's
 
 Path-scoped files need globs per entry, which the catalog does not have yet, so they wait.
 
-The renderer returns only the files the current layout needs. A topic file left over from an earlier split, or from a topic no longer selected, is not removed: telling it apart from a hand-written file needs a record of what cyanotype generated, the `cyanotype.lock` open item in Decisions.
+The renderer returns only the files the current layout needs. A topic file left over from an earlier split, or from a topic no longer selected, is stale: the renderer asks for it to be deleted only when `cyanotype.lock` records it and nobody changed it since; see Stale files.
 
 ### Real constraints
 
@@ -663,7 +665,7 @@ Order matters: a negated rule such as `Read(!.env.example)` only narrows the rul
 
 An existing file is merged, never replaced. Its keys, their order and their exact values stay, unknown fields included, and the user's own rules stay first in each list, in their order; only `permissions.deny` and `permissions.ask` change, and a list with nothing to add is left as it is, or left out when absent. When the merge adds nothing, the file comes back byte for byte; otherwise it is written with two-space indentation and without escaping characters such as `>` and `&`. A file that cannot be read safely is an error rather than a rewrite: invalid JSON, duplicate keys, a `permissions` that is not an object, or a `deny` or `ask` that is not a list of strings. A new file starts with the schemastore `$schema`, then `deny` before `ask`; with no rules and no existing file, none is generated.
 
-The merge is additive: deselecting an entry leaves its old rules in the file, because JSON has no comments to mark which rules cyanotype wrote. The same holds when a rule moves from deny to ask in a newer catalog: the old deny rule stays and, since deny wins, the new ask rule never fires until someone removes it by hand. And a project generated when `dependency-approval` still listed every package manager's install command keeps all those ask rules after regenerating. The `cyanotype.lock` open item in Decisions would solve this.
+JSON has no comments to mark which rules cyanotype wrote, so `cyanotype.lock` records them: the rules each merge added, not those it found already there. Before merging, regeneration removes the rules the lock says cyanotype added and that are no longer generated in that list: those of a deselected entry, a deny rule a newer catalog moved to ask, so the ask rule can fire, and every rule cyanotype added once `claude` is no longer a target. It never removes any other rule, including one the user wrote before cyanotype generated the same rule, which the merge reused rather than added. A list a removal empties is left out, and so is a `permissions` object left empty. See The generated-state file.
 
 #### The `.gitignore` block
 
@@ -689,7 +691,7 @@ Regeneration replaces the block where it is and leaves the rest of the file byte
 
 ### Generating files
 
-`cyanotype generate` is the first command that uses the whole core. It reads `cyanotype.yaml` from the current folder, or the one `--dir` names, resolves it against the catalog embedded in the binary, renders the files with the project folder as the existing files, and compares each one with the disk. It prints a unified diff of what changes, colored by line kind, then one line per generated file with its status, `created`, `modified` or `unchanged`, and the counts. Then it asks `Write these files? [y/N]`; only `y` or `yes` writes. When nothing changes it says so and asks nothing.
+`cyanotype generate` is the first command that uses the whole core. It reads `cyanotype.yaml` from the current folder, or the one `--dir` names, resolves it against the catalog embedded in the binary, renders the files with the project folder as the existing files, and compares each one with the disk. It prints a unified diff of what changes, colored by line kind, then one line per generated file with its status, `created`, `modified`, `deleted` or `unchanged`, and the counts. Then it asks `Write these files? [y/N]`; only `y` or `yes` writes. When nothing changes it says so and asks nothing.
 
 | Flag | Effect |
 | --- | --- |
@@ -721,9 +723,64 @@ Comparing and writing live in `internal/generate`, shared with the MCP server's 
 - **Paths.** Every path is checked before anything is written. A path that leaves the project root, uses backslashes, or is a Windows reserved name such as `con.md` stops the whole run; writes go through `os.Root`, which also refuses symbolic links that lead out of the project.
 - **Links and folders.** A target that is a symbolic link, such as a `CLAUDE.md` linked to `AGENTS.md`, or not a regular file, stops the run rather than being replaced by a file: the layout is the user's.
 - **Atomic writes.** Each file is written to a temporary file in its folder, synced, then renamed over the target, so a crash never leaves a half-written file; missing folders are created. Existing files keep their permissions; new ones are readable by everyone, as checked-out files are.
-- **No deletions.** Nothing is ever deleted; stale topic files wait for `cyanotype.lock`. If writing stops halfway, the command lists the files already written.
+- **Deletions.** The only files ever deleted are stale files: generated before, recorded in `cyanotype.lock`, no longer generated, and unchanged since (see Stale files). They are part of the diff, against `/dev/null`, and of the same confirmation, and `--yes` deletes them as it writes the rest. `Write` reads each again just before removing it and refuses one that changed since the preview. Folders are never removed.
+- **Order.** Moved files first, then `cyanotype.lock`, then the other files, then deletions. Should a write fail in between, a lock that claims a rule never written forgets it on the next run, while a lock left behind would leave rules nobody owns. If writing stops halfway, the command lists the files already written.
 
 The diff is in-house, in `internal/diff`: Myers' algorithm with three lines of context, which is enough for files of a few hundred lines. Texts that need more than 1000 edits are shown as wholly replaced, which bounds memory. Go's standard library has no diff; of the libraries, `pmezard/go-difflib` and `hexops/gotextdiff` are archived, `sergi/go-diff` diffs characters rather than lines, and `aymanbagabas/go-udiff` is maintained but not worth a dependency here.
+
+### The generated-state file
+
+Generated output lives in files people also write: a rule in `.claude/settings.json` looks the same whoever wrote it, and a hand edit to AGENTS.md looks like a newer generation. `cyanotype.lock`, at the project root, records what cyanotype generated, so regeneration removes only its own rules and files and `cyanotype check` can tell a hand edit from a change in the spec. It is generated output like the instruction files: every run of generate writes it, in the same diff and with the same confirmation, `rule-maintenance-propose` denies edits to it, and it is committed, like a package lockfile, because check in CI needs it. It lives in `internal/lock`; the renderer reads the previous one through the project's `fs.FS` and returns the new one with the other files.
+
+```yaml
+# Generated by cyanotype from cyanotype.yaml; regenerating replaces this file.
+# It records what cyanotype generated, so it can tell that apart from what
+# people wrote. Commit it, and do not edit it by hand.
+version: 1
+catalog_version: "2026.10.1"
+entries:
+  no-destructive-commands: sha256:cd5564…
+  pnpm: sha256:9e0d41…
+files:
+  .gitignore: sha256:1a2b3c…
+  AGENTS.md: sha256:77aa01…
+  docs/agents/testing.md: sha256:c0de42…
+claude:
+  deny:
+    - "Bash(npm *)"
+    - "Read(.env)"
+  ask:
+    - "Bash(pnpm add *)"
+```
+
+| Field | Records |
+| --- | --- |
+| `version` | The lock format. A newer one is refused with "upgrade cyanotype" |
+| `catalog_version` | The catalog the files were generated with. One newer than the bundled catalog stops generate with "upgrade cyanotype", as a newer spec pin does, so two people with different versions never rewrite the lock in turn |
+| `entries` | A hash of each selected entry as the catalog writes it, placeholders unfilled: its name, url, topic, snippet and enforce. check uses it to say which entries a newer catalog changed; a change to an answer in `cyanotype.yaml` changes no entry hash |
+| `files` | For each generated file, a hash of the part cyanotype owns: a Markdown file without its protected blocks, `.gitignore` between its markers |
+| `claude.deny`, `claude.ask` | The permission rules cyanotype added to `.claude/settings.json`, as a sorted multiset: a rule the merge added twice, to keep a negation after the rules it narrows, is listed twice |
+
+The hash of a Markdown file is taken after turning CRLF into LF, dropping a byte order mark and every protected block, markers included, and reducing runs of blank lines to one, so it survives a `core.autocrlf` checkout and any text written inside, or moved with, a `cyanotype:custom` block. `render.Owned` computes it for rendered files and for files on disk alike. `.claude/settings.json` has no hash, since the user owns the file and cyanotype only its rules.
+
+The lock is written by code, not by a YAML encoder: keys sorted, empty fields left out, no timestamps or tool version, values that are not plain ids, paths or hashes double-quoted. Regenerating an unchanged project leaves it byte for byte, and two branches that changed different things touch different lines. It is read strictly: unknown fields, duplicate keys and malformed values are errors that say to delete it and generate again, since the lock decides what regeneration removes. On a merge conflict, keep the lines of both sides, then run generate: a lock that claims too many rules forgets those no longer in the file, while one that claims too few would leave them to nobody.
+
+#### Stale files
+
+A file the previous lock records that the renderer no longer returns, such as a topic file after the split changes or AGENTS.md after `agents-md` leaves the targets, is stale:
+
+| The file on disk | What happens | In the new lock |
+| --- | --- | --- |
+| Has the header, no protected block, the recorded hash | Deleted, through the diff and the confirmation | No |
+| Changed since, or holds a protected block, or has markers that do not match | Kept, with a warning: delete it, or remove its header to keep it as your own | Yes, so the warning returns until someone decides |
+| Has no header | Kept; it has become the user's | No |
+| Missing, or not a regular file | Nothing | No |
+
+Only Markdown files are ever candidates: `.gitignore` and `.claude/settings.json` are merged, never deleted. A file holding hand-written rules moved aside by `--existing move`, such as `docs/agents/original-claude.md`, is never recorded and has no header, so it is never deleted.
+
+#### Projects without a lock
+
+A project generated by v0.1 or v0.2 has no lock, and cyanotype never guesses that an existing rule or file is its own. The first generation writes the lock with the hashes of the files it writes and only the rules it adds itself. Every rule already in `.claude/settings.json` stays the user's, including those an older cyanotype added: a warning counts those that match generated rules, names those that come from catalog entries that are not selected, the leftovers an older cyanotype most likely added, and says how to hand them back: delete them from the file and generate again, which adds back the ones still generated and removes them once they are not. A Markdown file with the header in the topic folder, or AGENTS.md or CLAUDE.md, that is not generated and that no lock records gets a warning on every run, and is never deleted: without a recorded hash nobody can tell whether it was edited.
 
 ### Creating the spec
 
@@ -1031,11 +1088,11 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [x] **Main file layout**: each standard section has a fixed source, catalog topics map to sections, unknown topics get their own section, and each entry is one `rule Why: why` bullet. With both targets, CLAUDE.md imports AGENTS.md and adds only Claude-specific content. See The main file.
 - [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
 - [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
-- [x] **Generated constraints**: `.claude/settings.json` deny and ask rules are merged into the existing file, each list on its own, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; the merge is additive. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place, holding the personal files and the selected entries' `enforce.gitignore` lines, merged with the same order guarantee. See Real constraints.
+- [x] **Generated constraints**: `.claude/settings.json` deny and ask rules are merged into the existing file, each list on its own, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; regeneration removes only the rules `cyanotype.lock` says cyanotype added and no longer generates. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place, holding the personal files and the selected entries' `enforce.gitignore` lines, merged with the same order guarantee. See Real constraints.
 - [x] **`ask` permissions in `enforce`**: `enforce.claude.ask` holds rules that mean "ask first" rather than "never", written to `permissions.ask` with the same order guarantee as deny rules. `dependency-approval` asks before install commands, and `rule-maintenance-propose` asks before edits to `cyanotype.yaml` while still denying edits to generated instruction files. A rule may not be in both lists of an entry, since deny wins. Checked with Claude Code 2.1.299 in enforce-checks.md. See Generating `.claude/settings.json`.
 - [x] **Conditional rules**: `enforce.claude.with.<entry id>.ask` holds ask rules that apply only when that entry is selected too. Each tool that installs dependencies carries the ask rule for its own install command under `with.dependency-approval`, so a project gets only the rules of its stack and `dependency-approval` stays stack-agnostic. A nested map rather than an `ask_with` field, so conditional deny rules can be added later without a new field; only `ask` is supported for now. See Generating `.claude/settings.json`.
 - [x] **Permission rule syntax**: catalog rules use the space syntax, `Bash(npm *)`, which matched the same commands as the legacy `Bash(npm:*)` in the 2026-10-20 check, cover every command a snippet forbids, and pair each `Bash(...)` rule with a `PowerShell(...)` one. See Real constraints.
-- [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; nothing is deleted. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
+- [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; the only files deleted are stale files `cyanotype.lock` records, unchanged since, shown in the diff and confirmed like any other change. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
 - [x] **Init command**: `cyanotype init` asks the Simple mode questions plus the coding agents, which decide the targets, with a flag for every question. Without a terminal, missing answers are one usage error listing the flags. It shows the preset entry by entry, writes the spec exclusively and never overwrites one, and offers to run generate. Autonomy levels, i18n answers, learning mode and agents map to entries and fields as in Simple mode. See Simple mode and Creating the spec.
 - [x] **Detection format**: `detect.files`, `detect.dependencies` with one field per ecosystem (`npm`, `pypi`, `go`), and `detect.run_script` for package managers. Any one match reveals the entry; Python names are written normalized and Go paths match their major versions. Only the project root is read. See Detection.
 - [x] **Reading pyproject.toml**: an in-house reader of the tables that list dependencies, rather than a TOML library, which would be a dependency for a few lists of strings; a file it cannot read is a warning. go.mod is read in-house too, rather than with golang.org/x/mod. See Detection.
@@ -1053,5 +1110,6 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [ ] **`--json` output for generate**: the MCP server section says the CLI mirrors every MCP tool with `--json`. The JSON of `generate` is a public contract shared with the MCP tools `preview` and `generate`, so it is designed together with them; `generate.Change` (path, status, old and new content, diff) is the shape it will encode.
 - [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
 - [ ] **Tracked files that should be ignored**: `cyanotype check` should warn when a file matched by an `enforce.gitignore` line of a selected entry is already tracked by git, such as a committed `.env`. `.gitignore` does not untrack a file, so the generated block alone gives a false sense of safety in a repository where the secret was committed before. The warning should name the file and say that untracking it (`git rm --cached`) does not remove it from the history, so a committed secret must also be rotated.
-- [ ] **Generated-state file**: a file such as `cyanotype.lock` recording the files and the permission rules cyanotype produced. Without it, generated output cannot be told apart from what people wrote, which leaves three known limits: permission rules of deselected entries, or of rules a newer catalog moved from deny to ask, stay in `.claude/settings.json`, topic files from an earlier split stay on disk, and `cyanotype check` cannot detect generated files edited by hand. One record solves all three. Not implemented yet.
+- [x] **Generated-state file**: `cyanotype.lock`, committed and generated on every run, records the catalog version, a hash of each selected entry as the catalog writes it, a hash of the part of each generated file cyanotype owns (Markdown without protected blocks, CRLF read as LF; the `.gitignore` block) and the permission rules cyanotype added. Written sorted, without timestamps, read strictly. Regeneration removes only rules the lock says cyanotype added and no longer generates, never one the user had before. Stale files are deleted only when the lock records them, they keep the header, hold no protected block and match the recorded hash; the others stay with a warning. A project without a lock gets one on its first generation, and none of its existing rules or files is taken for cyanotype's. See The generated-state file.
+- [x] **Catalog version bumps**: the catalog version changes whenever an entry's generated output changes, so a pin keeps meaning which catalog the files came from; `2026.10.1` with v0.3. The older-pin warning says how to move the pin by hand until `cyanotype update` exists. See Distribution.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.

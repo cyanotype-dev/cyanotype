@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 )
 
 // jsonObject is a JSON object that keeps its keys in order and its values as
@@ -76,6 +77,11 @@ func (o jsonObject) set(key string, value json.RawMessage) jsonObject {
 		}
 	}
 	return append(o, jsonMember{key: key, value: value})
+}
+
+// without returns o without key, keeping the other members in order.
+func (o jsonObject) without(key string) jsonObject {
+	return slices.DeleteFunc(slices.Clone(o), func(m jsonMember) bool { return m.key == key })
 }
 
 // MarshalJSON writes the members in order. It implements json.Marshaler, so
