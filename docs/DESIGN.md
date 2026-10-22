@@ -685,7 +685,7 @@ cyanotype.local.yaml
 
 Catalog validation keeps each line one pattern: not blank, on one line, without leading or trailing spaces, which git reads as part of the pattern, not starting with `#`, which would make a comment and could imitate a marker, and not listed twice in the entry.
 
-`.gitignore` only stops untracked files from being added: a `.env` committed before the block existed stays tracked, and its secrets stay in the history. Warning about that is an open item for `cyanotype check` in Decisions.
+`.gitignore` only stops untracked files from being added: a `.env` committed before the block existed stays tracked, and its secrets stay in the history. `cyanotype check` reports such files as errors; see What the tool checks.
 
 Regeneration replaces the block where it is and leaves the rest of the file byte for byte; a line starting with `# cyanotype:begin` opens it, so the explanation can change. Without a block, it is appended after a blank line. The block follows the file's line endings, CRLF when the file has any. Entries the user already lists outside the block are not removed or skipped, so the block never depends on the rest of the file. A second block, or a marker without its partner, is an error.
 
@@ -711,7 +711,7 @@ When stdin is not a terminal and `--yes` is not given, the command never reads s
 
 Usage errors name the real mistake: `unknown command "genrate" for "cyanotype"; did you mean "generate"?` for a mistyped command, even when flags follow it, and `"cyanotype generate" takes no arguments, got "extra"` for an extra argument. Cobra reports an unknown command as a plain error while it looks the command up, before any flag handling, so the root command validates its own arguments to turn it into a usage error, without matching cobra's message text.
 
-Code 3 lets scripts check that generated files are current with `cyanotype generate --dry-run`, as `git diff --exit-code` does, until `cyanotype check` exists, and makes a script that forgets `--yes` fail instead of succeeding without writing.
+Code 3 lets scripts check that generated files are current with `cyanotype generate --dry-run`, as `git diff --exit-code` does, and makes a script that forgets `--yes` fail instead of succeeding without writing. `cyanotype check` uses the same code for drift and tells more: a hand edit from a change in the spec, and problems generate never looks at.
 
 Warnings and errors go to stderr, warnings first, in the `cyanotype.yaml:9: error: selections[3]: ...` form that editors and terminals link to the line. yaml.v3 reports the line of some syntax errors one off, so those say `invalid YAML near line 7` and show lines 6 to 8: the right line is in view either way, and no precise but wrong number misleads the user. The diff and the summary go to stdout, so they can be redirected on their own.
 
@@ -890,9 +890,80 @@ An optional decision log, `docs/agents/decisions.md`, lets the agent record arch
 - generated files edited by hand or out of sync with the spec;
 - a newer catalog with changes to selected entries;
 - files over the line threshold, and references to files that no longer exist;
-- files that match an `enforce.gitignore` line but are already tracked by git, such as a committed `.env` (open item in Decisions).
+- files that match an `enforce.gitignore` line but are already tracked by git, such as a committed `.env`.
 
-`cyanotype update` then applies catalog updates, showing a diff before writing anything.
+`cyanotype update` will then apply catalog updates, showing a diff before writing anything.
+
+It only reads: it never writes a file and never reads stdin, so it cannot hang in a hook or a CI job. The checks live in `internal/check`, which returns findings as plain data, each with a stable kind, a severity, the file and line it is about and a message; the CLI prints them, and from v0.4 `--json` and the MCP `check` tool encode the same values.
+
+| Check | Kind | Severity |
+| --- | --- | --- |
+| A generated file generate would create, change or delete, `cyanotype.lock` included, so a missing lock is one | `out-of-sync` | error |
+| A generated file edited by hand since cyanotype generated it | `edited` | error |
+| An instruction file without the header where cyanotype generates one | `hand-written` | error |
+| A file git tracks that an `enforce.gitignore` line of a selected entry ignores | `tracked-ignored` | error |
+| An entry detection finds that the spec does not select; a manifest it cannot read | `undeclared`, `unreadable` | warning |
+| A `catalog_version` pin older than the bundled catalog | `catalog-older` | warning |
+| A main file longer than `output.max_lines` | `too-long` | warning |
+| A generated file that points, with `@path` or "read path", to a file that does not exist | `missing-reference` | warning |
+| A stale file kept because it changed; a file with the header that nothing records; rules from before the lock | `stale`, `unrecorded`, `unowned-rules` | warning |
+| Any other warning of resolve or render, such as a target without a renderer | `spec-warning` | warning |
+
+Errors are drift that the files in the repository get wrong; warnings may be intended. A spec that does not resolve, or a lock that cannot be read, is not a finding: check cannot run.
+
+For a Markdown file and the `.gitignore` block, check compares three hashes of the part cyanotype owns, normalized as the lock does: the file on disk, the lock, and what generate would write. The disk matching what generate would write is in sync, even when generate would still move a protected block or turn CRLF into LF, which loses nothing. The disk matching the lock means the spec or the catalog changed: out of sync. What generate would write matching the lock means the file changed: edited by hand, and generate would undo the edit, so the message says to move it into a protected block or `custom_rules`. Neither matching is both. Without a lock entry check cannot tell, and says so. `.claude/settings.json` is out of sync whenever generate would change it.
+
+When a detected entry is in a radio category where the spec selects another entry, or conflicts with a selected one, the finding says so: *package-lock.json: suggests npm, but cyanotype.yaml selects pnpm; delete the file if it is a leftover*. A leftover lockfile is more likely than a second package manager. The older-pin warning names the selected entries whose hash in the lock differs from the bundled catalog, or says that none does, or that without a lock it cannot tell.
+
+Tracked files come from `git ls-files --cached --ignored` with each `enforce.gitignore` line of a selected entry as an `--exclude` pattern, in catalog order, so a negation such as `!.env.example` keeps working, and no `.gitignore` file, so only those lines count. The finding names the line that matches and says that `git rm --cached` stops tracking the file without removing it from the history, so a secret it held must also be rotated. Without git, or outside a repository, this check is skipped, and the output says so. Any other git failure stops the check, since it is never taken as clean.
+
+| Flag | Effect |
+| --- | --- |
+| `--dir <folder>` | The project folder, as for generate |
+| `--strict` | Warnings fail the check too |
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | No errors; warnings are allowed without `--strict` |
+| 1 | The check could not run: a problem in the spec or the lock, an I/O or git error |
+| 2 | Wrong usage |
+| 3 | Drift found: errors, or warnings with `--strict` |
+
+Each finding is one line on stdout, `path:line: severity: message`, then a count, so terminals and editors link to the file. Code 3 has the meaning it has for generate: something is left to do.
+
+As a pre-commit hook, `.git/hooks/pre-commit` holds:
+
+```sh
+#!/bin/sh
+exec cyanotype check
+```
+
+With the pre-commit framework, a local hook in `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: cyanotype-check
+        name: cyanotype check
+        entry: cyanotype check
+        language: system
+        pass_filenames: false
+```
+
+check reads the working tree, not the index, so a change left unstaged counts too. cyanotype never installs a hook itself: a hook is a choice of the repository's people.
+
+In CI, after installing cyanotype, a step runs `cyanotype check`, and its errors fail the job. A GitHub Actions job:
+
+```yaml
+- uses: actions/setup-go@v7
+  with:
+    go-version: stable
+- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.3.0
+- run: cyanotype check
+```
+
+`--strict` fits projects that can resolve every warning. An `undeclared` finding cannot be silenced yet, such as an `app.json` that is not Expo's, so with `--strict` such a project fails until its spec selects the entry; see the open item in Decisions.
 
 ## Team rules and personal rules
 
@@ -1109,7 +1180,9 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [ ] **Homebrew cask and signed macOS binaries**: the tap uses a formula, which GoReleaser deprecated in v2.10 in favor of casks, because a formula also works on Linux and is not quarantined by Gatekeeper; the release check accepts only this deprecation. Moving to a cask belongs with signing and notarizing the macOS binaries, which removes the need to strip the quarantine attribute that a cask of unsigned binaries would need.
 - [ ] **`--json` output for generate**: the MCP server section says the CLI mirrors every MCP tool with `--json`. The JSON of `generate` is a public contract shared with the MCP tools `preview` and `generate`, so it is designed together with them; `generate.Change` (path, status, old and new content, diff) is the shape it will encode.
 - [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
-- [ ] **Tracked files that should be ignored**: `cyanotype check` should warn when a file matched by an `enforce.gitignore` line of a selected entry is already tracked by git, such as a committed `.env`. `.gitignore` does not untrack a file, so the generated block alone gives a false sense of safety in a repository where the secret was committed before. The warning should name the file and say that untracking it (`git rm --cached`) does not remove it from the history, so a committed secret must also be rotated.
+- [x] **Tracked files that should be ignored**: `cyanotype check` reports, as an error, each file git tracks that an `enforce.gitignore` line of a selected entry ignores, such as a committed `.env`. It asks `git ls-files --cached --ignored` with the entry's lines as `--exclude` patterns, names the matching line, and says that `git rm --cached` does not remove the file from the history, so a committed secret must also be rotated. Without git or a repository the check is skipped and says so. See What the tool checks.
+- [x] **Check command**: `cyanotype check` only reads and never reads stdin. Errors: generated files out of sync or edited by hand, hand-written instruction files waiting for a choice, tracked files that should be ignored. Warnings: undeclared detected entries, an older catalog pin with the entries it changed, long main files, pointers to missing files, stale and unrecorded files. Exit codes 0 no errors, 1 cannot run, 2 usage, 3 drift; `--strict` makes warnings fail. Findings are plain data in `internal/check`, with a stable kind each, for the JSON output and MCP tool of v0.4. A hand edit is told apart from a spec change with the hashes in `cyanotype.lock`. cyanotype documents hooks and CI but never installs them. See What the tool checks.
+- [ ] **Silencing undeclared findings**: an `undeclared` finding cannot be silenced, so a project whose files reveal an entry it does not use, such as an `app.json` that is not Expo's, cannot pass `cyanotype check --strict`. A spec field listing the detected entries to ignore would fix it; it is a new optional field, so the spec `version` would stay 1.
 - [x] **Generated-state file**: `cyanotype.lock`, committed and generated on every run, records the catalog version, a hash of each selected entry as the catalog writes it, a hash of the part of each generated file cyanotype owns (Markdown without protected blocks, CRLF read as LF; the `.gitignore` block) and the permission rules cyanotype added. Written sorted, without timestamps, read strictly. Regeneration removes only rules the lock says cyanotype added and no longer generates, never one the user had before. Stale files are deleted only when the lock records them, they keep the header, hold no protected block and match the recorded hash; the others stay with a warning. A project without a lock gets one on its first generation, and none of its existing rules or files is taken for cyanotype's. See The generated-state file.
 - [x] **Catalog version bumps**: the catalog version changes whenever an entry's generated output changes, so a pin keeps meaning which catalog the files came from; `2026.10.1` with v0.3. The older-pin warning says how to move the pin by hand until `cyanotype update` exists. See Distribution.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.
