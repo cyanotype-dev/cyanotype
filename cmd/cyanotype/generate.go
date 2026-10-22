@@ -304,10 +304,15 @@ func commandLine(sub string, args ...string) string {
 
 // printWarnings prints warnings to stderr, one per line, in the
 // "file:line: warning: field: message" form editors and terminals link to
-// the spec.
+// the spec, or "path: warning: message" for a warning about another file.
 func (g *generation) printWarnings(warnings []resolve.Warning) {
+	label := paint(g.console.colorErr, yellow, "warning")
 	for _, w := range warnings {
-		g.printDiagnostic(paint(g.console.colorErr, yellow, "warning"), w.Line, w.Field, w.Msg)
+		if w.File != "" {
+			fmt.Fprintf(g.errOut, "%s: %s: %s\n", filepath.Join(g.opts.dir, filepath.FromSlash(w.File)), label, w.Msg)
+			continue
+		}
+		g.printDiagnostic(label, w.Line, w.Field, w.Msg)
 	}
 }
 

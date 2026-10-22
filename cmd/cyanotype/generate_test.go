@@ -153,8 +153,9 @@ func TestGenerateDesignExample(t *testing.T) {
 		"--- /dev/null\n+++ b/AGENTS.md\n",
 		"  created    .claude/settings.json\n",
 		"  created    CLAUDE.md\n",
-		"4 files to write (4 created, 0 modified).\n",
-		"Wrote 4 files.\n",
+		"  created    cyanotype.lock\n",
+		"5 files to write (5 created, 0 modified).\n",
+		"Wrote 5 files.\n",
 	} {
 		if !strings.Contains(r.stdout, s) {
 			t.Errorf("stdout is missing %q:\n%s", s, r.stdout)

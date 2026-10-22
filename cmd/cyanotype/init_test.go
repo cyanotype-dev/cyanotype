@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,6 +11,7 @@ import (
 
 	bundled "github.com/cyanotype-dev/cyanotype/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
+	"github.com/cyanotype-dev/cyanotype/internal/lock"
 )
 
 // catalogVersion returns the version of the bundled catalog, which init
@@ -324,11 +326,23 @@ func TestInitInteractiveGenerates(t *testing.T) {
 	if r.code != codeOK || r.err != nil {
 		t.Fatalf("exit code %d, error %v\nstderr:\n%s", r.code, r.err, r.stderr)
 	}
-	if !strings.Contains(r.stderr, "Write these files? [y/N]") || !strings.Contains(r.stdout, "Wrote 3 files.") {
+	if !strings.Contains(r.stderr, "Write these files? [y/N]") || !strings.Contains(r.stdout, "Wrote 4 files.") {
 		t.Errorf("generate did not run through its confirmation:\nstdout:\n%s\nstderr:\n%s", r.stdout, r.stderr)
 	}
-	if files := keys(tree(t, dir)); !slices.Equal(files, []string{".claude/settings.json", ".gitignore", "CLAUDE.md", "cyanotype.yaml"}) {
+	if files := keys(tree(t, dir)); !slices.Equal(files, []string{".claude/settings.json", ".gitignore", "CLAUDE.md", "cyanotype.lock", "cyanotype.yaml"}) {
 		t.Errorf("files = %q", files)
+	}
+	// The lock records the generated files it can hash, and the rules
+	// written to the new settings file, all of which cyanotype added.
+	l, err := lock.Parse([]byte(tree(t, dir)["cyanotype.lock"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := slices.Sorted(maps.Keys(l.Files)); !slices.Equal(got, []string{".gitignore", "CLAUDE.md"}) {
+		t.Errorf("lock records %q", got)
+	}
+	if l.Claude.Empty() {
+		t.Error("lock records no permission rules, though settings.json was created with some")
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cyanotype-dev/cyanotype/internal/lock"
 	"github.com/cyanotype-dev/cyanotype/internal/resolve"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
@@ -31,6 +32,9 @@ type File struct {
 	// earlier and no longer generates, unchanged since, so writing removes
 	// it; Content is then nil. See docs/DESIGN.md, Stale files.
 	Delete bool
+	// owned holds, for .claude/settings.json, the permission rules
+	// cyanotype owns once Content is written, which go into the new lock.
+	owned *lock.Rules
 }
 
 // Paths of the main instruction files.
@@ -54,6 +58,11 @@ const (
 // generated whatever the targets, since it keeps personal files, and the
 // files selected entries keep out of git such as .env, out of every
 // collaborator's commits.
+//
+// cyanotype.lock is always returned too: it records what the other files
+// hold, and the lock already in existing decides which permission rules
+// and stale files are cyanotype's to remove. A stale file to delete comes
+// back with Delete set.
 func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error) {
 	targets := r.Spec.Targets
 	agents := slices.Contains(targets, spec.TargetAgentsMD)
@@ -85,7 +94,16 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 	}
 	files = append(files, gitignore)
 
-	if claude {
+	prev, err := lock.Read(existing)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := checkLockCatalog(prev, r); err != nil {
+		return nil, nil, err
+	}
+	// Without the claude target, settings.json is still merged when the
+	// lock says cyanotype added rules there, so they are removed.
+	if claude || (prev != nil && !prev.Claude.Empty()) {
 		f, ok, err := renderSettings(r, existing)
 		if err != nil {
 			return nil, nil, err
@@ -94,6 +112,13 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 			files = append(files, f)
 		}
 	}
+
+	locked, w, err := renderLock(r, existing, prev, files)
+	if err != nil {
+		return nil, nil, err
+	}
+	files = append(files, locked...)
+	warnings = append(warnings, w...)
 
 	slices.SortFunc(files, func(a, b File) int { return strings.Compare(a.Path, b.Path) })
 	return files, warnings, nil

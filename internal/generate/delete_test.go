@@ -9,8 +9,84 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 	"github.com/cyanotype-dev/cyanotype/internal/lock"
+	"github.com/cyanotype-dev/cyanotype/internal/render"
 )
+
+// checkLockRecords checks that the lock among changes records the catalog
+// version and every other generated file, with the hash of the part
+// cyanotype owns, and no moved file.
+func checkLockRecords(t *testing.T, changes []Change) {
+	t.Helper()
+	var l *lock.Lock
+	for _, c := range changes {
+		if c.Path == lock.Path {
+			var err error
+			if l, err = lock.Parse(c.New); err != nil {
+				t.Fatalf("the generated lock does not parse: %v", err)
+			}
+		}
+	}
+	if l == nil {
+		t.Fatal("no change holds the lock")
+	}
+	if l.CatalogVersion != loadCatalog(t).Version() {
+		t.Errorf("lock catalog_version = %q, want the bundled %q", l.CatalogVersion, loadCatalog(t).Version())
+	}
+	for _, c := range changes {
+		if c.MovedFrom != "" {
+			// Hand-written rules moved aside are never cyanotype's.
+			if got := l.Files[c.Path]; got != "" {
+				t.Errorf("lock records the moved file %s", c.Path)
+			}
+			continue
+		}
+		owned, ok, err := render.Owned(c.Path, c.New)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := l.Files[c.Path]; ok && got != lock.Hash(owned) {
+			t.Errorf("lock records %s as %q, want %q", c.Path, got, lock.Hash(owned))
+		} else if !ok && got != "" {
+			t.Errorf("lock records %s, which has no owned content", c.Path)
+		}
+	}
+}
+
+// TestLockNeverRecordsMovedFiles checks that a file holding hand-written
+// rules moved aside by --existing move is never recorded, so it can never
+// be taken for a stale generated file and deleted, even once the output
+// that points to it changes.
+func TestLockNeverRecordsMovedFiles(t *testing.T) {
+	_, root := project(t, map[string]string{"AGENTS.md": "# My rules\n"})
+	changes, _, err := PreviewChoices(loadCatalog(t), loadSpec(t, testSpec), root.FS(), Choices{"AGENTS.md": adopt.Move})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLockRecords(t, changes)
+	if _, err := Write(root, changes); err != nil {
+		t.Fatal(err)
+	}
+	l, err := lock.Read(root.FS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := l.Files["docs/agents/original-agents.md"]; ok {
+		t.Errorf("the lock records the moved file: %v", l.Files)
+	}
+
+	other := strings.Replace(testSpec, "targets: [agents-md, cursor]", "targets: [claude]", 1)
+	again, _, err := Preview(loadCatalog(t), loadSpec(t, other), root.FS())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range again {
+		if c.Status == Deleted && c.Path != "AGENTS.md" {
+			t.Errorf("%s would be deleted", c.Path)
+		}
+	}
+}
 
 func TestDeletedDiff(t *testing.T) {
 	c := Change{Path: "docs/agents/git.md", Status: Deleted, Old: []byte("# Git workflow\n")}
