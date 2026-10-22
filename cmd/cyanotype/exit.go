@@ -19,6 +19,10 @@ const (
 	// --dry-run, a declined confirmation, or no terminal to ask on. Scripts
 	// can run generate --dry-run to check that generated files are current.
 	codeNotWritten = 3
+	// codeDrift: cyanotype check found drift, errors or, with --strict,
+	// warnings. It shares 3 with codeNotWritten, as both mean that running
+	// generate, or fixing what the output names, is left to do.
+	codeDrift = 3
 )
 
 // exitError carries the exit code a command ends with. err is nil when the

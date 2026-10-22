@@ -72,6 +72,7 @@ func Render(r *resolve.Result, existing fs.FS) ([]File, []resolve.Warning, error
 	for i, t := range targets {
 		if !Supported(t) {
 			warnings = append(warnings, resolve.Warning{
+				Code:  resolve.CodeUnsupportedTarget,
 				Field: fmt.Sprintf("targets[%d]", i),
 				Msg:   fmt.Sprintf("cyanotype cannot generate files for %q yet; they are skipped", t),
 			})

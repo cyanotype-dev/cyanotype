@@ -312,60 +312,19 @@ func (g *generation) printWarnings(warnings []resolve.Warning) {
 			fmt.Fprintf(g.errOut, "%s: %s: %s\n", filepath.Join(g.opts.dir, filepath.FromSlash(w.File)), label, w.Msg)
 			continue
 		}
-		g.printDiagnostic(label, w.Line, w.Field, w.Msg)
+		g.diagnostics().print(label, w.Line, w.Field, w.Msg)
 	}
 }
 
-// reportErrors prints every problem err holds, then how many there were,
-// and returns an exitError that ends the command with codeError.
-// Problems in the spec name their line; YAML syntax errors, whose line
-// yaml.v3 may report one off, say "near line" and show the lines around it.
+// reportErrors prints every problem err holds, then how many there were and
+// that nothing was written, and returns an exitError that ends the command
+// with codeError.
 func (g *generation) reportErrors(root *os.Root, err error) error {
-	errs := []error{err}
-	var joined interface{ Unwrap() []error }
-	if errors.As(err, &joined) {
-		errs = joined.Unwrap()
-	}
-	label := paint(g.console.colorErr, red, "error")
-	for _, e := range errs {
-		var ve *spec.ValidationError
-		switch {
-		case !errors.As(e, &ve):
-			fmt.Fprintf(g.errOut, "%s: %v\n", label, e)
-		case ve.Syntax && ve.Line > 0:
-			msg := fmt.Sprintf("invalid YAML near line %d: %s", ve.Line, strings.TrimPrefix(ve.Msg, "invalid YAML: "))
-			g.printDiagnostic(label, 0, "", msg)
-			g.printExcerpt(root, ve.Line)
-		default:
-			g.printDiagnostic(label, ve.Line, ve.Field, ve.Msg)
-		}
-	}
-	fmt.Fprintf(g.errOut, "%s; nothing was written.\n", plural(len(errs), "error"))
-	return &exitError{code: codeError}
+	return g.diagnostics().report(root, err, "nothing was written")
 }
 
-// printDiagnostic prints one problem in the spec.
-func (g *generation) printDiagnostic(label string, line int, field, msg string) {
-	loc := g.specPath
-	if line > 0 {
-		loc += fmt.Sprintf(":%d", line)
-	}
-	if field != "" {
-		msg = field + ": " + msg
-	}
-	fmt.Fprintf(g.errOut, "%s: %s: %s\n", loc, label, msg)
-}
-
-// printExcerpt prints the lines of the spec around line, numbered.
-func (g *generation) printExcerpt(root *os.Root, line int) {
-	data, err := root.ReadFile(generate.SpecFile)
-	if err != nil {
-		return // the error itself has been printed; the excerpt is a bonus
-	}
-	lines := strings.Split(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n")
-	for n := max(line-1, 1); n <= min(line+1, len(lines)); n++ {
-		fmt.Fprintf(g.errOut, "  %4d | %s\n", n, lines[n-1])
-	}
+func (g *generation) diagnostics() specDiagnostics {
+	return specDiagnostics{errOut: g.errOut, color: g.console.colorErr, specPath: g.specPath}
 }
 
 // printDiff prints a unified diff to stdout, colored by line kind.
