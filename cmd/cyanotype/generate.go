@@ -38,10 +38,11 @@ func newGenerateCmd(detect func() console) *cobra.Command {
 		Use:   "generate",
 		Short: "Generate instruction files and constraints from cyanotype.yaml",
 		Long: "Generate reads cyanotype.yaml, resolves it against the bundled catalog and\n" +
-			"shows the files it would write as a diff. It asks before writing, and never\n" +
-			"deletes files. An instruction file written by hand, without the cyanotype\n" +
-			"header, is never replaced silently: generate asks what to do with it, or\n" +
-			"takes the answer from --existing.\n\n" +
+			"shows the files it would write as a diff. It asks before writing. The only\n" +
+			"files it deletes are files it generated earlier, no longer generates, and\n" +
+			"nobody changed since, as cyanotype.lock records them. An instruction file\n" +
+			"written by hand, without the cyanotype header, is never replaced silently:\n" +
+			"generate asks what to do with it, or takes the answer from --existing.\n\n" +
 			"Exit codes: 0 written or already up to date, 1 error, 2 wrong usage,\n" +
 			"3 changes found but not written (--dry-run, declined, or no terminal to ask on).",
 		Args: noArgs,
@@ -170,8 +171,27 @@ func (g *generation) run() error {
 		}
 		return err
 	}
-	fmt.Fprintf(g.out, "Wrote %s.\n", plural(len(written), "file"))
+	fmt.Fprintln(g.out, wroteSummary(changes, len(written)))
 	return nil
+}
+
+// wroteSummary says what a successful Write did with the n paths it
+// returned: "Wrote 3 files.", "Wrote 2 files and deleted 1." or "Deleted
+// 1 file.".
+func wroteSummary(changes []generate.Change, n int) string {
+	deleted := 0
+	for _, ch := range changes {
+		if ch.Status == generate.Deleted {
+			deleted++
+		}
+	}
+	switch deleted {
+	case 0:
+		return fmt.Sprintf("Wrote %s.", plural(n, "file"))
+	case n:
+		return fmt.Sprintf("Deleted %s.", plural(n, "file"))
+	}
+	return fmt.Sprintf("Wrote %s and deleted %d.", plural(n-deleted, "file"), deleted)
 }
 
 // chooseExisting decides what to do with the hand-written files at paths:
@@ -369,7 +389,7 @@ func (g *generation) printSummary(changes []generate.Change, topicDir string) {
 	counts := map[generate.Status]int{}
 	for _, ch := range changes {
 		counts[ch.Status]++
-		color := map[generate.Status]string{generate.Created: green, generate.Modified: yellow, generate.Unchanged: dim}[ch.Status]
+		color := map[generate.Status]string{generate.Created: green, generate.Modified: yellow, generate.Deleted: red, generate.Unchanged: dim}[ch.Status]
 		label := paint(g.console.colorOut, color, fmt.Sprintf("%-10s", ch.Status))
 		note := choiceNote(ch, topicDir)
 		if ch.CRLF && !ch.HandWritten {
@@ -378,12 +398,15 @@ func (g *generation) printSummary(changes []generate.Change, topicDir string) {
 		fmt.Fprintf(g.out, "  %s %s%s\n", label, ch.Path, note)
 	}
 
-	toWrite := counts[generate.Created] + counts[generate.Modified]
+	toWrite := counts[generate.Created] + counts[generate.Modified] + counts[generate.Deleted]
 	if toWrite == 0 {
 		return
 	}
-	summary := fmt.Sprintf("%s to write (%d created, %d modified)",
-		plural(toWrite, "file"), counts[generate.Created], counts[generate.Modified])
+	details := fmt.Sprintf("%d created, %d modified", counts[generate.Created], counts[generate.Modified])
+	if n := counts[generate.Deleted]; n > 0 {
+		details += fmt.Sprintf(", %d deleted", n)
+	}
+	summary := fmt.Sprintf("%s to write (%s)", plural(toWrite, "file"), details)
 	if n := counts[generate.Unchanged]; n > 0 {
 		summary += fmt.Sprintf(", %d unchanged", n)
 	}

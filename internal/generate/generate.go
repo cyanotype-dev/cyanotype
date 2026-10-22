@@ -58,6 +58,9 @@ const (
 	Created
 	// Modified means the file exists with other content.
 	Modified
+	// Deleted means cyanotype generated the file earlier, no longer
+	// generates it, and nobody changed it since, so writing removes it.
+	Deleted
 )
 
 // String returns the status as the CLI shows it: "unchanged", "created" or
@@ -70,6 +73,8 @@ func (s Status) String() string {
 		return "created"
 	case Modified:
 		return "modified"
+	case Deleted:
+		return "deleted"
 	}
 	return fmt.Sprintf("Status(%d)", int(s))
 }
@@ -81,7 +86,8 @@ type Change struct {
 	Status Status
 	// Old is the file on disk, nil when Status is Created.
 	Old []byte
-	// New is the generated content, which Write puts on disk.
+	// New is the generated content, which Write puts on disk; nil when
+	// Status is Deleted.
 	New []byte
 	// CRLF reports that writing the file turns its CRLF line endings into
 	// LF. It is set only for a Modified file: one that differs from the
@@ -125,11 +131,14 @@ func (c Change) Diff() string {
 	if c.Status == Unchanged {
 		return ""
 	}
-	oldName := "a/" + c.Path
-	if c.Status == Created {
+	oldName, newName := "a/"+c.Path, "b/"+c.Path
+	switch c.Status {
+	case Created:
 		oldName = "/dev/null"
+	case Deleted:
+		newName = "/dev/null"
 	}
-	return diff.Unified(oldName, "b/"+c.Path, toLF(c.Old), toLF(c.New))
+	return diff.Unified(oldName, newName, toLF(c.Old), toLF(c.New))
 }
 
 // Preview resolves the spec in f against c, renders the files and compares
@@ -200,8 +209,16 @@ func PreviewChoices(c *catalog.Catalog, f *spec.File, existing fs.FS, choices Ch
 	return changes, warnings, nil
 }
 
-// compare builds the Change for one generated file.
+// compare builds the Change for one generated file, or one the renderer
+// says to delete.
 func compare(existing fs.FS, file render.File) (Change, error) {
+	if file.Delete {
+		old, err := fs.ReadFile(existing, file.Path)
+		if err != nil {
+			return Change{}, fmt.Errorf("read %s: %w", file.Path, err)
+		}
+		return Change{Path: file.Path, Status: Deleted, Old: old}, nil
+	}
 	ch := Change{Path: file.Path, New: file.Content, Status: Created}
 	if existing == nil {
 		return ch, nil

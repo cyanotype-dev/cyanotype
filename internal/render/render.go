@@ -27,6 +27,10 @@ type File struct {
 	// merges into rather than replaces, .gitignore and
 	// .claude/settings.json, have no header.
 	Header bool
+	// Delete reports that the file at Path is one cyanotype generated
+	// earlier and no longer generates, unchanged since, so writing removes
+	// it; Content is then nil. See docs/DESIGN.md, Stale files.
+	Delete bool
 }
 
 // Paths of the main instruction files.
