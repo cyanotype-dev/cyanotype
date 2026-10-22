@@ -69,7 +69,7 @@ func regenerate(t *testing.T, text string, project fstest.MapFS) {
 
 func run(t *testing.T, text string, project fstest.MapFS) Report {
 	t.Helper()
-	r, err := Run(loadCatalog(t), loadSpec(t, text), project)
+	r, err := Run(loadCatalog(t), loadSpec(t, text), project, "", nil)
 	if err != nil {
 		t.Fatalf("Run() error: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestOtherWarnings(t *testing.T) {
 
 func TestSpecErrorsStopTheCheck(t *testing.T) {
 	text := "version: 1\ntargets: [agents-md]\nproject:\n  name: x\n  goal: y\nselections: [pnpn]\n"
-	_, err := Run(loadCatalog(t), loadSpec(t, text), fstest.MapFS{})
+	_, err := Run(loadCatalog(t), loadSpec(t, text), fstest.MapFS{}, "", nil)
 	if err == nil || !strings.Contains(err.Error(), `unknown entry "pnpn"`) {
 		t.Errorf("Run() error = %v", err)
 	}

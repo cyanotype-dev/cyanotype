@@ -124,12 +124,13 @@ func (r Report) Count(s Severity) int {
 }
 
 // Run checks the project held by project, whose spec is f, against the
-// catalog c.
+// catalog c. dir is the project folder on disk, where git runs; a nil git
+// skips the checks that need it.
 //
 // The error is not a finding: it means the check could not run, such as a
 // spec that does not resolve, whose errors are *spec.ValidationError
 // values as generate.Preview returns them, or an invalid cyanotype.lock.
-func Run(c *catalog.Catalog, f *spec.File, project fs.FS) (Report, error) {
+func Run(c *catalog.Catalog, f *spec.File, project fs.FS, dir string, git Git) (Report, error) {
 	res, _, err := resolve.Resolve(c, f)
 	if err != nil {
 		return Report{}, err
@@ -152,6 +153,12 @@ func Run(c *catalog.Catalog, f *spec.File, project fs.FS) (Report, error) {
 	r.Findings = append(r.Findings, files...)
 	r.Findings = append(r.Findings, referenceFindings(changes, project)...)
 	r.Findings = append(r.Findings, stackFindings(c, f, project)...)
+	tracked, skipped, err := trackedFindings(res, dir, git)
+	if err != nil {
+		return Report{}, err
+	}
+	r.Findings = append(r.Findings, tracked...)
+	r.Skipped = append(r.Skipped, skipped...)
 
 	slices.SortStableFunc(r.Findings, func(a, b Finding) int {
 		return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Line, b.Line))
