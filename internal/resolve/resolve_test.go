@@ -103,8 +103,8 @@ func TestResolve(t *testing.T) {
 			spec: "catalog_version: \"2026.09\"\nselections:\n  - ghost\n",
 			errs: []string{`line 8: selections[0]: unknown entry "ghost" in catalog 2026.10 ` +
 				`(the spec pins 2026.09; it may have been renamed or removed)`},
-			warnings: []string{"line 6: catalog_version: the spec pins 2026.09 but this cyanotype's catalog is 2026.10; " +
-				"entries may have changed since the files were generated"},
+			warnings: []string{"line 6: catalog_version: the spec pins 2026.09 but this cyanotype's catalog is 2026.10, whose entries may have changed; " +
+				`review the changes with cyanotype generate --dry-run, then set catalog_version to "2026.10"`},
 		},
 		{
 			name: "unknown entries are left out of other checks",
@@ -178,8 +178,8 @@ func TestResolve(t *testing.T) {
 			name: "pin older than the catalog",
 			spec: "catalog_version: \"2026.09\"\nselections: [go]\n",
 			ids:  []string{"go"},
-			warnings: []string{"line 6: catalog_version: the spec pins 2026.09 but this cyanotype's catalog is 2026.10; " +
-				"entries may have changed since the files were generated"},
+			warnings: []string{"line 6: catalog_version: the spec pins 2026.09 but this cyanotype's catalog is 2026.10, whose entries may have changed; " +
+				`review the changes with cyanotype generate --dry-run, then set catalog_version to "2026.10"`},
 		},
 		{
 			name: "errors sorted by line",

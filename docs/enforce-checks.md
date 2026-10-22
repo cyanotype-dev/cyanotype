@@ -52,7 +52,7 @@ Use the same method for the other entries with permission rules. Choose cases th
 | --- | --- | --- |
 | `secrets-in-env` | `Read` and `Edit` rules on `.env` files | 2026-10-19, see below |
 | `no-destructive-commands` | `Bash` and `PowerShell` command patterns | Not yet |
-| `rule-maintenance-propose` | `Edit` deny rules on generated files | Not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20 |
+| `rule-maintenance-propose` | `Edit` deny rules on generated files | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the others not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20 |
 | `npm`, `pnpm`, `uv` | `Bash` and `PowerShell` rules on the other package managers | 2026-10-20, see below |
 | `npm`, `pnpm`, `uv`, `go`, `expo` | `Bash` and `PowerShell` ask rules on their install commands, under `with.dependency-approval` | 2026-10-20 for `npm install` and `go get` in both shells and `npm i` in Bash; not yet for the others |
 
@@ -199,8 +199,35 @@ Every case is harmless if a rule fails: tags are only listed, created on a ref t
 - As with `npm.cmd`, `git.exe` gets around the `Bash` rules, while `PowerShell(git tag *)` also blocks `git.exe` and the call operator.
 - `git -C <dir>` before the subcommand gets around the rules in both shells, like an option before the subcommand of a package manager. Tags without a `v` prefix, pushes through `gh api` and a `push.followTags` setting in git config are not covered either. The required reviewer of the `release` environment is what stops a release in those cases.
 
+## Run of 2026-10-22: `Edit(/cyanotype.lock)`
+
+`rule-maintenance-propose` gained the deny rule `Edit(/cyanotype.lock)` with v0.3, which generates `cyanotype.lock`. This run checks that rule alone; the entry's other `Edit` deny rules have the same form and are still unchecked.
+
+**Environment:**
+- Claude Code 2.1.308 (`CLAUDE_CODE_EXECPATH`), running in the Claude desktop app on Windows 11.
+- The session was in auto mode.
+- The rule was added to the `deny` list of this repository's `.claude/settings.local.json` during the session, which was started in the repository, as in the earlier runs.
+
+No `cyanotype.lock` existed at the root or in `docs/` before the run. The dummy files held `DUMMY_LOCK=...` lines. In the control run, without the rule, every case below wrote to its file.
+
+| Case | Control: no rule | With `Edit(/cyanotype.lock)` |
+| --- | --- | --- |
+| Edit tool on `cyanotype.lock` at the root | Written | Blocked ("denied by your permission settings") |
+| Write tool on `cyanotype.lock` at the root | Written | Blocked ("denied by your permission settings") |
+| Write tool on `docs/cyanotype.lock` | Written | Written, as intended: the leading `/` anchors the rule at the root |
+| Bash: `echo ... >> cyanotype.lock` | Written | Blocked (permission denied) |
+| PowerShell: `Add-Content cyanotype.lock` | Written | Blocked |
+
+After the run the root file still held only the control run's lines.
+
+**Findings:**
+
+- The anchored rule blocks the Edit and Write tools and shell appends in Bash and PowerShell on the root `cyanotype.lock`, and leaves a file of the same name in a subfolder alone.
+- In auto mode the Bash refusal does not name the rule that caused it; the same command ran in the control run, so the rule is the only difference between the two.
+- As with `.env`, a script that opens the file itself would not be stopped by a permission rule; this run did not try one.
+
 ## Known limits
 
 - Results hold for the Claude Code version recorded with each run. Permission matching changes between releases, so rerun the procedure after upgrading.
 - Deny rules match what a command names. Globs, command substitution, `source`, recursive tools and scripts can reach a file without naming it, and `npm.cmd` in Bash or an option before the subcommand gets around a command pattern, so deny rules are best effort, as Real constraints in [DESIGN.md](DESIGN.md) says. Repository, pre-commit and CI checks stay the baseline.
-- `no-destructive-commands` and the `Edit` deny rules of `rule-maintenance-propose` have not been checked yet; see the table under Other entries.
+- `no-destructive-commands` and the `Edit` deny rules of `rule-maintenance-propose` other than `Edit(/cyanotype.lock)` have not been checked yet; see the table under Other entries.

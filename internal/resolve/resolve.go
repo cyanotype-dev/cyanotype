@@ -140,7 +140,10 @@ func (r *resolver) checkCatalogVersion() {
 	case 1:
 		r.errorf("catalog_version", "%q is newer than this cyanotype's catalog (%s); upgrade cyanotype", pin, loaded)
 	case -1:
-		r.warnf("catalog_version", "the spec pins %s but this cyanotype's catalog is %s; entries may have changed since the files were generated", pin, loaded)
+		// cyanotype update does not exist yet, so the message says how to
+		// move the pin by hand.
+		r.warnf("catalog_version", "the spec pins %s but this cyanotype's catalog is %s, whose entries may have changed; "+
+			"review the changes with cyanotype generate --dry-run, then set catalog_version to %q", pin, loaded, loaded)
 	}
 }
 
