@@ -172,13 +172,16 @@ A CLAUDE.md or AGENTS.md without the cyanotype header was written by hand, and c
 - `move`: its content goes to `docs/agents/original-claude.md` (for CLAUDE.md), which the main file tells the agent to read.
 - `replace`: the generated file overwrites it, only when git has it committed with no pending changes, so `git show HEAD:CLAUDE.md` gives it back.
 
-The import prompt goes to stdout. The agent asks you questions and writes `cyanotype.yaml`, so use it in a normal interactive session: save it to a file,
+The agent asks you about what the file does not settle and writes `cyanotype.yaml`, so it needs a normal interactive session. Ask your agent to run the command and follow what it prints; copying the output into the session also works. After the prompt, cyanotype says:
 
-```sh
-cyanotype init --existing import > import-prompt.md
+```text
+Nothing was written. The prompt printed on stdout asks your coding agent to turn CLAUDE.md into cyanotype.yaml.
+To use it, ask your agent in an interactive session to run "cyanotype init --existing import" and follow what it prints, or copy the prompt into the session. Do not pipe it into the agent: piped, the agent runs without a session, so it cannot ask you questions or for permissions.
+Coding agent: ask the user about every choice the prompt leaves open; never make one yourself.
+When the agent is done, review cyanotype.yaml and run "cyanotype generate --existing replace".
 ```
 
-then ask your agent to follow the instructions in `import-prompt.md`, and delete the file when it is done, so it does not end up in a commit. Review `cyanotype.yaml`, then run `cyanotype generate --existing replace`.
+The prompt is never written to a file in the project, where it would end up in a commit.
 
 ### Generating the files
 
