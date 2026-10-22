@@ -230,7 +230,7 @@ func (g *generation) printImport(root *os.Root, c *catalog.Catalog, f *spec.File
 		}
 	}
 	prompt := adopt.Prompt(c, adopt.PromptInput{Files: paths, Spec: current, Found: found, Stack: stack})
-	printImportPrompt(g.out, g.errOut, prompt, paths, g.command("--existing", "replace"))
+	printImportPrompt(g.out, g.errOut, prompt, paths, g.command("--existing", "import"), g.command("--existing", "replace"))
 	return nil
 }
 
@@ -262,15 +262,24 @@ func (g *generation) confirm() bool {
 // command spells out a generate command with extra flags, repeating --dir
 // when the user gave it.
 func (g *generation) command(flags ...string) string {
-	parts := []string{"cyanotype", "generate"}
+	var args []string
 	if g.dirFlag {
-		dir := g.opts.dir
-		if strings.ContainsAny(dir, " \t") {
-			dir = `'` + dir + `'`
-		}
-		parts = append(parts, "--dir", dir)
+		args = append(args, "--dir", g.opts.dir)
 	}
-	return strings.Join(append(parts, flags...), " ")
+	return commandLine("generate", append(args, flags...)...)
+}
+
+// commandLine spells out a cyanotype command for the user to run, quoting
+// the arguments that hold blanks.
+func commandLine(sub string, args ...string) string {
+	parts := []string{"cyanotype", sub}
+	for _, a := range args {
+		if strings.ContainsAny(a, " \t") {
+			a = `'` + a + `'`
+		}
+		parts = append(parts, a)
+	}
+	return strings.Join(parts, " ")
 }
 
 // printWarnings prints warnings to stderr, one per line, in the

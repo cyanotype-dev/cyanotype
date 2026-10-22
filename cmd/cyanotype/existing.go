@@ -154,13 +154,21 @@ func handWrittenFiles(project fs.FS) []string {
 	return out
 }
 
-// printImportPrompt prints the import prompt on stdout, where it can be
-// redirected or piped to an agent, and what to do with it on stderr.
-func printImportPrompt(out, errOut io.Writer, prompt string, paths []string, regenerate string) {
+// printImportPrompt prints the import prompt on stdout and what to do with
+// it on stderr. The prompt has the agent ask the user questions and write
+// cyanotype.yaml, which needs an interactive session: piped into an agent,
+// it would run with nobody to answer questions or permission prompts. So
+// the user asks the agent to run rerun, which prints the prompt again, and
+// the agent, which reads stderr too, is told to leave the choices to the
+// user.
+func printImportPrompt(out, errOut io.Writer, prompt string, paths []string, rerun, regenerate string) {
 	fmt.Fprint(out, prompt)
 	fmt.Fprintf(errOut, "\nNothing was written. The prompt printed on stdout asks your coding agent to turn %s into cyanotype.yaml.\n"+
-		"Give it to the agent, for example by piping this command into it, then review cyanotype.yaml and run \"%s\".\n",
-		andList(paths), regenerate)
+		"To use it, ask your agent in an interactive session to run \"%s\" and follow what it prints, or copy the prompt into the session. "+
+		"Do not pipe it into the agent: piped, the agent runs without a session, so it cannot ask you questions or for permissions.\n"+
+		"Coding agent: ask the user about every choice the prompt leaves open; never make one yourself.\n"+
+		"When the agent is done, review cyanotype.yaml and run \"%s\".\n",
+		andList(paths), rerun, regenerate)
 }
 
 // choiceNote says, in the summary, what a choice does to a file.

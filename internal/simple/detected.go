@@ -269,14 +269,17 @@ var commandScripts = []string{"dev", "build", "test", "lint"}
 
 // commands turns the package.json scripts named like spec commands into
 // commands, run with the selected package manager's detect.run_script.
-// Without a selected entry that has one, there are no commands: guessing
-// the tool would give commands that do not work.
+// Without exactly one selected entry that has one, there are no commands:
+// guessing the tool, such as npm while the choice between npm and pnpm is
+// still open, would give commands that do not work.
 func commands(c *catalog.Catalog, sel, scripts []string) (spec.Commands, []string) {
 	run := ""
 	for _, id := range sel {
 		if e, _ := c.Get(id); e.Detect != nil && e.Detect.RunScript != "" {
+			if run != "" {
+				return spec.Commands{}, nil
+			}
 			run = e.Detect.RunScript
-			break
 		}
 	}
 	var cmds spec.Commands

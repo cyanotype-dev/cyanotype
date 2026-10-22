@@ -277,8 +277,32 @@ func (r *initRun) chooseExisting(root *os.Root) (done bool, err error) {
 	}
 	prompt := adopt.Prompt(r.cat, adopt.PromptInput{Files: imports, Draft: draft, Found: found, Stack: stack})
 	g := generation{opts: generateOptions{dir: r.opts.dir}, dirFlag: r.changed("dir")}
-	printImportPrompt(r.out, r.errOut, prompt, imports, g.command("--existing", "replace"))
+	printImportPrompt(r.out, r.errOut, prompt, imports, r.importCommand(), g.command("--existing", "replace"))
 	return true, nil
+}
+
+// importCommand spells out the init command that prints the same import
+// prompt, for the user's agent to run: it repeats the flags that shape the
+// draft, and --existing import, which a choice made on a terminal needs.
+func (r *initRun) importCommand() string {
+	var args []string
+	for _, f := range []struct {
+		name  string
+		value string
+	}{
+		{"dir", r.opts.dir},
+		{"name", r.opts.name},
+		{"preset", r.opts.preset},
+		{"detect", r.opts.detect},
+		{"with", strings.Join(r.opts.with, ",")},
+		{"without", strings.Join(r.opts.without, ",")},
+		{"agents", strings.Join(r.opts.agents, ",")},
+	} {
+		if r.changed(f.name) {
+			args = append(args, "--"+f.name, f.value)
+		}
+	}
+	return commandLine("init", append(args, "--existing", "import")...)
 }
 
 // usesDetection reports whether the spec may start from the detected

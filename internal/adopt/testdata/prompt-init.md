@@ -23,6 +23,8 @@ Detected from the project's files; check each one against the instruction files:
 - `npm` (npm): package-lock.json
 - `pnpm` (pnpm): pnpm-lock.yaml
 
+A file can reveal something the project no longer uses. When the instruction files do not mention a detected entry and you are not sure the project uses it, ask me; never decide for me.
+
 Only one of `npm` and `pnpm` can be selected. Keep the one the instruction files name; if they name none, ask me.
 
 ## Draft
