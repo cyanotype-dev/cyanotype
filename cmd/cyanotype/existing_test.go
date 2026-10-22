@@ -1,6 +1,7 @@
 package main
 
 import (
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -279,6 +280,31 @@ func TestInitExistingImport(t *testing.T) {
 	if files := keys(tree(t, dir)); len(files) != 3 {
 		t.Errorf("files = %q; import writes nothing", files)
 	}
+}
+
+// TestInitExistingImportClash imports with npm and pnpm both detected: the
+// draft names no commands, since they depend on the package manager the
+// user keeps, and the prompt asks the agent to ask about it.
+func TestInitExistingImportClash(t *testing.T) {
+	files := maps.Clone(nextWithClaude)
+	files["package-lock.json"] = "{}"
+	dir := newProject(t, files)
+	r := runCLI(t, nonInteractive, failReader{t}, "init", "--dir", dir, "--existing", "import", "--name", "shop")
+	if r.code != codeOK || r.err != nil {
+		t.Fatalf("exit code %d, error %v\nstderr:\n%s", r.code, r.err, r.stderr)
+	}
+	_, draft, ok := strings.Cut(r.stdout, "## Draft\n")
+	draft, _, _ = strings.Cut(draft, "## The cyanotype.yaml format")
+	if !ok {
+		t.Fatalf("prompt has no draft:\n%s", r.stdout)
+	}
+	if strings.Contains(draft, "commands:") {
+		t.Errorf("the draft has commands while the package manager is open:\n%s", draft)
+	}
+	if !strings.Contains(r.stdout, "Only one of `npm` and `pnpm` can be selected. Keep the one the instruction files name; if they name none, ask me.") {
+		t.Errorf("prompt does not ask about the clash:\n%s", r.stdout)
+	}
+	assertNoSpec(t, dir)
 }
 
 // TestInitExistingKeepInteractive keeps the file, answers the questions and

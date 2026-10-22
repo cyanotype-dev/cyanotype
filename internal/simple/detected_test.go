@@ -50,6 +50,14 @@ func TestDetectStack(t *testing.T) {
 			},
 		},
 		{
+			name:   "an open clash of package managers leaves the commands out",
+			result: found([]string{"dev", "test"}, "node", "npm", "pnpm"),
+			want: Detected{
+				Selections: []string{"node", "npm", "pnpm"},
+				Choices:    []Choice{{Kind: ChoiceClash, IDs: []string{"npm", "pnpm"}, Category: "package-manager"}},
+			},
+		},
+		{
 			name:   "with answers a clash",
 			result: found([]string{"test"}, "node", "npm", "pnpm"),
 			with:   []string{"pnpm"},

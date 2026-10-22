@@ -783,7 +783,7 @@ Detection says what the project uses; a preset says what a new project would use
 | Translations | Skipped when the stack has an entry some preset adds for translations, such as `i18n-next-intl`: only the locales are asked, and one locale means `later`, several `yes`. Otherwise asked; the closest preset of the project type gives its `i18n_selections`, each only when it fits the stack, so a Next.js library never joins a Vite app |
 | Autonomy, reply language, goal, agents | Asked as for a new project; rules the stack already has are not added twice |
 | `selections` | The detected entries in the order of the closest preset, then in catalog order, with `--without` entries removed and `--with` entries added |
-| `commands` | The `dev`, `build`, `test` and `lint` scripts of `package.json`, run with the selected package manager's `run_script`. A preset's commands are never used, since they may name scripts the project does not have; without matching scripts the summary says there are none |
+| `commands` | The `dev`, `build`, `test` and `lint` scripts of `package.json`, run with the selected package manager's `run_script`. A preset's commands are never used, since they may name scripts the project does not have; without matching scripts the summary says there are none. While the package manager is still a choice, as in the import prompt's draft, there are no commands, since they depend on it |
 
 Partial matches and clashes are completed by the user, never guessed:
 
