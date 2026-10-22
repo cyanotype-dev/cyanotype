@@ -88,6 +88,9 @@ func Prompt(c *catalog.Catalog, in PromptInput) string {
 			}
 			fmt.Fprintf(&b, "- `%s` (%s): %s\n", f.ID, e.Name, strings.Join(parts, ", "))
 		}
+		// Whether the project really uses each entry is the user's choice,
+		// as --detect and --without are in init: the agent asks, never picks.
+		b.WriteString("\nA file can reveal something the project no longer uses. When the instruction files do not mention a detected entry and you are not sure the project uses it, ask me; never decide for me.\n")
 		for _, cl := range in.Found.Clashes {
 			fmt.Fprintf(&b, "\nOnly one of %s can be selected. Keep the one the instruction files name; if they name none, ask me.\n", andList(backtick(cl.IDs)))
 		}
