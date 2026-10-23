@@ -44,6 +44,19 @@ An ask rule shows a permission prompt, but so does any command the session has n
 - The same rule in deny and ask.
 - `Edit` ask rules with the Edit and Write tools, in accept-edits mode.
 
+### Cases for `cyanotype select`
+
+Rules: the `ask` rules `Bash(cyanotype select *)`, `Bash(cyty select *)`, `PowerShell(cyanotype select *)` and `PowerShell(cyty select *)` of `rule-maintenance-propose`. Expected: every way of running `cyanotype select` asks, and other cyanotype commands do not.
+
+Put a build of the branch on the `PATH` under both names, `cyanotype` and `cyty`, and use a dummy project folder outside the repository holding a valid `cyanotype.yaml`, so a case that is not blocked changes only that file. The allow rules for the control run are `Bash(cyanotype *)`, `Bash(cyty *)`, `PowerShell(cyanotype *)` and `PowerShell(cyty *)`. Answer **No** to every prompt.
+
+- `cyanotype select --dir <dummy> --add small-commits --dry-run`, and the same with `--yes`.
+- `cyanotype select` with no arguments, against the pattern ending in ` *`.
+- `cyty select --dir <dummy> --add small-commits --dry-run`.
+- Ways around the pattern: a compound command (`cd <dummy> && cyanotype select --add small-commits --dry-run`), `cyanotype.exe select ...`, a flag before the subcommand (`cyanotype --dir <dummy> select ...`), and in PowerShell the call operator (`& cyanotype select ...`).
+- Commands that must not ask: `cyanotype spec --dir <dummy>`, `cyanotype validate --dir <dummy>`, and `cyanotype catalog search select`, which names select only as a search term.
+- Each case in Bash and in PowerShell.
+
 ### Other entries
 
 Use the same method for the other entries with permission rules. Choose cases that would do no harm if a rule failed: delete a dummy folder with `rm -rf`, delete a dummy branch with `git branch -D`, and add `--dry-run` to force pushes.
