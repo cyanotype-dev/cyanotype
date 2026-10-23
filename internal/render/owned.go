@@ -40,7 +40,7 @@ func Owned(path string, content []byte) ([]byte, bool, error) {
 	}
 	owned, err := ownedMarkdown(content)
 	if err != nil {
-		return nil, false, fmt.Errorf("%s: %w", path, err)
+		return nil, false, fmt.Errorf("%s: %w", path, inFile(err, path))
 	}
 	return owned, true, nil
 }

@@ -202,7 +202,7 @@ func renderMarkdown(existing fs.FS, path string, doc document) (File, error) {
 	}
 	blocks, err := parseCustomBlocks(old)
 	if err != nil {
-		return File{}, fmt.Errorf("render %s: %w", path, err)
+		return File{}, fmt.Errorf("render %s: %w", path, inFile(err, path))
 	}
 	return File{Path: path, Content: doc.render(blocks), Header: true}, nil
 }

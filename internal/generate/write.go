@@ -102,7 +102,7 @@ func deleteFile(root *os.Root, c Change) error {
 		return fmt.Errorf("delete %s: %w", c.Path, err)
 	}
 	if !bytes.Equal(now, c.Old) {
-		return fmt.Errorf("refusing to delete %s: it changed after cyanotype compared it; run cyanotype generate again", c.Path)
+		return fmt.Errorf("refusing to delete %s: %w; run cyanotype generate again", c.Path, ErrChanged)
 	}
 	if err := root.Remove(name); err != nil {
 		return fmt.Errorf("delete %s: %w", c.Path, err)
@@ -123,7 +123,7 @@ func checkChange(root *os.Root, c Change) error {
 		}
 	case c.MovedFrom != "":
 		if _, err := root.Lstat(filepath.FromSlash(c.Path)); !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("refusing to move %s to %s: that path already exists", c.MovedFrom, c.Path)
+			return fmt.Errorf("refusing to move %s to %s: %w", c.MovedFrom, c.Path, ErrExists)
 		}
 	}
 	return nil
@@ -138,7 +138,7 @@ func checkTarget(root *os.Root, path string) error {
 	// same on every OS, as in the spec.
 	name := filepath.FromSlash(path)
 	if !fs.ValidPath(path) || strings.ContainsRune(path, '\\') || !filepath.IsLocal(name) {
-		return fmt.Errorf("refusing to write %q: it is not a path inside the project root", path)
+		return fmt.Errorf("refusing to write %q: %w", path, ErrOutsideRoot)
 	}
 	info, err := root.Lstat(name)
 	switch {
@@ -149,9 +149,9 @@ func checkTarget(root *os.Root, path string) error {
 	case info.Mode()&fs.ModeSymlink != 0:
 		// Renaming over a link would replace the link with a file, such as
 		// a CLAUDE.md linked to AGENTS.md: the user's layout, not ours.
-		return fmt.Errorf("refusing to replace %s: it is a symbolic link", path)
+		return fmt.Errorf("refusing to replace %s: %w", path, ErrSymlink)
 	case !info.Mode().IsRegular():
-		return fmt.Errorf("refusing to replace %s: it is not a regular file", path)
+		return fmt.Errorf("refusing to replace %s: %w", path, ErrNotRegular)
 	}
 	return nil
 }

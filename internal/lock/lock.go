@@ -206,11 +206,16 @@ func Parse(data []byte) (*Lock, error) {
 	return l, nil
 }
 
+// ErrInvalid reports a lock that cannot be read: unknown fields, duplicate
+// keys, malformed values. Errors from Read and Parse wrap it, with the
+// reason, so interfaces can tell it from an I/O error.
+var ErrInvalid = errors.New(Path + " is invalid")
+
 // invalid reports a lock that cannot be read. The lock is generated, so
 // the way out is to generate it again; without a lock, cyanotype treats
 // every existing rule as the user's.
 func invalid(reason string) error {
-	return fmt.Errorf("%s is invalid: %s; it is generated, so delete it and run cyanotype generate to write it again", Path, reason)
+	return fmt.Errorf("%w: %s; it is generated, so delete it and run cyanotype generate to write it again", ErrInvalid, reason)
 }
 
 // Marshal returns the lock as it is written to disk: the header, then each
