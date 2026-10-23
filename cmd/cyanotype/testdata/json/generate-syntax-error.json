@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "yaml-syntax",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "line": 1,
+      "line_approximate": true,
+      "message": "invalid YAML: did not find expected ',' or ']'"
+    }
+  ]
+}

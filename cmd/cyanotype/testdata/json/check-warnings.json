@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "code": "undeclared",
+      "severity": "warning",
+      "file": "go.mod",
+      "message": "suggests Go, which cyanotype.yaml does not select; add go to selections if the project uses it"
+    }
+  ],
+  "skipped": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 1,
+    "strict": false,
+    "drift": false
+  },
+  "warnings": [],
+  "errors": []
+}

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "usage",
+      "severity": "error",
+      "message": "--existing \"overwrite\" is not a choice for an existing instruction file; choose import, keep, move or replace"
+    }
+  ]
+}

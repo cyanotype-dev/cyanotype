@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "no-spec",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "message": "no cyanotype.yaml in <dir>"
+    }
+  ]
+}

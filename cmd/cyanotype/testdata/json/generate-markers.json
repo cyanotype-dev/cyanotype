@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "markers",
+      "severity": "error",
+      "file": "AGENTS.md",
+      "line": 7,
+      "message": "<!-- cyanotype:custom --> is never closed with <!-- /cyanotype:custom -->"
+    }
+  ]
+}

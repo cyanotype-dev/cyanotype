@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": ".gitignore",
+      "status": "unchanged"
+    },
+    {
+      "path": "AGENTS.md",
+      "status": "unchanged"
+    },
+    {
+      "path": "cyanotype.lock",
+      "status": "unchanged"
+    }
+  ],
+  "summary": {
+    "created": 0,
+    "modified": 0,
+    "deleted": 0,
+    "unchanged": 3
+  },
+  "waiting_for_choice": [],
+  "written": [],
+  "warnings": [],
+  "errors": []
+}
