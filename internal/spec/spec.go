@@ -69,55 +69,55 @@ const (
 // defaults. Fields whose yaml tag has no omitempty are required.
 // See the Project spec section of docs/DESIGN.md.
 type Spec struct {
-	Version int `yaml:"version"`
+	Version int `yaml:"version" json:"version"`
 	// CatalogVersion pins the catalog the spec was generated with, such as
 	// "2026.10", so regeneration is reproducible. Empty means the catalog
 	// bundled with this build.
-	CatalogVersion string   `yaml:"catalog_version,omitempty"`
-	Targets        []Target `yaml:"targets"`
-	Mode           Mode     `yaml:"mode,omitempty"`
-	Project        Project  `yaml:"project"`
+	CatalogVersion string   `yaml:"catalog_version,omitempty" json:"catalog_version,omitempty"`
+	Targets        []Target `yaml:"targets" json:"targets"`
+	Mode           Mode     `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Project        Project  `yaml:"project" json:"project"`
 	// Languages sets the human language of each kind of text the agent writes.
-	Languages Languages `yaml:"languages,omitempty"`
+	Languages Languages `yaml:"languages,omitempty" json:"languages,omitzero"`
 	// Commands holds the project's own commands, which the main instruction
 	// file lists so the agent never has to guess how to build or test.
-	Commands Commands `yaml:"commands,omitempty"`
+	Commands Commands `yaml:"commands,omitempty" json:"commands,omitzero"`
 	// Selections holds catalog entry ids. Order matters: it is the order in
 	// which entries appear in generated text, such as {languages}.
-	Selections []string `yaml:"selections,omitempty"`
+	Selections []string `yaml:"selections,omitempty" json:"selections,omitempty"`
 	// Locked lists selected ids that a personal cyanotype.local.yaml may not
 	// weaken or remove.
-	Locked []string `yaml:"locked,omitempty"`
+	Locked []string `yaml:"locked,omitempty" json:"locked,omitempty"`
 	// I18n configures translations in the app being built; nil when the
 	// project has no translation settings.
-	I18n *I18n `yaml:"i18n,omitempty"`
+	I18n *I18n `yaml:"i18n,omitempty" json:"i18n,omitempty"`
 	// Answers holds free-text answers to open questions, keyed by question
 	// id, such as domain_notes.
-	Answers     map[string]string `yaml:"answers,omitempty"`
-	CustomRules []CustomRule      `yaml:"custom_rules,omitempty"`
-	Output      Output            `yaml:"output,omitempty"`
+	Answers     map[string]string `yaml:"answers,omitempty" json:"answers,omitempty"`
+	CustomRules []CustomRule      `yaml:"custom_rules,omitempty" json:"custom_rules,omitempty"`
+	Output      Output            `yaml:"output,omitempty" json:"output,omitzero"`
 }
 
 // Project is the short summary of what is being built. It goes into the
 // main instruction file, because the agent needs it in every session.
 type Project struct {
-	Name         string   `yaml:"name"`
-	Goal         string   `yaml:"goal"`
-	Users        string   `yaml:"users,omitempty"`
-	CoreFeatures []string `yaml:"core_features,omitempty"`
-	OutOfScope   []string `yaml:"out_of_scope,omitempty"`
+	Name         string   `yaml:"name" json:"name"`
+	Goal         string   `yaml:"goal" json:"goal"`
+	Users        string   `yaml:"users,omitempty" json:"users,omitempty"`
+	CoreFeatures []string `yaml:"core_features,omitempty" json:"core_features,omitempty"`
+	OutOfScope   []string `yaml:"out_of_scope,omitempty" json:"out_of_scope,omitempty"`
 	// Brief is the path of the full product description, relative to the
 	// project root, such as docs/PRODUCT.md.
-	Brief string `yaml:"brief,omitempty"`
+	Brief string `yaml:"brief,omitempty" json:"brief,omitempty"`
 }
 
 // Languages holds human language names, such as "english" or "italian".
 type Languages struct {
-	Code         string `yaml:"code,omitempty"`
-	Comments     string `yaml:"comments,omitempty"`
-	Docs         string `yaml:"docs,omitempty"`
-	Commits      string `yaml:"commits,omitempty"`
-	AgentReplies string `yaml:"agent_replies,omitempty"`
+	Code         string `yaml:"code,omitempty" json:"code,omitempty"`
+	Comments     string `yaml:"comments,omitempty" json:"comments,omitempty"`
+	Docs         string `yaml:"docs,omitempty" json:"docs,omitempty"`
+	Commits      string `yaml:"commits,omitempty" json:"commits,omitempty"`
+	AgentReplies string `yaml:"agent_replies,omitempty" json:"agent_replies,omitempty"`
 }
 
 // Commands holds the shell commands that run the project, such as
@@ -125,36 +125,36 @@ type Languages struct {
 // rather than a free map, so a typo in a key is an unknown field and the
 // generated file always lists them in the same order.
 type Commands struct {
-	Dev   string `yaml:"dev,omitempty"`
-	Build string `yaml:"build,omitempty"`
-	Test  string `yaml:"test,omitempty"`
-	Lint  string `yaml:"lint,omitempty"`
+	Dev   string `yaml:"dev,omitempty" json:"dev,omitempty"`
+	Build string `yaml:"build,omitempty" json:"build,omitempty"`
+	Test  string `yaml:"test,omitempty" json:"test,omitempty"`
+	Lint  string `yaml:"lint,omitempty" json:"lint,omitempty"`
 }
 
 // I18n holds the translation settings of the app being built. Locales are
 // BCP 47 tags such as "en" or "pt-BR".
 type I18n struct {
-	DefaultLocale string `yaml:"default_locale"`
+	DefaultLocale string `yaml:"default_locale" json:"default_locale"`
 	// Locales lists every supported locale, including the default one.
-	Locales        []string       `yaml:"locales,omitempty"`
-	TranslationsBy TranslationsBy `yaml:"translations_by,omitempty"`
+	Locales        []string       `yaml:"locales,omitempty" json:"locales,omitempty"`
+	TranslationsBy TranslationsBy `yaml:"translations_by,omitempty" json:"translations_by,omitempty"`
 }
 
 // CustomRule is a rule the catalog cannot know, with the reason behind it.
 type CustomRule struct {
-	Rule string `yaml:"rule"`
-	Why  string `yaml:"why"`
+	Rule string `yaml:"rule" json:"rule"`
+	Why  string `yaml:"why" json:"why"`
 	// Locked stops a personal cyanotype.local.yaml from overriding the rule.
-	Locked bool `yaml:"locked,omitempty"`
+	Locked bool `yaml:"locked,omitempty" json:"locked,omitempty"`
 }
 
 // Output controls how generated files are laid out.
 type Output struct {
-	Split Split `yaml:"split,omitempty"`
+	Split Split `yaml:"split,omitempty" json:"split,omitempty"`
 	// MaxLines is the main file length above which SplitAuto splits.
-	MaxLines int `yaml:"max_lines,omitempty"`
+	MaxLines int `yaml:"max_lines,omitempty" json:"max_lines,omitempty"`
 	// TopicDir is the folder for topic files, relative to the project root.
-	TopicDir string `yaml:"topic_dir,omitempty"`
+	TopicDir string `yaml:"topic_dir,omitempty" json:"topic_dir,omitempty"`
 }
 
 // WithDefaults returns a copy of s with every unset optional value replaced
