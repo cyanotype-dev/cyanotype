@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "unknown-field",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "line": 7,
+      "field": "tags",
+      "message": "unknown field \"tags\"; check for a typo, or upgrade cyanotype if a newer version wrote this file"
+    }
+  ]
+}

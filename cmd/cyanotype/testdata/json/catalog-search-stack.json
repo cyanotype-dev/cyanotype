@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "catalog_version": "2026.10.2",
+  "entries": [
+    {
+      "id": "shadcn-ui",
+      "name": "shadcn/ui",
+      "category": "ui-components",
+      "select": "radio",
+      "summary": "Accessible React components copied into the project as source code",
+      "url": "https://ui.shadcn.com/docs",
+      "topic": "style",
+      "level": "beginner",
+      "requires": [
+        "tailwind"
+      ],
+      "requires_one_of": [
+        [
+          "nextjs",
+          "vite-react"
+        ]
+      ],
+      "rule": "Add components with the shadcn CLI's `add` command, run through the project's package manager, instead of writing them from scratch.\nBefore creating a primitive such as a button or dialog, check the ui folder set in `components.json`; the components there are project code you may edit.\n",
+      "why": "Reusing the same components keeps styling and accessibility consistent across the app."
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

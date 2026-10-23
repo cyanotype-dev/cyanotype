@@ -7,7 +7,7 @@ summary: The agent proposes new rules instead of editing instruction files
 topic: workflow
 snippet:
   rule: |
-    Never edit the generated instruction files or `cyanotype.lock`; regeneration replaces them. Edit `cyanotype.yaml` only when the user explicitly asks, such as to apply a rule they approved.
+    Never edit the generated instruction files or `cyanotype.lock`; regeneration replaces them. Change `cyanotype.yaml`, its selections included, only when the user explicitly asks, such as to apply a rule they approved, whatever the tool: an edit, `cyanotype select` or an MCP tool.
     When you learn a convention, or are corrected twice on the same point, propose a rule with its reason for the user to approve.
   why: The instruction files are generated from `cyanotype.yaml`, so direct edits are lost and unreviewed rules creep in.
 enforce:
@@ -23,6 +23,17 @@ enforce:
       - "Edit(/cyanotype.lock)"
     # Ask, not deny: the user can still have the agent apply a rule they
     # approved. An ask rule on Edit prompts for the Edit and Write tools even
-    # in accept-edits mode (docs/enforce-checks.md).
+    # in accept-edits mode (docs/enforce-checks.md). cyanotype select, under
+    # either name of the binary, writes the spec without the Edit tool, so
+    # it asks too, also with a flag before the subcommand, which cobra
+    # accepts: "cyanotype --dir app select".
     ask:
       - "Edit(/cyanotype.yaml)"
+      - "Bash(cyanotype select *)"
+      - "Bash(cyty select *)"
+      - "Bash(cyanotype -* select *)"
+      - "Bash(cyty -* select *)"
+      - "PowerShell(cyanotype select *)"
+      - "PowerShell(cyty select *)"
+      - "PowerShell(cyanotype -* select *)"
+      - "PowerShell(cyty -* select *)"

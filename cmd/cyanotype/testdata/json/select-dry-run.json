@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "added": [
+    "small-commits",
+    "branch-per-task"
+  ],
+  "removed": [],
+  "spec_diff": "--- a/cyanotype.yaml\n+++ b/cyanotype.yaml\n@@ -1,7 +1,10 @@\n version: 1\n+\n targets: [agents-md]\n+\n project:\n   name: tiny\n   goal: A tiny project for tests.\n-selections: [conventional-commits]\n+\n+selections: [conventional-commits, small-commits, branch-per-task]\n # a comment Save keeps\n",
+  "written": false,
+  "warnings": [
+    {
+      "code": "not-selected",
+      "severity": "warning",
+      "file": "cyanotype.yaml",
+      "field": "selections",
+      "message": "\"go\" is not selected, so there is nothing to remove"
+    }
+  ],
+  "errors": []
+}

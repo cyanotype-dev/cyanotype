@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "id": "node",
+      "name": "Node.js",
+      "evidence": [
+        {
+          "file": "package.json"
+        }
+      ]
+    },
+    {
+      "id": "python",
+      "name": "Python",
+      "evidence": [
+        {
+          "file": "pyproject.toml"
+        }
+      ]
+    }
+  ],
+  "clashes": [],
+  "scripts": [],
+  "warnings": [
+    {
+      "code": "unreadable",
+      "severity": "warning",
+      "file": "package.json",
+      "message": "invalid JSON: invalid character 'n' looking for beginning of object key string"
+    }
+  ],
+  "errors": []
+}

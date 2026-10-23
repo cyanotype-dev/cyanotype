@@ -25,6 +25,9 @@ func jsonProject(t *testing.T) string {
 	return dir
 }
 
+// noProject is the setup of a command that reads no project folder.
+func noProject(*testing.T) string { return "" }
+
 // writeFile writes content to the slash-separated path name under dir.
 func writeFile(t *testing.T, dir, name, content string) {
 	t.Helper()
@@ -48,7 +51,154 @@ func TestJSONGolden(t *testing.T) {
 		setup func(t *testing.T) string // returns the project folder
 		args  []string
 		code  int
+		noDir bool // the command takes no --dir
 	}{
+		{
+			name:  "catalog-search",
+			setup: noProject,
+			args:  []string{"catalog", "search", "package", "manager"},
+			code:  codeOK,
+			noDir: true,
+		},
+		{
+			name:  "catalog-search-stack",
+			setup: noProject,
+			args:  []string{"catalog", "search", "--category", "ui-components", "--stack", "tailwind,nextjs"},
+			code:  codeOK,
+			noDir: true,
+		},
+		{
+			name:  "catalog-search-nothing",
+			setup: noProject,
+			args:  []string{"catalog", "search", "kubernetes"},
+			code:  codeOK,
+			noDir: true,
+		},
+		{
+			name: "spec",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec + "commands:\n  test: go test ./...\n"})
+			},
+			args: []string{"spec"},
+			code: codeOK,
+		},
+		{
+			name: "spec-errors",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec + "tags: [x]\n"})
+			},
+			args: []string{"spec"},
+			code: codeError,
+		},
+		{
+			name:  "spec-no-spec",
+			setup: func(t *testing.T) string { return newProject(t, nil) },
+			args:  []string{"spec"},
+			code:  codeError,
+		},
+		{
+			name: "detect",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{
+					"package.json":      `{"dependencies": {"next": "16.0.0"}, "scripts": {"dev": "next dev", "build": "next build"}}`,
+					"package-lock.json": "{}",
+					"pnpm-lock.yaml":    "lockfileVersion: '9.0'\n",
+				})
+			},
+			args: []string{"detect"},
+			code: codeOK,
+		},
+		{
+			name: "detect-unreadable",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"package.json": "{not json", "pyproject.toml": "[project]\nname = \"x\"\n"})
+			},
+			args: []string{"detect"},
+			code: codeOK,
+		},
+		{
+			name:  "detect-nothing",
+			setup: func(t *testing.T) string { return newProject(t, nil) },
+			args:  []string{"detect"},
+			code:  codeOK,
+		},
+		{
+			name:  "validate",
+			setup: jsonProject,
+			args:  []string{"validate"},
+			code:  codeOK,
+		},
+		{
+			name: "validate-errors",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": strings.Replace(minimalSpec,
+					"[conventional-commits]", "[conventional-commits, pnpm]", 1)})
+			},
+			args: []string{"validate"},
+			code: codeError,
+		},
+		{
+			name: "validate-markers",
+			setup: func(t *testing.T) string {
+				dir := jsonProject(t)
+				writeFile(t, dir, "AGENTS.md", readFile(t, dir, "AGENTS.md")+"<!-- /cyanotype:custom -->\n")
+				return dir
+			},
+			args: []string{"validate"},
+			code: codeError,
+		},
+		{
+			name: "select-dry-run",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec + "# a comment Save keeps\n"})
+			},
+			args: []string{"select", "--add", "small-commits,branch-per-task", "--remove", "go", "--dry-run"},
+			code: codeNotWritten,
+		},
+		{
+			name: "select-yes",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			},
+			args: []string{"select", "--remove", "conventional-commits", "--add", "small-commits", "--yes"},
+			code: codeOK,
+		},
+		{
+			name: "select-nothing-to-change",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			},
+			args: []string{"select", "--add", "conventional-commits"},
+			code: codeOK,
+		},
+		{
+			name: "select-refused",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			},
+			args: []string{"select", "--add", "pnpm,pnpn"},
+			code: codeError,
+		},
+		{
+			name: "select-locked",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec + "locked: [conventional-commits]\n"})
+			},
+			args: []string{"select", "--remove", "conventional-commits", "--yes"},
+			code: codeError,
+		},
+		{
+			name:  "select-usage",
+			setup: func(t *testing.T) string { return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec}) },
+			args:  []string{"select"},
+			code:  codeUsage,
+		},
+		{
+			name:  "validate-no-spec",
+			setup: func(t *testing.T) string { return newProject(t, nil) },
+			args:  []string{"validate"},
+			code:  codeError,
+		},
 		{
 			name:  "generate-dry-run",
 			setup: func(t *testing.T) string { return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec}) },
@@ -215,7 +365,10 @@ func TestJSONGolden(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := tt.setup(t)
-			args := append(append([]string{}, tt.args...), "--dir", dir, "--json")
+			args := append(append([]string{}, tt.args...), "--json")
+			if !tt.noDir {
+				args = append(args, "--dir", dir)
+			}
 			// Even on a terminal, --json never asks or reads stdin.
 			r := runCLI(t, interactive, failReader{t}, args...)
 			if r.code != tt.code || r.err != nil {
@@ -225,7 +378,11 @@ func TestJSONGolden(t *testing.T) {
 				t.Errorf("stderr is not empty:\n%s", r.stderr)
 			}
 			assertOneJSONValue(t, r.stdout)
-			compareGolden(t, tt.name, normalizeDir(r.stdout, dir))
+			got := r.stdout
+			if dir != "" {
+				got = normalizeDir(got, dir)
+			}
+			compareGolden(t, tt.name, got)
 		})
 	}
 }

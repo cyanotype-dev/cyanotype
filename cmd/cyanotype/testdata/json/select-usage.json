@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "usage",
+      "severity": "error",
+      "message": "nothing to change: name entries with --add or --remove"
+    }
+  ]
+}

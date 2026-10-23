@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "valid": true,
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "lines": 18
+    }
+  ],
+  "max_lines": 100,
+  "warnings": [],
+  "errors": []
+}

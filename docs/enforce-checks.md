@@ -44,6 +44,19 @@ An ask rule shows a permission prompt, but so does any command the session has n
 - The same rule in deny and ask.
 - `Edit` ask rules with the Edit and Write tools, in accept-edits mode.
 
+### Cases for `cyanotype select`
+
+Rules: the `ask` rules `Bash(cyanotype select *)`, `Bash(cyty select *)`, `Bash(cyanotype -* select *)`, `Bash(cyty -* select *)` and the same four as `PowerShell(...)` rules, of `rule-maintenance-propose`. Expected: every way of running `cyanotype select` asks, and other cyanotype commands do not.
+
+Put a build of the branch on the `PATH` under both names, `cyanotype` and `cyty`, and use a dummy project folder outside the repository holding a valid `cyanotype.yaml`, so a case that is not blocked changes only that file. The allow rules for the control run are `Bash(cyanotype *)`, `Bash(cyty *)`, `PowerShell(cyanotype *)` and `PowerShell(cyty *)`. Answer **No** to every prompt.
+
+- `cyanotype select --dir <dummy> --add small-commits --dry-run`, and the same with `--yes`.
+- `cyanotype select` with no arguments, against the pattern ending in ` *`.
+- `cyty select --dir <dummy> --add small-commits --dry-run`.
+- Ways around the pattern: a compound command (`cd <dummy> && cyanotype select --add small-commits --dry-run`), `cyanotype.exe select ...`, a flag before the subcommand (`cyanotype --dir <dummy> select ...` and `cyanotype --dir=<dummy> select ...`), and in PowerShell the call operator (`& cyanotype select ...`).
+- Commands that must not ask: `cyanotype spec --dir <dummy>`, `cyanotype --dir <dummy> spec`, `cyanotype validate --dir <dummy>`, and `cyanotype catalog search select`, which names select only as a search term.
+- Each case in Bash and in PowerShell.
+
 ### Other entries
 
 Use the same method for the other entries with permission rules. Choose cases that would do no harm if a rule failed: delete a dummy folder with `rm -rf`, delete a dummy branch with `git branch -D`, and add `--dry-run` to force pushes.
@@ -52,7 +65,7 @@ Use the same method for the other entries with permission rules. Choose cases th
 | --- | --- | --- |
 | `secrets-in-env` | `Read` and `Edit` rules on `.env` files | 2026-10-19, see below |
 | `no-destructive-commands` | `Bash` and `PowerShell` command patterns | Not yet |
-| `rule-maintenance-propose` | `Edit` deny rules on generated files | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the others not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20 |
+| `rule-maintenance-propose` | `Edit` deny rules on generated files; `ask` rules on `cyanotype.yaml` and `cyanotype select` | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the other deny rules not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20, those on `cyanotype select` on 2026-10-23 |
 | `npm`, `pnpm`, `uv` | `Bash` and `PowerShell` rules on the other package managers | 2026-10-20, see below |
 | `npm`, `pnpm`, `uv`, `go`, `expo` | `Bash` and `PowerShell` ask rules on their install commands, under `with.dependency-approval` | 2026-10-20 for `npm install` and `go get` in both shells and `npm i` in Bash; not yet for the others |
 
@@ -226,8 +239,73 @@ After the run the root file still held only the control run's lines.
 - In auto mode the Bash refusal does not name the rule that caused it; the same command ran in the control run, so the rule is the only difference between the two.
 - As with `.env`, a script that opens the file itself would not be stopped by a permission rule; this run did not try one.
 
+## Run of 2026-10-23: `cyanotype select` ask rules
+
+`rule-maintenance-propose` gained four ask rules with v0.4, which adds `cyanotype select`: `Bash(cyanotype select *)`, `Bash(cyty select *)`, `PowerShell(cyanotype select *)` and `PowerShell(cyty select *)`. This run checks them with the cases under Cases for `cyanotype select`.
+
+**Environment:**
+- Claude Code 2.1.308 (`CLAUDE_CODE_EXECPATH`), running in the Claude desktop app on Windows 11.
+- The session was in auto mode.
+- A build of the `feat/mirror-commands` branch (commit `f1e0b54`) was installed in the Go bin folder on the `PATH` as `cyanotype.exe` and, copied, as `cyty.exe`; neither existed there before. The dummy project was a folder outside the repository holding a valid `cyanotype.yaml` with dummy content.
+- The allow rules `Bash(cyanotype *)`, `Bash(cyty *)`, `PowerShell(cyanotype *)` and `PowerShell(cyty *)` and then the ask rules were added to this repository's `.claude/settings.local.json` during the session, which was started in the repository, as in the earlier runs.
+
+The user answered **No** to every prompt but the first, which they approved, so that case ran after its prompt.
+
+| Case | Control: allow only | With ask rules |
+| --- | --- | --- |
+| Bash: `cyanotype select --dir <dummy> --add <id> --dry-run` | Ran, no prompt | Prompt (approved, then ran) |
+| Bash: the same with `--yes` | Ran, no prompt, wrote the dummy spec | Prompt |
+| Bash: bare `cyanotype select` | Ran, no prompt (usage error, exit code 2) | Prompt |
+| Bash: `cyty select ... --dry-run` | Ran, no prompt | Prompt |
+| Bash: `cd <dummy> && cyanotype select ... --dry-run` | Ran, no prompt | Prompt |
+| Bash: `cyanotype.exe select ... --dry-run` | Ran, no prompt | **Ran, no prompt** |
+| Bash: `cyanotype --dir <dummy> select ... --dry-run` | Ran, no prompt | **Ran, no prompt** |
+| Bash: `cyanotype spec`, `cyanotype validate`, `cyanotype catalog search select` | Ran, no prompt | Ran, no prompt, as intended |
+| PowerShell: `cyanotype select ... --dry-run`, with `--yes`, bare | Ran, no prompt | Prompt |
+| PowerShell: `cyty select ... --dry-run` | Ran, no prompt | Prompt |
+| PowerShell: `Set-Location <dummy>; cyanotype select ... --dry-run` | Ran, no prompt | Prompt |
+| PowerShell: `cyanotype.exe select ... --dry-run` | Ran, no prompt | Prompt |
+| PowerShell: `& cyanotype select ... --dry-run` | Ran, no prompt | Prompt |
+| PowerShell: `cyanotype --dir <dummy> select ... --dry-run` | Ran, no prompt | **Ran, no prompt** |
+| PowerShell: `cyanotype spec`, `cyanotype validate`, `cyanotype catalog search select` | Ran, no prompt | Ran, no prompt, as intended |
+
+After the run `.claude/settings.local.json` was copied back and `cmp` found it identical to the backup; the dummy folder and both binaries were deleted, and `git status` was clean.
+
+**Findings:**
+
+- The rules ask before `cyanotype select` and `cyty select` in both shells, bare, with any flags after the subcommand, and after `cd` or `Set-Location` in a compound command. In auto mode, too, the ask rules showed a prompt.
+- `cyanotype catalog search select`, which names select only as a search term, does not ask, nor do the other commands.
+- As with `npm.cmd`, `cyanotype.exe` gets around the `Bash` rules, while `PowerShell(cyanotype select *)` also covers `cyanotype.exe` and the call operator.
+- A flag before the subcommand, `cyanotype --dir <dummy> select`, gets around the rules in both shells, like an option before the subcommand of a package manager: cobra accepts the subcommand's flags before its name. The next run checks the rules added for it.
+
+## Run of 2026-10-23: a flag before `select`
+
+The run above found that a flag before the subcommand gets around the ask rules on `cyanotype select`. `rule-maintenance-propose` gained four more ask rules for it: `Bash(cyanotype -* select *)`, `Bash(cyty -* select *)`, `PowerShell(cyanotype -* select *)` and `PowerShell(cyty -* select *)`. A pattern that starts with a dash leaves out `cyanotype catalog search select`, which names select only as a search term.
+
+**Environment:** as in the run above: Claude Code 2.1.308, the Claude desktop app on Windows 11, auto mode, the same allow rules for the control. The build was commit `37f89af` of `feat/mirror-commands`, installed again under both names in the Go bin folder, and a new dummy folder outside the repository held a valid `cyanotype.yaml`. The eight ask rules of the entry were added to `.claude/settings.local.json` together. The user answered **No** to every prompt.
+
+| Case | Control: allow only | With ask rules |
+| --- | --- | --- |
+| Bash: `cyanotype --dir <dummy> select --add <id> --dry-run` | Ran, no prompt | Ran, no prompt, on the first command after the rules were added; Prompt when run again |
+| Bash: `cyty --dir <dummy> select ... --dry-run` | Ran, no prompt | Prompt |
+| Bash: `cyanotype --dir=<dummy> select ... --dry-run` | Ran, no prompt | Prompt |
+| Bash: `cyanotype select --dir <dummy> ... --dry-run` | Ran, no prompt | Prompt |
+| Bash: `cyanotype -y select ...` | Usage error from cyanotype: `unknown shorthand flag: 'y' in -y` | Not repeated |
+| Bash: `cyanotype --yes select ...` | Usage error from cyanotype: `unknown flag: --yes` | Not repeated |
+| Bash: `cyanotype --dir <dummy> spec`, `cyanotype catalog search select` | Ran, no prompt | Ran, no prompt, as intended |
+| PowerShell: `cyanotype --dir <dummy> select ...`, `cyty --dir <dummy> select ...`, `cyanotype --dir=<dummy> select ...`, `cyanotype select ...` (all with `--dry-run`) | Ran, no prompt | Prompt |
+| PowerShell: `cyanotype --dir <dummy> spec`, `cyanotype catalog search select` | Ran, no prompt | Ran, no prompt, as intended |
+
+After the run `.claude/settings.local.json` was copied back and `cmp` found it identical to the backup; the dummy spec still held its original content, and the dummy folder and both binaries were deleted. `git status` was clean.
+
+**Findings:**
+
+- The new rules ask before `select` with a flag before it, separated by a space or by `=`, under both names and in both shells, and still leave `cyanotype --dir <dummy> spec` and `cyanotype catalog search select` alone. A `*` in the middle of a pattern matches across spaces, as one at the end does.
+- Only flags that take a value work before the subcommand: cyanotype refuses `-y select` and `--yes select` with a usage error, so those need no rule.
+- The first command after the rules were added to `.claude/settings.local.json` ran without a prompt, and the same command asked when run again a few commands later, as did every other case. The settings file seems to be read again shortly after it changes, not at once; a run should leave a command or two between adding rules and the first case, or repeat the first case.
+
 ## Known limits
 
 - Results hold for the Claude Code version recorded with each run. Permission matching changes between releases, so rerun the procedure after upgrading.
-- Deny rules match what a command names. Globs, command substitution, `source`, recursive tools and scripts can reach a file without naming it, and `npm.cmd` in Bash or an option before the subcommand gets around a command pattern, so deny rules are best effort, as Real constraints in [DESIGN.md](DESIGN.md) says. Repository, pre-commit and CI checks stay the baseline.
+- Deny rules match what a command names. Globs, command substitution, `source`, recursive tools and scripts can reach a file without naming it, and `npm.cmd` or `cyanotype.exe` in Bash or an option before the subcommand of a package manager gets around a command pattern, so deny and ask rules are best effort, as Real constraints in [DESIGN.md](DESIGN.md) says. Repository, pre-commit and CI checks stay the baseline.
 - `no-destructive-commands` and the `Edit` deny rules of `rule-maintenance-propose` other than `Edit(/cyanotype.lock)` have not been checked yet; see the table under Other entries.
