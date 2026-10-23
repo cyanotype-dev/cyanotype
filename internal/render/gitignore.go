@@ -51,7 +51,7 @@ func renderGitignore(r *resolve.Result, existing fs.FS) (File, error) {
 	}
 	content, err := mergeGitignore(string(old), gitignoreLines(r))
 	if err != nil {
-		return File{}, fmt.Errorf("render %s: %w", gitignorePath, err)
+		return File{}, fmt.Errorf("render %s: %w", gitignorePath, inFile(err, gitignorePath))
 	}
 	return File{Path: gitignorePath, Content: []byte(content)}, nil
 }
@@ -102,21 +102,21 @@ func findGitignoreBlock(s string) (start, end int, err error) {
 		case strings.HasPrefix(trimmed, gitignoreBegin):
 			switch {
 			case end >= 0:
-				return -1, -1, fmt.Errorf("line %d: a second %s block", n, gitignoreBegin)
+				return -1, -1, markerError(n, "a second %s block", gitignoreBegin)
 			case start >= 0:
-				return -1, -1, fmt.Errorf("line %d: %s inside an open block", n, gitignoreBegin)
+				return -1, -1, markerError(n, "%s inside an open block", gitignoreBegin)
 			}
 			start, startLine = pos, n
 		case trimmed == gitignoreEnd:
 			if start < 0 || end >= 0 {
-				return -1, -1, fmt.Errorf("line %d: %s without a %s before it", n, gitignoreEnd, gitignoreBegin)
+				return -1, -1, markerError(n, "%s without a %s before it", gitignoreEnd, gitignoreBegin)
 			}
 			end = pos + len(line)
 		}
 		pos = next
 	}
 	if start >= 0 && end < 0 {
-		return -1, -1, fmt.Errorf("line %d: %s is never closed with %s", startLine, gitignoreBegin, gitignoreEnd)
+		return -1, -1, markerError(startLine, "%s is never closed with %s", gitignoreBegin, gitignoreEnd)
 	}
 	return start, end, nil
 }

@@ -62,14 +62,15 @@ type validator struct {
 	errs []error
 }
 
-func (v *validator) add(field, format string, args ...any) {
-	v.errs = append(v.errs, &ValidationError{Field: field, Msg: fmt.Sprintf(format, args...)})
+// add records a problem with its code, one of the Code constants.
+func (v *validator) add(code, field, format string, args ...any) {
+	v.errs = append(v.errs, &ValidationError{Code: code, Field: field, Msg: fmt.Sprintf(format, args...)})
 }
 
 // required reports a blank value.
 func (v *validator) required(field, value string) bool {
 	if strings.TrimSpace(value) == "" {
-		v.add(field, "is required")
+		v.add(CodeRequired, field, "is required")
 		return false
 	}
 	return true
@@ -78,7 +79,7 @@ func (v *validator) required(field, value string) bool {
 // enum reports a set value outside allowed.
 func enum[T ~string](v *validator, field string, value T, allowed []T) {
 	if value != "" && !slices.Contains(allowed, value) {
-		v.add(field, "must be %s, got %q", quoteList(allowed), value)
+		v.add(CodeInvalidValue, field, "must be %s, got %q", quoteList(allowed), value)
 	}
 }
 
@@ -88,9 +89,9 @@ func (v *validator) list(field string, items []string, check func(field, item st
 		f := fmt.Sprintf("%s[%d]", field, i)
 		switch {
 		case strings.TrimSpace(item) == "":
-			v.add(f, "is empty")
+			v.add(CodeEmpty, f, "is empty")
 		case slices.Index(items, item) < i:
-			v.add(f, "%q is listed twice", item)
+			v.add(CodeDuplicate, f, "%q is listed twice", item)
 		case check != nil:
 			check(f, item)
 		}
@@ -103,7 +104,7 @@ func (v *validator) path(field, value string) {
 	// elements; backslashes and drive letters are rejected so the spec
 	// means the same on every OS.
 	if value != "" && (!fs.ValidPath(value) || value == "." || strings.ContainsAny(value, `\:`)) {
-		v.add(field, "%q must be a relative path inside the project, with forward slashes", value)
+		v.add(CodeInvalidValue, field, "%q must be a relative path inside the project, with forward slashes", value)
 	}
 }
 
@@ -112,23 +113,23 @@ func validate(s Spec) []error {
 
 	switch s.Version {
 	case 0:
-		v.add("version", "is required")
+		v.add(CodeRequired, "version", "is required")
 	case CurrentVersion:
 	default:
-		v.add("version", "must be %d, got %d", CurrentVersion, s.Version)
+		v.add(CodeUnsupportedVersion, "version", "must be %d, got %d", CurrentVersion, s.Version)
 	}
 
 	if s.CatalogVersion != "" && !catalogVersion.MatchString(s.CatalogVersion) {
-		v.add("catalog_version", "%q must be a catalog version such as \"2026.10\"", s.CatalogVersion)
+		v.add(CodeInvalidValue, "catalog_version", "%q must be a catalog version such as \"2026.10\"", s.CatalogVersion)
 	}
 
 	if len(s.Targets) == 0 {
-		v.add("targets", "is required; list at least one agent")
+		v.add(CodeRequired, "targets", "is required; list at least one agent")
 	}
 	for i, t := range s.Targets {
 		f := fmt.Sprintf("targets[%d]", i)
 		if slices.Index(s.Targets, t) < i {
-			v.add(f, "%q is listed twice", t)
+			v.add(CodeDuplicate, f, "%q is listed twice", t)
 			continue
 		}
 		enum(v, f, t, targets)
@@ -141,12 +142,12 @@ func validate(s Spec) []error {
 
 	v.list("selections", s.Selections, func(f, id string) {
 		if !kebabCase.MatchString(id) {
-			v.add(f, "%q must be a catalog entry id: kebab-case (lowercase letters, digits and single hyphens)", id)
+			v.add(CodeInvalidValue, f, "%q must be a catalog entry id: kebab-case (lowercase letters, digits and single hyphens)", id)
 		}
 	})
 	v.list("locked", s.Locked, func(f, id string) {
 		if !slices.Contains(s.Selections, id) {
-			v.add(f, "%q is not in selections; only selected entries can be locked", id)
+			v.add(CodeNotSelected, f, "%q is not in selections; only selected entries can be locked", id)
 		}
 	})
 
@@ -157,10 +158,10 @@ func validate(s Spec) []error {
 	for _, key := range slices.Sorted(maps.Keys(s.Answers)) {
 		f := "answers." + key
 		if !snakeCase.MatchString(key) {
-			v.add(f, "key must be snake_case (lowercase letters, digits and single underscores)")
+			v.add(CodeInvalidValue, f, "key must be snake_case (lowercase letters, digits and single underscores)")
 		}
 		if strings.TrimSpace(s.Answers[key]) == "" {
-			v.add(f, "is empty")
+			v.add(CodeEmpty, f, "is empty")
 		}
 	}
 
@@ -172,7 +173,7 @@ func validate(s Spec) []error {
 
 	enum(v, "output.split", s.Output.Split, splits)
 	if s.Output.MaxLines < 0 {
-		v.add("output.max_lines", "must be positive, got %d", s.Output.MaxLines)
+		v.add(CodeInvalidValue, "output.max_lines", "must be positive, got %d", s.Output.MaxLines)
 	}
 	v.path("output.topic_dir", s.Output.TopicDir)
 
@@ -181,7 +182,7 @@ func validate(s Spec) []error {
 
 func validateProject(v *validator, p Project) {
 	if v.required("project.name", p.Name) && strings.Contains(p.Name, "\n") {
-		v.add("project.name", "must be a single line")
+		v.add(CodeInvalidValue, "project.name", "must be a single line")
 	}
 	v.required("project.goal", p.Goal)
 	v.list("project.core_features", p.CoreFeatures, nil)
@@ -199,7 +200,7 @@ func validateLanguages(v *validator, l Languages) {
 	}
 	for _, f := range fields {
 		if f.value != "" && !ValidLanguageName(f.value) {
-			v.add(f.field, "%q must be a lowercase language name such as \"english\"", f.value)
+			v.add(CodeInvalidValue, f.field, "%q must be a lowercase language name such as \"english\"", f.value)
 		}
 	}
 }
@@ -217,9 +218,9 @@ func validateCommands(v *validator, c Commands) {
 		switch {
 		case f.value == "":
 		case strings.TrimSpace(f.value) == "":
-			v.add(f.field, "is empty")
+			v.add(CodeEmpty, f.field, "is empty")
 		case strings.Contains(f.value, "\n"):
-			v.add(f.field, "must be a single line")
+			v.add(CodeInvalidValue, f.field, "must be a single line")
 		}
 	}
 }
@@ -233,7 +234,7 @@ func validateI18n(v *validator, i I18n) {
 		if strings.Contains(tag, "_") {
 			hint = `; use "-" instead of "_"`
 		}
-		v.add(field, "%q must be a BCP 47 tag such as \"en\" or \"pt-BR\"%s", tag, hint)
+		v.add(CodeInvalidValue, field, "%q must be a BCP 47 tag such as \"en\" or \"pt-BR\"%s", tag, hint)
 	}
 
 	if v.required("i18n.default_locale", i.DefaultLocale) {
@@ -241,7 +242,7 @@ func validateI18n(v *validator, i I18n) {
 	}
 	v.list("i18n.locales", i.Locales, checkLocale)
 	if len(i.Locales) > 0 && i.DefaultLocale != "" && !slices.Contains(i.Locales, i.DefaultLocale) {
-		v.add("i18n.locales", "must include the default locale %q", i.DefaultLocale)
+		v.add(CodeInvalidValue, "i18n.locales", "must include the default locale %q", i.DefaultLocale)
 	}
 	enum(v, "i18n.translations_by", i.TranslationsBy, translationsBys)
 }

@@ -14,6 +14,16 @@ import (
 	"github.com/cyanotype-dev/cyanotype/internal/render"
 )
 
+// Errors wrapped by Apply when a choice cannot be applied to a file, so
+// interfaces can tell them apart and suggest another choice.
+var (
+	// ErrKeepMarkers reports a file that already has cyanotype:custom
+	// markers, so it cannot become one protected block.
+	ErrKeepMarkers = errors.New("already has cyanotype:custom markers, so it cannot be kept as one block")
+	// ErrMoveExists reports a move whose destination already exists.
+	ErrMoveExists = errors.New("that file already exists")
+)
+
 // MovedFile is a file Move creates: the content of a hand-written file at
 // a path of its own.
 type MovedFile struct {
@@ -74,13 +84,13 @@ func Apply(existing fs.FS, choices map[string]Choice, mainPath, topicDir string)
 		switch choice {
 		case Keep:
 			if hasMarkers(old) {
-				return nil, nil, fmt.Errorf("%s already has cyanotype:custom markers, so it cannot be kept as one block; choose move or import", p)
+				return nil, nil, fmt.Errorf("%s %w; choose move or import", p, ErrKeepMarkers)
 			}
 			view.files[p] = wrap(old)
 		case Move:
 			dest := MovePath(topicDir, p)
 			if _, err := fs.Stat(existing, dest); err == nil {
-				return nil, nil, fmt.Errorf("cannot move %s to %s: that file already exists; choose keep or import", p, dest)
+				return nil, nil, fmt.Errorf("cannot move %s to %s: %w; choose keep or import", p, dest, ErrMoveExists)
 			}
 			moved = append(moved, MovedFile{From: p, Path: dest, Content: old})
 			view.files[p] = nil

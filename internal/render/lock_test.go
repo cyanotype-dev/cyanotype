@@ -1,6 +1,7 @@
 package render
 
 import (
+	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -385,5 +386,12 @@ func TestOwned(t *testing.T) {
 	}
 	if _, ok, err := Owned(gitignorePath, []byte("mine/\n")); ok || err != nil {
 		t.Errorf("Owned(.gitignore without a block) = %v, %v", ok, err)
+	}
+}
+
+func TestLockFromNewerCatalogIsTyped(t *testing.T) {
+	project := fstest.MapFS{lock.Path: {Data: (&lock.Lock{CatalogVersion: "2099.01"}).Marshal()}}
+	if _, _, err := Render(resolveSpec(t, lockSpec("go")), project); !errors.Is(err, ErrLockCatalogNewer) {
+		t.Errorf("Render() error = %v, want one wrapping ErrLockCatalogNewer", err)
 	}
 }

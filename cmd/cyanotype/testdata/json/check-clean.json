@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "findings": [],
+  "skipped": [],
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "strict": false,
+    "drift": false
+  },
+  "warnings": [],
+  "errors": []
+}

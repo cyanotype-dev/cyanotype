@@ -426,3 +426,29 @@ func TestOneLine(t *testing.T) {
 		t.Errorf("oneLine() = %q, want %q", got, want)
 	}
 }
+
+// TestMarkerErrorNamesTheFile checks that markers that do not pair up stop
+// Render with a *MarkerError holding the file and line, which interfaces
+// report as data.
+func TestMarkerErrorNamesTheFile(t *testing.T) {
+	tests := []struct {
+		name, path, content string
+		line                int
+	}{
+		{"custom block", "AGENTS.md", "# tiny\n\n<!-- cyanotype:custom -->\ntext\n", 3},
+		{"gitignore block", ".gitignore", "a\n# cyanotype:begin\nb\n", 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			existing := fstest.MapFS{tt.path: &fstest.MapFile{Data: []byte(tt.content)}}
+			_, _, err := Render(resolveSpec(t, minimalSpec), existing)
+			var me *MarkerError
+			if !errors.As(err, &me) {
+				t.Fatalf("Render() error = %v, want a *MarkerError", err)
+			}
+			if me.File != tt.path || me.Line != tt.line {
+				t.Errorf("MarkerError at %s:%d, want %s:%d", me.File, me.Line, tt.path, tt.line)
+			}
+		})
+	}
+}

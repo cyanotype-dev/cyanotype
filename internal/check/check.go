@@ -3,8 +3,8 @@
 // or in CI. See docs/DESIGN.md, What the tool checks.
 //
 // It only reads. Findings are plain data, never printed, so the CLI can
-// show them as lines today, and the --json output and the MCP check tool
-// of v0.4 can encode the same values.
+// show them as lines, and the --json output and the MCP check tool encode
+// the same values through internal/contract.
 package check
 
 import (
@@ -41,8 +41,8 @@ func (s Severity) String() string {
 	return "warning"
 }
 
-// Kind names what a finding is about. Kinds are stable identifiers, part of
-// the contract of the JSON output to come, while messages may change.
+// Kind names what a finding is about. Kinds are stable identifiers, the
+// codes of findings in the JSON output, while messages may change.
 type Kind string
 
 // The kinds of finding.

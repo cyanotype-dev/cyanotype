@@ -423,3 +423,64 @@ func TestJoinList(t *testing.T) {
 		}
 	}
 }
+
+// TestResolveCodes checks the stable code of every check Resolve adds,
+// which the JSON output exposes to scripts and agents.
+func TestResolveCodes(t *testing.T) {
+	tests := []struct {
+		name    string
+		catalog string
+		spec    string // appended to header
+		want    []string
+	}{
+		{"unknown entry", "catalog", "selections: [pnpn]\n", []string{CodeUnknownEntry}},
+		{"radio clash", "catalog", "selections: [node, pnpm, npm]\n", []string{CodeRadioClash}},
+		{"missing requirement", "catalog", "selections: [pnpm]\n", []string{CodeMissingRequirement}},
+		{"missing one of", "one-of", "selections: [node]\n", []string{CodeMissingOneOf}},
+		{"conflict", "catalog", "selections: [sqlite, go, supabase]\n", []string{CodeConflict}},
+		{"unfilled placeholder", "catalog", "selections: [learning-guided]\n", []string{CodeUnfilledPlaceholder}},
+		{"unknown question", "catalog", "answers:\n  domain_note: x\n", []string{CodeUnknownQuestion}},
+		{"newer catalog pin", "catalog", "catalog_version: \"2099.01\"\n", []string{CodeCatalogNewer}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := Resolve(loadCatalog(t, tt.catalog), loadSpec(t, tt.spec))
+			if got := errorCodes(t, err); !slices.Equal(got, tt.want) {
+				t.Errorf("codes = %q, want %q\nerror: %v", got, tt.want, err)
+			}
+		})
+	}
+
+	// A spec built in code skips Load, so Resolve runs spec.Validate, whose
+	// errors keep their own codes.
+	f := spec.New(spec.Spec{Version: 1, Targets: []spec.Target{spec.TargetClaude},
+		Project:    spec.Project{Name: "tiny", Goal: "A tiny project for tests."},
+		Selections: []string{"go"}, Locked: []string{"node"}})
+	_, _, err := Resolve(loadCatalog(t, "catalog"), f)
+	if got, want := errorCodes(t, err), []string{spec.CodeNotSelected}; !slices.Equal(got, want) {
+		t.Errorf("spec built in code: codes = %q, want %q", got, want)
+	}
+}
+
+// errorCodes returns the Code of each *spec.ValidationError joined in err,
+// failing the test when err is nil or holds another kind of error.
+func errorCodes(t *testing.T, err error) []string {
+	t.Helper()
+	if err == nil {
+		t.Fatal("Resolve() succeeded, want an error")
+	}
+	errs := []error{err}
+	var joined interface{ Unwrap() []error }
+	if errors.As(err, &joined) {
+		errs = joined.Unwrap()
+	}
+	var out []string
+	for _, e := range errs {
+		var ve *spec.ValidationError
+		if !errors.As(e, &ve) {
+			t.Fatalf("error %q is not a *spec.ValidationError", e)
+		}
+		out = append(out, ve.Code)
+	}
+	return out
+}

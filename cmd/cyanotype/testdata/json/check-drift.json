@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "code": "edited",
+      "severity": "error",
+      "file": "AGENTS.md",
+      "message": "was edited by hand since cyanotype generated it, outside its cyanotype:custom blocks; cyanotype generate would undo the edits, so move them into a cyanotype:custom block, or into custom_rules in cyanotype.yaml"
+    },
+    {
+      "code": "undeclared",
+      "severity": "warning",
+      "file": "go.mod",
+      "message": "suggests Go, which cyanotype.yaml does not select; add go to selections if the project uses it"
+    }
+  ],
+  "skipped": [],
+  "summary": {
+    "errors": 1,
+    "warnings": 1,
+    "strict": false,
+    "drift": true
+  },
+  "warnings": [],
+  "errors": []
+}

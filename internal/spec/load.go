@@ -51,7 +51,7 @@ func Load(r io.Reader) (*File, error) {
 		return nil, fmt.Errorf("read spec: %w", err)
 	}
 	if len(data) > maxFileSize {
-		return nil, &ValidationError{Msg: "file is larger than 1 MiB"}
+		return nil, &ValidationError{Code: CodeTooLarge, Msg: "file is larger than 1 MiB"}
 	}
 
 	doc, errs := parse(data)
@@ -94,7 +94,7 @@ func parse(data []byte) (*yaml.Node, []error) {
 	var doc yaml.Node
 	err := dec.Decode(&doc)
 	if errors.Is(err, io.EOF) || (err == nil && len(doc.Content) == 0) {
-		return nil, []error{&ValidationError{Msg: "file is empty"}}
+		return nil, []error{&ValidationError{Code: CodeEmptyFile, Msg: "file is empty"}}
 	}
 	if err != nil {
 		return nil, syntaxErrors(err)
@@ -106,11 +106,11 @@ func parse(data []byte) (*yaml.Node, []error) {
 	case err != nil:
 		return nil, syntaxErrors(err)
 	default:
-		return nil, []error{&ValidationError{Line: extra.Line, Msg: "a file must hold exactly one YAML document"}}
+		return nil, []error{&ValidationError{Code: CodeMultipleDocuments, Line: extra.Line, Msg: "a file must hold exactly one YAML document"}}
 	}
 
 	if top := root(&doc); top.Kind != yaml.MappingNode {
-		return nil, []error{&ValidationError{Line: top.Line, Msg: "the top level must be a mapping of keys to values"}}
+		return nil, []error{&ValidationError{Code: CodeNotMapping, Line: top.Line, Msg: "the top level must be a mapping of keys to values"}}
 	}
 	if errs := rejectAliases(&doc); len(errs) > 0 {
 		return nil, errs
@@ -135,7 +135,7 @@ func rejectAliases(doc *yaml.Node) []error {
 			msg = "merge keys are not supported; write the values out"
 		}
 		if msg != "" {
-			errs = append(errs, &ValidationError{Field: fieldAtLine(doc, n.Line), Line: n.Line, Msg: msg})
+			errs = append(errs, &ValidationError{Code: CodeAlias, Field: fieldAtLine(doc, n.Line), Line: n.Line, Msg: msg})
 			return
 		}
 		for _, c := range n.Content {
@@ -151,21 +151,21 @@ func rejectAliases(doc *yaml.Node) []error {
 func readVersion(doc *yaml.Node) (int, []error) {
 	k, v := mappingPair(root(doc), "version")
 	if k == nil {
-		return 0, []error{&ValidationError{Field: "version", Msg: "is required"}}
+		return 0, []error{&ValidationError{Code: CodeRequired, Field: "version", Msg: "is required"}}
 	}
-	fail := func(format string, args ...any) (int, []error) {
-		return 0, []error{&ValidationError{Field: "version", Line: k.Line, Msg: fmt.Sprintf(format, args...)}}
+	fail := func(code, format string, args ...any) (int, []error) {
+		return 0, []error{&ValidationError{Code: code, Field: "version", Line: k.Line, Msg: fmt.Sprintf(format, args...)}}
 	}
 
 	if v.Kind != yaml.ScalarNode || v.ShortTag() != "!!int" {
-		return fail("must be an integer, got %q", v.Value)
+		return fail(CodeWrongType, "must be an integer, got %q", v.Value)
 	}
 	version, err := strconv.Atoi(v.Value)
 	switch {
 	case err != nil, version < 1:
-		return fail("%q is not a valid version", v.Value)
+		return fail(CodeInvalidValue, "%q is not a valid version", v.Value)
 	case version > CurrentVersion:
-		return fail("version %d is newer than this cyanotype supports (%d); upgrade cyanotype", version, CurrentVersion)
+		return fail(CodeUnsupportedVersion, "version %d is newer than this cyanotype supports (%d); upgrade cyanotype", version, CurrentVersion)
 	}
 	return version, nil
 }

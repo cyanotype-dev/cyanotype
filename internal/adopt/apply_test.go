@@ -165,3 +165,16 @@ func TestOverlay(t *testing.T) {
 		t.Errorf("no base: error = %v", err)
 	}
 }
+
+// TestApplyRefusalsAreTyped checks that each choice Apply cannot apply
+// wraps its own error, so interfaces can name it with a code.
+func TestApplyRefusalsAreTyped(t *testing.T) {
+	marked := mapFS(map[string]string{"CLAUDE.md": "<!-- cyanotype:custom -->\nx\n<!-- /cyanotype:custom -->\n"})
+	if _, _, err := Apply(marked, map[string]Choice{"CLAUDE.md": Keep}, "CLAUDE.md", "docs/agents"); !errors.Is(err, ErrKeepMarkers) {
+		t.Errorf("keep: error = %v, want one wrapping ErrKeepMarkers", err)
+	}
+	taken := mapFS(map[string]string{"CLAUDE.md": mine, "docs/agents/original-claude.md": "x"})
+	if _, _, err := Apply(taken, map[string]Choice{"CLAUDE.md": Move}, "CLAUDE.md", "docs/agents"); !errors.Is(err, ErrMoveExists) {
+		t.Errorf("move: error = %v, want one wrapping ErrMoveExists", err)
+	}
+}

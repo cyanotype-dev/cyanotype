@@ -189,3 +189,9 @@ func TestEntryHash(t *testing.T) {
 		}
 	}
 }
+
+func TestParseErrorsWrapErrInvalid(t *testing.T) {
+	if _, err := Parse([]byte("version: 1\nfiles: [oops]\n")); !errors.Is(err, ErrInvalid) {
+		t.Errorf("Parse() error = %v, want one wrapping ErrInvalid", err)
+	}
+}

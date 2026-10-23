@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "invalid-value",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "line": 2,
+      "field": "targets[1]",
+      "message": "must be \"claude\", \"agents-md\", \"gemini\", \"cursor\" or \"copilot\", got \"vscode\""
+    },
+    {
+      "code": "required",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "line": 3,
+      "field": "project.goal",
+      "message": "is required"
+    }
+  ]
+}

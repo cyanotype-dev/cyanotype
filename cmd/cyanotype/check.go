@@ -12,6 +12,7 @@ import (
 	bundled "github.com/cyanotype-dev/cyanotype/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/check"
+	"github.com/cyanotype-dev/cyanotype/internal/contract"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
 )
 
@@ -19,6 +20,7 @@ import (
 type checkOptions struct {
 	dir    string
 	strict bool
+	json   bool
 }
 
 // newCheckCmd builds the check command. detect tells it about the terminal
@@ -35,7 +37,8 @@ func newCheckCmd(detect func() console) *cobra.Command {
 			"pointers to missing files. It never writes and never reads stdin, so it\n" +
 			"runs in a pre-commit hook and in CI.\n\n" +
 			"Exit codes: 0 no errors (warnings allowed, unless --strict), 1 the check\n" +
-			"could not run, 2 wrong usage, 3 drift found.",
+			"could not run, 2 wrong usage, 3 drift found. With --json the result is\n" +
+			"JSON on stdout and nothing else, with the same exit codes.",
 		Args: noArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			c := &checking{
@@ -45,11 +48,16 @@ func newCheckCmd(detect func() console) *cobra.Command {
 				console:  detect(),
 				specPath: filepath.Join(opts.dir, generate.SpecFile),
 			}
+			if opts.json {
+				out := &contract.Check{}
+				return printJSON(c.out, out, c.runJSON(out))
+			}
 			return c.run()
 		},
 	}
 	cmd.Flags().StringVar(&opts.dir, "dir", ".", "project folder holding cyanotype.yaml")
 	cmd.Flags().BoolVar(&opts.strict, "strict", false, "fail on warnings too, with exit code 3")
+	cmd.Flags().BoolVar(&opts.json, "json", false, jsonFlagHelp)
 	return cmd
 }
 
@@ -98,6 +106,37 @@ func (c *checking) run() error {
 		return &exitError{code: codeDrift}
 	}
 	return nil
+}
+
+// runJSON is run for --json: it fills out instead of printing and returns
+// the exit code run would end with.
+func (c *checking) runJSON(out *contract.Check) int {
+	fail := func(err error) int {
+		out.Errors = append(out.Errors, contract.Errors(err)...)
+		return codeError
+	}
+	root, err := os.OpenRoot(c.opts.dir)
+	if err != nil {
+		return fail(fmt.Errorf("open the project folder: %w", err))
+	}
+	defer root.Close()
+	f, err := generate.LoadSpec(root)
+	if err != nil {
+		return fail(err)
+	}
+	cat, err := catalog.LoadRoot(bundled.FS())
+	if err != nil {
+		return fail(fmt.Errorf("the bundled catalog is invalid, which is a bug in cyanotype: %w", err))
+	}
+	report, err := check.Run(cat, f, root.FS(), c.opts.dir, check.ExecGit{})
+	if err != nil {
+		return fail(err)
+	}
+	*out = *contract.NewCheck(report, c.opts.strict)
+	if out.Summary.Drift {
+		return codeDrift
+	}
+	return codeOK
 }
 
 // printFinding prints one finding to stdout as "path[:line]: severity:

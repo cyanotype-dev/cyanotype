@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "lock-invalid",
+      "severity": "error",
+      "file": "cyanotype.lock",
+      "message": "cyanotype.lock is invalid: yaml: unmarshal errors:\n  line 2: cannot unmarshal !!seq into map[string]string; it is generated, so delete it and run cyanotype generate to write it again"
+    }
+  ]
+}
