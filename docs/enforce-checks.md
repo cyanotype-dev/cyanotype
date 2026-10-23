@@ -57,6 +57,18 @@ Put a build of the branch on the `PATH` under both names, `cyanotype` and `cyty`
 - Commands that must not ask: `cyanotype spec --dir <dummy>`, `cyanotype --dir <dummy> spec`, `cyanotype validate --dir <dummy>`, and `cyanotype catalog search select`, which names select only as a search term.
 - Each case in Bash and in PowerShell.
 
+### Cases for the `set_selections` MCP tool
+
+Rule: the `ask` rule `mcp__cyanotype__set_selections` of `rule-maintenance-propose`. Expected: every call of `set_selections` asks, with or without `write`, and the server's other tools do not.
+
+Build the branch, and add the binary to Claude Code as a stdio server named `cyanotype`, confined to a dummy project folder outside the repository that holds a valid `cyanotype.yaml`: `claude mcp add cyanotype -- <binary> mcp --allow <dummy>`. Start a new session, so it connects to the server, and check with `/mcp` that `cyanotype` is connected. The allow rule for the control run is `mcp__cyanotype__*`. Answer **No** to every prompt.
+
+- `set_selections` with `add: ["small-commits"]` and no `write`, which writes nothing.
+- `set_selections` with the same `add` and `write: true`.
+- `set_selections` with no arguments, a usage error, against a rule with no pattern.
+- Tools that must not ask: `search_catalog`, `get_spec`, `validate`, `preview`, and `generate` without `write`.
+- The same server added a second time under another name, such as `cyanotype-other`: its `set_selections` is expected not to ask, since the rule names the server. README and DESIGN.md say to adjust the rule for another name; this case confirms why.
+
 ### Other entries
 
 Use the same method for the other entries with permission rules. Choose cases that would do no harm if a rule failed: delete a dummy folder with `rm -rf`, delete a dummy branch with `git branch -D`, and add `--dry-run` to force pushes.
@@ -65,7 +77,7 @@ Use the same method for the other entries with permission rules. Choose cases th
 | --- | --- | --- |
 | `secrets-in-env` | `Read` and `Edit` rules on `.env` files | 2026-10-19, see below |
 | `no-destructive-commands` | `Bash` and `PowerShell` command patterns | Not yet |
-| `rule-maintenance-propose` | `Edit` deny rules on generated files; `ask` rules on `cyanotype.yaml` and `cyanotype select` | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the other deny rules not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20, those on `cyanotype select` on 2026-10-23 |
+| `rule-maintenance-propose` | `Edit` deny rules on generated files; `ask` rules on `cyanotype.yaml`, `cyanotype select` and the `set_selections` MCP tool | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the other deny rules not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20, those on `cyanotype select` on 2026-10-23; the one on `set_selections` not yet |
 | `npm`, `pnpm`, `uv` | `Bash` and `PowerShell` rules on the other package managers | 2026-10-20, see below |
 | `npm`, `pnpm`, `uv`, `go`, `expo` | `Bash` and `PowerShell` ask rules on their install commands, under `with.dependency-approval` | 2026-10-20 for `npm install` and `go get` in both shells and `npm i` in Bash; not yet for the others |
 
