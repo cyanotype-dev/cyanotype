@@ -1009,9 +1009,34 @@ Even "later" is useful: it tells the agent to route strings through a single mod
 
 Real constraints: a lint rule against hardcoded strings where the stack has one, and a CI check that every locale file has the same keys.
 
+## Commands that mirror the MCP tools
+
+The CLI has a command for every MCP tool, with flags for every argument and `--json` for the same output, so scripts and agents without MCP support can do everything a connected agent can. `internal/ops` computes the outputs of catalog search, spec, detect, validate and select as the types of the JSON contract, which the CLI prints as text or encodes; generate and check build theirs from `internal/generate` and `internal/check`.
+
+| MCP tool | Command |
+| --- | --- |
+| `search_catalog` | `cyanotype catalog search [terms...] [--category <c>] [--stack <id,id>]` |
+| `get_spec` | `cyanotype spec` |
+| `detect_stack` | `cyanotype detect` |
+| `validate` | `cyanotype validate` |
+| `preview` | `cyanotype generate --dry-run` |
+| `generate` | `cyanotype generate --yes` |
+| `check` | `cyanotype check` |
+| `set_selections` | `cyanotype select --add <id,id> --remove <id,id>` |
+
+Every command that reads a project takes `--dir`, as generate does.
+
+- **catalog search** lists the bundled catalog's entries whose id, name, summary or category holds every term, ignoring case; `--category` keeps one category, and `--stack` the entries whose `requires` and `requires_one_of` those ids meet, the entries that fit a project using them, as in the import prompt. Without terms or flags it lists every entry. It exits 0 even when nothing matches.
+- **spec** prints `cyanotype.yaml` with every default applied, as generate reads it. `cyanotype.local.yaml` is not supported yet, so it is the team spec only, and the output says so. The spec types have json tags with the names of their yaml tags, checked by a test, so the JSON shows the field names of the file.
+- **detect** shows what detection finds, as init does before asking, and needs no spec. A manifest it cannot read is a warning.
+- **validate** resolves the spec and renders the files without comparing or writing them, reports every problem with its field and line, and counts the lines of each generated Markdown file. It exits 0 when the spec is valid, warnings allowed, and 1 otherwise. check, by contrast, compares the files with the project.
+- **select** changes the selections of `cyanotype.yaml`: `--add` appends entries after those selected, in the order given, skipping those already there, and `--remove` drops entries. It writes the spec back as Writing the file back says, so comments survive, and moves `mode: simple` to `advanced`, since simple mode could replace entries chosen one by one. The change is resolved first and refused when the spec would have errors, such as a missing requirement, so generate keeps working; the errors name the lines of the file as it is, and an added entry the line of `selections`. A locked entry is never removed, which is an error with code `locked`, and removing an entry that is not selected is a warning. select shows the diff of `cyanotype.yaml` and asks before writing, with `--dry-run`, `--yes` and the exit codes of generate; `generate.WriteSpec` writes the file atomically, only when it still holds what select read, so an edit made in the meantime is never lost. select changes only the spec: generate updates the files afterwards.
+
+Under the Propose policy, `rule-maintenance-propose` asks before `cyanotype select` as it asks before edits to `cyanotype.yaml`, since select writes the spec without the Edit tool; see What the agent may do.
+
 ## JSON output
 
-`cyanotype generate` and `cyanotype check` take `--json`. They then print one JSON object on stdout and nothing else, on stdout or stderr, never ask and never read stdin, even on a terminal, and end with the exit codes they have without it. generate writes only with `--yes`, so `--json` alone previews, as a run without a terminal does. The MCP tools return the same objects: the types live in `internal/contract`, built from what the core returns (`generate.Change`, check findings, resolve warnings, errors with their codes), and `contract.Marshal` encodes them for both interfaces, so a script reads the CLI's output and an MCP tool's result the same way. `cyanotype.yaml` and `cyanotype.lock` stay YAML; only command output is JSON.
+`cyanotype generate`, `check`, `catalog search`, `spec`, `detect`, `validate` and `select` take `--json`. They then print one JSON object on stdout and nothing else, on stdout or stderr, never ask and never read stdin, even on a terminal, and end with the exit codes they have without it. generate writes only with `--yes`, so `--json` alone previews, as a run without a terminal does. The MCP tools return the same objects: the types live in `internal/contract`, built from what the core returns (`generate.Change`, check findings, resolve warnings, errors with their codes), and `contract.Marshal` encodes them for both interfaces, so a script reads the CLI's output and an MCP tool's result the same way. `cyanotype.yaml` and `cyanotype.lock` stay YAML; only command output is JSON.
 
 - Every object starts with `version`, the contract's version, and ends with `warnings` and `errors`, which are always arrays. When `errors` is not empty, the command could not do its work, and the object holds only those three fields.
 - Field names are lowercase snake_case. Codes are kebab-case, like the kinds of `cyanotype check`.
@@ -1061,6 +1086,18 @@ The output of check holds `findings`, diagnostics whose code is the finding's ki
 
 `schema/output.schema.json` describes each output under `$defs`; a test compares it with the json tags of the Go types, and the MCP tools serve the same definitions as their output schemas. Golden files in `cmd/cyanotype/testdata/json` show every case, and a test checks that stdout holds one JSON value and stderr nothing.
 
+The outputs of the other commands, beside `version`, `warnings` and `errors`:
+
+| Command | Fields |
+| --- | --- |
+| catalog search | `catalog_version`; `entries`, each with `id`, `name`, `category`, `select`, `summary`, `rule` and `why`, placeholders unfilled, and when set `url`, `topic`, `level`, `requires`, `requires_one_of` and `conflicts`. Real constraints and detection rules are left out |
+| spec | `file`, `scope` (`team`), a `note` saying `cyanotype.local.yaml` is not supported yet, `spec` as written and `effective` with defaults, both described by `spec.schema.json` |
+| detect | `findings` with `id`, `name` and `evidence` (`file`, and `dependency` when a manifest lists one); `clashes` with `ids` and, for a radio category, `category`; `scripts`. Unreadable manifests are warnings with code `unreadable` |
+| validate | `valid`; when valid, `files` with `path` and `lines`, and `max_lines` |
+| select | `added`, `removed`, `spec_diff` (absent when nothing changes) and `written` |
+
+validate is the one command whose errors are its result: a spec with errors gives `valid: false` together with them, and `valid` is left out only when no spec could be read. select writes, like generate, only with `--yes`.
+
 One exception: a flag error that cobra finds before reading `--json`, such as an unknown flag before it, is text on stderr with code 2, and stdout stays empty.
 
 ## MCP server
@@ -1081,7 +1118,7 @@ One exception: a flag error that cobra finds before reading `--json`, such as an
 
 Safety: `generate` is dry-run unless called with an explicit flag, refuses to overwrite hand-written instruction files without one of the choices of Hand-written instruction files, and never removes or weakens `locked` rules. The `import_instructions` prompt returns the conversion prompt for a project's hand-written files. Approval of queued rules happens in the CLI, TUI or desktop app, never through MCP.
 
-The CLI mirrors every MCP tool with non-interactive flags and `--json` output, for scripts and agents without MCP support.
+The CLI mirrors every MCP tool with non-interactive flags and `--json` output, for scripts and agents without MCP support; see Commands that mirror the MCP tools.
 
 ## Blueprints
 
@@ -1235,6 +1272,7 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [x] **Release integrity**: `checksums.txt` lists the SHA-256 of every archive and package and is signed with cosign keyless signing, through the release workflow's GitHub OIDC identity, into `checksums.txt.sigstore.json`. There is no signing key to store or leak, and a signature names the workflow and tag that made it. The README shows how to verify a download.
 - [ ] **Homebrew cask and signed macOS binaries**: the tap uses a formula, which GoReleaser deprecated in v2.10 in favor of casks, because a formula also works on Linux and is not quarantined by Gatekeeper; the release check accepts only this deprecation. Moving to a cask belongs with signing and notarizing the macOS binaries, which removes the need to strip the quarantine attribute that a cask of unsigned binaries would need.
 - [x] **JSON contract and `--json` output for generate**: the JSON of `cyanotype generate --json` and `cyanotype check --json` is one public contract with the MCP tools: the types of `internal/contract`, encoded by one function. Every object starts with a `version` and ends with `warnings` and `errors` as arrays of diagnostics (stable code, severity, file, line, field, message); field names are snake_case and codes kebab-case. Generate leaves file contents out, since the diff holds every changed line. Errors in the spec carry a code in `spec.ValidationError`, and other errors wrap sentinels or typed errors, so no code depends on message text. With `--json` nothing else reaches stdout or stderr, nothing is asked, and the exit codes stay the same. `schema/output.schema.json` documents the outputs and is checked against the Go types. See JSON output.
+- [x] **Commands that mirror the MCP tools**: `catalog search` (search_catalog), `spec` (get_spec), `detect` (detect_stack), `validate` and `select` (set_selections) join generate (preview and generate) and check, each with `--json`. `spec` shows the team spec only until `cyanotype.local.yaml` exists. `select` appends and removes selections, keeps comments, refuses a change that leaves the spec with errors or removes a locked entry, moves simple mode to advanced, shows a diff and asks before writing, and writes only when the file still holds what it read. `validate` reports `valid: false` with its errors, the one output whose errors are its result. See Commands that mirror the MCP tools.
 - [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
 - [x] **Tracked files that should be ignored**: `cyanotype check` reports, as an error, each file git tracks that an `enforce.gitignore` line of a selected entry ignores, such as a committed `.env`. It asks `git ls-files --cached --ignored` with the entry's lines as `--exclude` patterns, names the matching line, and says that `git rm --cached` does not remove the file from the history, so a committed secret must also be rotated. Without git or a repository the check is skipped and says so. See What the tool checks.
 - [x] **Check command**: `cyanotype check` only reads and never reads stdin. Errors: generated files out of sync or edited by hand, hand-written instruction files waiting for a choice, tracked files that should be ignored. Warnings: undeclared detected entries, an older catalog pin with the entries it changed, long main files, pointers to missing files, stale and unrecorded files. Exit codes 0 no errors, 1 cannot run, 2 usage, 3 drift; `--strict` makes warnings fail. Findings are plain data in `internal/check`, with a stable kind each, for the JSON output and MCP tool of v0.4. A hand edit is told apart from a spec change with the hashes in `cyanotype.lock`. cyanotype documents hooks and CI but never installs them. See What the tool checks.
