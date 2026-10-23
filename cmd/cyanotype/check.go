@@ -14,6 +14,7 @@ import (
 	"github.com/cyanotype-dev/cyanotype/internal/check"
 	"github.com/cyanotype-dev/cyanotype/internal/contract"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
+	"github.com/cyanotype-dev/cyanotype/internal/ops"
 )
 
 // checkOptions holds the flags of the check command.
@@ -49,8 +50,8 @@ func newCheckCmd(detect func() console) *cobra.Command {
 				specPath: filepath.Join(opts.dir, generate.SpecFile),
 			}
 			if opts.json {
-				out := &contract.Check{}
-				return printJSON(c.out, out, c.runJSON(out))
+				out, code := c.runJSON()
+				return printJSON(c.out, out, code)
 			}
 			return c.run()
 		},
@@ -108,32 +109,28 @@ func (c *checking) run() error {
 	return nil
 }
 
-// runJSON is run for --json: it fills out instead of printing and returns
-// the exit code run would end with.
-func (c *checking) runJSON(out *contract.Check) int {
-	fail := func(err error) int {
-		out.Errors = append(out.Errors, contract.Errors(err)...)
-		return codeError
-	}
-	root, err := os.OpenRoot(c.opts.dir)
+// runJSON is run for --json: it returns the output instead of printing
+// it, and the exit code run would end with.
+func (c *checking) runJSON() (*contract.Check, int) {
+	root, err := openProject(c.opts.dir)
 	if err != nil {
-		return fail(fmt.Errorf("open the project folder: %w", err))
+		return &contract.Check{Diagnostics: contract.Diagnostics{Errors: contract.Errors(err)}}, codeError
 	}
 	defer root.Close()
-	f, err := generate.LoadSpec(root)
+	cat, err := loadBundled()
 	if err != nil {
-		return fail(err)
+		return &contract.Check{Diagnostics: contract.Diagnostics{Errors: contract.Errors(err)}}, codeError
 	}
-	cat, err := catalog.LoadRoot(bundled.FS())
-	if err != nil {
-		return fail(fmt.Errorf("the bundled catalog is invalid, which is a bug in cyanotype: %w", err))
-	}
-	report, err := check.Run(cat, f, root.FS(), c.opts.dir, check.ExecGit{})
-	if err != nil {
-		return fail(err)
-	}
-	*out = *contract.NewCheck(report, c.opts.strict)
-	if out.Summary.Drift {
+	out := ops.Check(cat, root, c.opts.strict)
+	return out, checkCode(out)
+}
+
+// checkCode is the exit code of a check output.
+func checkCode(out *contract.Check) int {
+	switch {
+	case len(out.Errors) > 0:
+		return codeError
+	case out.Summary.Drift:
 		return codeDrift
 	}
 	return codeOK

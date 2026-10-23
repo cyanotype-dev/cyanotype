@@ -28,6 +28,13 @@ CI pins golangci-lint v2.15.0; install the same version locally:
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 ```
 
+CI also runs govulncheck v1.8.0, which fails on a known vulnerability that our code calls, in a dependency or in the Go standard library. Fix it by updating the module, or the Go version in `go.mod`. To run it locally:
+
+```sh
+go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+govulncheck ./...
+```
+
 ## Licensing of contributions
 
 - Code is licensed under Apache-2.0.
