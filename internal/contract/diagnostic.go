@@ -60,6 +60,9 @@ const (
 	CodeChangedSincePreview = "changed-since-preview"
 	// CodeSpecWarning: a warning without a code of its own.
 	CodeSpecWarning = "spec-warning"
+	// CodeOutsideAllowedFolders: an MCP tool was given a folder outside
+	// the folders the server may use.
+	CodeOutsideAllowedFolders = "outside-allowed-folders"
 )
 
 // Diagnostic is one error, warning or finding. Every interface reports

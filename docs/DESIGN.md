@@ -199,7 +199,7 @@ The entries stay in `catalog/entries/`. When a spec's `catalog_version` differs 
 
 An unknown selection under a different pin says so, since the entry may have been renamed or removed. From Phase 2 the tool loads the pinned version when it has it, and this table applies only when it does not.
 
-The version changes whenever the generated output of some entry changes, not for changes that only reach detection: otherwise a pin would no longer say which catalog the files came from, and `cyanotype check` could never report an older one. v0.3 moves it to `2026.10.1`, for the new `rule-maintenance-propose` rule on `cyanotype.lock`, and v0.4 to `2026.10.2`, for its ask rules on `cyanotype select`.
+The version changes whenever the generated output of some entry changes, not for changes that only reach detection: otherwise a pin would no longer say which catalog the files came from, and `cyanotype check` could never report an older one. v0.3 moves it to `2026.10.1`, for the new `rule-maintenance-propose` rule on `cyanotype.lock`, and v0.4 to `2026.10.2`, for its ask rules on `cyanotype select`, then to `2026.10.3`, for its ask rule on the MCP tool `set_selections`.
 
 ### MVP entries
 
@@ -1011,7 +1011,7 @@ Real constraints: a lint rule against hardcoded strings where the stack has one,
 
 ## Commands that mirror the MCP tools
 
-The CLI has a command for every MCP tool, with flags for every argument and `--json` for the same output, so scripts and agents without MCP support can do everything a connected agent can. `internal/ops` computes the outputs of catalog search, spec, detect, validate and select as the types of the JSON contract, which the CLI prints as text or encodes; generate and check build theirs from `internal/generate` and `internal/check`.
+The CLI has a command for every MCP tool, with flags for every argument and `--json` for the same output, so scripts and agents without MCP support can do everything a connected agent can. `internal/ops` computes the output of every one of them as the types of the JSON contract, which the CLI prints as text or encodes and the MCP server returns, so both interfaces compute every answer with the same code.
 
 | MCP tool | Command |
 | --- | --- |
@@ -1032,7 +1032,7 @@ Every command that reads a project takes `--dir`, as generate does.
 - **validate** resolves the spec and renders the files without comparing or writing them, reports every problem with its field and line, and counts the lines of each generated Markdown file. It exits 0 when the spec is valid, warnings allowed, and 1 otherwise. check, by contrast, compares the files with the project.
 - **select** changes the selections of `cyanotype.yaml`: `--add` appends entries after those selected, in the order given, skipping those already there, and `--remove` drops entries. It writes the spec back as Writing the file back says, so comments survive, and moves `mode: simple` to `advanced`, since simple mode could replace entries chosen one by one. The change is resolved first and refused when the spec would have errors, such as a missing requirement, so generate keeps working; the errors name the lines of the file as it is, and an added entry the line of `selections`. A locked entry is never removed, which is an error with code `locked`, and removing an entry that is not selected is a warning. select shows the diff of `cyanotype.yaml` and asks before writing, with `--dry-run`, `--yes` and the exit codes of generate; `generate.WriteSpec` writes the file atomically, only when it still holds what select read, so an edit made in the meantime is never lost. select changes only the spec: generate updates the files afterwards.
 
-Under the Propose policy, `rule-maintenance-propose` asks before `cyanotype select` as it asks before edits to `cyanotype.yaml`, since select writes the spec without the Edit tool; see What the agent may do. cobra accepts the subcommand's flags before its name, so the entry also asks before `cyanotype -* select *`, such as `cyanotype --dir . select`; a pattern that starts with a dash leaves out `cyanotype catalog search select`. The 2026-10-23 runs in enforce-checks.md found the rules asking in both shells, under both names, in compound commands and with a flag before the subcommand; `cyanotype.exe select` in Bash gets around them, as `npm.cmd` does.
+Under the Propose policy, `rule-maintenance-propose` asks before `cyanotype select` as it asks before edits to `cyanotype.yaml`, since select writes the spec without the Edit tool; see What the agent may do. cobra accepts the subcommand's flags before its name, so the entry also asks before `cyanotype -* select *`, such as `cyanotype --dir . select`; a pattern that starts with a dash leaves out `cyanotype catalog search select`. The 2026-10-23 runs in enforce-checks.md found the rules asking in both shells, under both names, in compound commands and with a flag before the subcommand; `cyanotype.exe select` in Bash gets around them, as `npm.cmd` does. The entry also asks before the MCP tool `set_selections`; see MCP server.
 
 ## JSON output
 
@@ -1041,7 +1041,7 @@ Under the Propose policy, `rule-maintenance-propose` asks before `cyanotype sele
 - Every object starts with `version`, the contract's version, and ends with `warnings` and `errors`, which are always arrays. When `errors` is not empty, the command could not do its work, and the object holds only those three fields.
 - Field names are lowercase snake_case. Codes are kebab-case, like the kinds of `cyanotype check`.
 - `version` changes as the spec's does: adding fields, codes or commands keeps it; renaming or removing a field, or changing what one means, increments it. Readers ignore fields they do not know, and treat a code they do not know as `error`.
-- Paths are relative to the project root, with forward slashes; the output holds no absolute path, so it does not depend on the machine.
+- Paths in fields are relative to the project root, with forward slashes, so the output does not depend on the machine. Only messages name folders, as the user or the agent gave them.
 - Left out: the content of generated files, since the diff holds every changed line and all of a created file; colors.
 - Encoded with two-space indentation, a final newline and no HTML escaping, since diffs hold `<!--` and `&`.
 
@@ -1066,7 +1066,7 @@ Errors, warnings and findings share one shape, a diagnostic:
 | The spec against the catalog | `unknown-entry`, `radio-clash`, `missing-requirement`, `missing-one-of`, `conflict`, `unfilled-placeholder`, `unknown-question`, `catalog-newer` |
 | Warnings (`resolve.Warning.Code`) | `catalog-older`, `unsupported-target`, `too-long`, `stale`, `unrecorded`, `unowned-rules`, and `spec-warning` for one without a code |
 | The project and the files | `no-spec`, `lock-invalid`, `lock-newer`, `lock-catalog-newer`, `markers`, `choice-required`, `hand-written`, `replace-refused`, `keep-refused`, `move-refused`, `unsafe-path`, `changed-since-preview` |
-| The interface | `usage`, and `error` for anything else, such as a file that cannot be read |
+| The interface | `usage`, `outside-allowed-folders` for an MCP tool given a folder the server may not use, and `error` for anything else, such as a file that cannot be read |
 
 Errors outside the spec keep their messages; each wraps a sentinel or a typed error, such as `generate.ErrSymlink` or `render.MarkerError` with its file and line, so `internal/contract` names it without matching text.
 
@@ -1102,23 +1102,60 @@ One exception: a flag error that cobra finds before reading `--json`, such as an
 
 ## MCP server
 
-`cyanotype mcp` starts a local MCP server over stdio, a fourth interface on the same core, so other agents can configure projects without a human clicking through the UI. Typical uses: an orchestrator bootstrapping many repos with consistent rules, and coding agents proposing rule changes under the Propose policy.
+`cyanotype mcp` starts a local MCP server over stdio, a fourth interface on the same core, so other agents can configure projects without a human clicking through the UI. Typical uses: an orchestrator bootstrapping many repos with consistent rules, and coding agents changing a project's choices when the user asks. It runs until the client closes stdin. The protocol layer is the official Go SDK; see Decisions.
 
-| Tool | Does | Writes |
-| --- | --- | --- |
-| `search_catalog` | Finds entries by name, category or stack | no |
-| `get_spec` | Returns the current spec, merged with local overrides | no |
-| `detect_stack` | Suggests entries from the repo's files | no |
-| `validate` | Reports conflicts, missing requirements, line counts | no |
-| `preview` | Returns the files that would be generated, as a diff | no |
-| `set_selections` | Adds or removes catalog entries in the spec | spec only |
-| `propose_rule` | Queues a custom rule with its reason for human approval | queue only |
-| `generate` | Writes instruction files and constraints | yes, see below |
-| `check` | Runs drift detection | no |
+| Tool | Arguments | Does | Writes |
+| --- | --- | --- | --- |
+| `search_catalog` | `query`, `category`, `stack` | Finds entries by words, category or stack | no |
+| `get_spec` | `dir` | Returns `cyanotype.yaml` as written and with defaults; the team spec only, as the description says | no |
+| `detect_stack` | `dir` | Suggests entries from the project's files | no |
+| `validate` | `dir` | Reports problems in the spec and the line count of each generated file | no |
+| `preview` | `dir`, `existing` | Returns every generated file with its status and diff | no |
+| `generate` | `dir`, `existing`, `write` | The same, and writes with `write: true` | only with `write: true` |
+| `check` | `dir`, `strict` | Runs drift detection | no |
+| `set_selections` | `dir`, `add`, `remove`, `write` | Adds or removes catalog entries, as a diff of the spec | `cyanotype.yaml` only, with `write: true` |
 
-Safety: `generate` is dry-run unless called with an explicit flag, refuses to overwrite hand-written instruction files without one of the choices of Hand-written instruction files, and never removes or weakens `locked` rules. The `import_instructions` prompt returns the conversion prompt for a project's hand-written files. Approval of queued rules happens in the CLI, TUI or desktop app, never through MCP.
+Each tool calls the `internal/ops` function of the command that mirrors it (see Commands that mirror the MCP tools) and returns the bytes that command prints with `--json`, as text content and, the same JSON, as structured content; a test compares them byte for byte for every tool. The output schema of each tool is its definition in `schema/output.schema.json`, embedded in the binary, with `spec.schema.json` bundled under `$defs` for `get_spec`, so a client needs no file. A result whose `errors` is not empty is marked `isError`, so the model sees the call failed; drift and changes not written are not errors, the data says so.
 
-The CLI mirrors every MCP tool with non-interactive flags and `--json` output, for scripts and agents without MCP support; see Commands that mirror the MCP tools.
+Safety:
+
+- **No tool writes without `write: true`.** `generate` without it is `cyanotype generate --json` without `--yes`: the changes, and a `choice-required` error for hand-written instruction files waiting for a choice, while `preview` lists them without an error. `existing` takes the four choices of Hand-written instruction files and applies one to every hand-written file; `replace` passes the same git check as the CLI, and `import` returns the prompt and writes nothing. `set_selections` refuses a change that leaves the spec with errors or removes a locked entry, as `select` does.
+- **Arguments are read strictly.** An unknown argument is a `usage` error, not ignored, so a mistyped `wirte` never passes for a preview.
+- **Calls that may write run one at a time**, since the SDK can handle calls concurrently.
+- **Stdout carries only the protocol.** `internal/` never prints, by rule; the server logs with `log/slog` to stderr: its start, with the version and the allowed folders, and each call, with the tool, the duration and the error codes, never the arguments. The SDK's own log lines go to stderr too. An end-to-end test builds the binary, drives it as a client would and checks that every line on stdout is a JSON-RPC message.
+- The server declares no capabilities beyond tools and prompts, and its instructions, repeated in the tool descriptions, tell the agent to preview first, to pass `write: true` only when the user asked, and to change `cyanotype.yaml` only when the user explicitly asks.
+
+The `import_instructions` prompt, with an optional `dir`, returns the conversion prompt of Hand-written instruction files: for a project with a spec, the one `generate --existing import` prints; without one, the one `init` prints, with a draft spec from detection, which `adopt.Draft` builds for both. A project with no hand-written files, or a folder the server may not use, is a protocol error, since a prompt has no result to carry it.
+
+### Allowed folders
+
+A connected agent never reads or writes outside the folders the user allowed. `cyanotype mcp --allow <dir>`, repeatable, names them; without `--allow`, the only one is the folder the server starts in. Every tool that works on a project takes `dir`: an allowed folder or a folder inside one, a relative path starting at the start folder. It may be left out when there is only one allowed folder, and is required with several.
+
+- Each allowed folder is opened once at start, as an `os.Root`, and stays open. A project is opened inside it with `Root.OpenRoot`, so the operating system refuses a symbolic link or junction that leads out, and replacing a folder with a link after the check does not help. Go 1.27.2 is required: it fixes GO-2026-6604, where `Root.MkdirAll` could follow a junction out of the root on Windows.
+- `dir` is matched by walking up from it to the first folder that is the same file as an allowed one, so a different case or an 8.3 short name on Windows, or a link to an allowed folder, still matches; a link from outside to a project inside one is tried again with links resolved. A sibling such as `allowed-evil` never matches `allowed`.
+- Network paths (`\\server\share`), device paths (`\\?\`, `\\.\`) and paths relative to a drive's current folder (`C:project`) are refused before anything touches the file system, since merely looking up a network path can send the user's credentials to that server.
+- A folder outside is the error `outside-allowed-folders`, whose message names the allowed folders; a missing `dir` with several folders, or a refused path, is a `usage` error.
+- One exception: git, which check runs for tracked files that should be ignored and the `replace` choice runs to see that a file is committed, reads the metadata of the repository that holds the folder, even when `.git` is above it. It only reads.
+- On Windows an allowed folder cannot be renamed or deleted while the server runs, since it is open.
+- MCP roots are not used. The 2026-07-28 revision of the protocol deprecates them (SEP-2577), and says new implementations should not add deprecated features; roots were also only informative, never a limit the client enforced.
+
+### Not in v0.4
+
+- `propose_rule`, which would queue a custom rule for human approval. Approval must be human: the CLI command that approves would need a terminal and permission rules that keep an agent from running it, checked with enforce-checks.md. It comes with the TUI, where approval has a natural place; under the Propose policy the agent proposes in the conversation meanwhile.
+- `cyanotype.local.yaml` and locked rules of its own: `get_spec` returns the team spec only.
+- The blueprint tools of Blueprints.
+
+### Under the Propose policy
+
+`rule-maintenance-propose` asks before `mcp__cyanotype__set_selections`, as it asks before `cyanotype select` and edits to `cyanotype.yaml`. A permission rule names the server as the client registered it, so the README recommends the name `cyanotype`; a server added under another name needs the rule written for that name. The 2026-10-23 run in enforce-checks.md, with Claude Code 2.1.309, found it asking for every call, with or without `write`, in auto mode too, while the other tools did not ask; the same server added under another name was not covered, as expected. `generate` with `write: true` writes only what the spec generates, so it needs no rule of its own.
+
+### Connecting a client
+
+```sh
+claude mcp add cyanotype -- cyanotype mcp --allow /path/to/project
+```
+
+adds the server to Claude Code in the current project's local scope; other clients take the same command and arguments in their configuration. The README shows both. Only the in-process tests and the end-to-end test with the SDK's client have run the server so far; results with Claude Code are recorded here once observed.
 
 ## Blueprints
 
@@ -1253,7 +1290,7 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [x] **Protected sections**: `<!-- cyanotype:custom -->` and `<!-- /cyanotype:custom -->` lines; a block returns to the end of the section it was in, and unmatched markers stop generation. See Protected sections.
 - [x] **Splitting**: `auto` splits all or nothing when the unsplit main file has more than `max_lines` lines; the main file keeps the overview, language policy, Tech stack with `tooling` entries, commands, safety rules, domain notes and custom rules; every other topic goes to `<topic_dir>/<topic>.md`, read on demand for every target in the MVP. See Splitting into multiple files.
 - [x] **Generated constraints**: `.claude/settings.json` deny and ask rules are merged into the existing file, each list on its own, keeping every user key and rule and each entry's rules as an ordered subsequence so negations keep working; regeneration removes only the rules `cyanotype.lock` says cyanotype added and no longer generates. `.gitignore` gets a `# cyanotype:begin` / `# cyanotype:end` block replaced in place, holding the personal files and the selected entries' `enforce.gitignore` lines, merged with the same order guarantee. See Real constraints.
-- [x] **`ask` permissions in `enforce`**: `enforce.claude.ask` holds rules that mean "ask first" rather than "never", written to `permissions.ask` with the same order guarantee as deny rules. `dependency-approval` asks before install commands, and `rule-maintenance-propose` asks before edits to `cyanotype.yaml` and before `cyanotype select`, under both names of the binary and in both shells, while still denying edits to generated instruction files. A rule may not be in both lists of an entry, since deny wins. Checked with Claude Code 2.1.299, and the `cyanotype select` rules, a flag before the subcommand included, with 2.1.308, in enforce-checks.md; `cyanotype.exe` in Bash gets around the select rules. See Generating `.claude/settings.json`.
+- [x] **`ask` permissions in `enforce`**: `enforce.claude.ask` holds rules that mean "ask first" rather than "never", written to `permissions.ask` with the same order guarantee as deny rules. `dependency-approval` asks before install commands, and `rule-maintenance-propose` asks before edits to `cyanotype.yaml`, before `cyanotype select`, under both names of the binary and in both shells, and before the MCP tool `set_selections`, while still denying edits to generated instruction files. A rule may not be in both lists of an entry, since deny wins. Checked with Claude Code 2.1.299, the `cyanotype select` rules, a flag before the subcommand included, with 2.1.308, and the `set_selections` rule with 2.1.309, in enforce-checks.md; `cyanotype.exe` in Bash gets around the select rules. See Generating `.claude/settings.json`.
 - [x] **Conditional rules**: `enforce.claude.with.<entry id>.ask` holds ask rules that apply only when that entry is selected too. Each tool that installs dependencies carries the ask rule for its own install command under `with.dependency-approval`, so a project gets only the rules of its stack and `dependency-approval` stays stack-agnostic. A nested map rather than an `ask_with` field, so conditional deny rules can be added later without a new field; only `ask` is supported for now. See Generating `.claude/settings.json`.
 - [x] **Permission rule syntax**: catalog rules use the space syntax, `Bash(npm *)`, which matched the same commands as the legacy `Bash(npm:*)` in the 2026-10-20 check, cover every command a snippet forbids, and pair each `Bash(...)` rule with a `PowerShell(...)` one. See Real constraints.
 - [x] **Generate command**: `cyanotype generate` previews a colored unified diff and a summary, asks before writing, and has `--dir`, `--dry-run` and `--yes`. Without a terminal on stdin it never reads input. Exit codes are 0 done, 1 error, 2 usage and 3 changes not written. Comparing and atomic, root-confined writing live in `internal/generate` for every interface; files differing only in CRLF endings count as unchanged; the only files deleted are stale files `cyanotype.lock` records, unchanged since, shown in the diff and confirmed like any other change. The catalog is embedded with `go:embed` from `catalog/`. See Generating files.
@@ -1273,10 +1310,23 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [ ] **Homebrew cask and signed macOS binaries**: the tap uses a formula, which GoReleaser deprecated in v2.10 in favor of casks, because a formula also works on Linux and is not quarantined by Gatekeeper; the release check accepts only this deprecation. Moving to a cask belongs with signing and notarizing the macOS binaries, which removes the need to strip the quarantine attribute that a cask of unsigned binaries would need.
 - [x] **JSON contract and `--json` output for generate**: the JSON of `cyanotype generate --json` and `cyanotype check --json` is one public contract with the MCP tools: the types of `internal/contract`, encoded by one function. Every object starts with a `version` and ends with `warnings` and `errors` as arrays of diagnostics (stable code, severity, file, line, field, message); field names are snake_case and codes kebab-case. Generate leaves file contents out, since the diff holds every changed line. Errors in the spec carry a code in `spec.ValidationError`, and other errors wrap sentinels or typed errors, so no code depends on message text. With `--json` nothing else reaches stdout or stderr, nothing is asked, and the exit codes stay the same. `schema/output.schema.json` documents the outputs and is checked against the Go types. See JSON output.
 - [x] **Commands that mirror the MCP tools**: `catalog search` (search_catalog), `spec` (get_spec), `detect` (detect_stack), `validate` and `select` (set_selections) join generate (preview and generate) and check, each with `--json`. `spec` shows the team spec only until `cyanotype.local.yaml` exists. `select` appends and removes selections, keeps comments, refuses a change that leaves the spec with errors or removes a locked entry, moves simple mode to advanced, shows a diff and asks before writing, and writes only when the file still holds what it read. `validate` reports `valid: false` with its errors, the one output whose errors are its result. See Commands that mirror the MCP tools.
+- [x] **MCP library**: the official Go SDK, `github.com/modelcontextprotocol/go-sdk` v1.8.0, pinned exactly. Of the options compared on 2026-10-23, it is the only one stable for over a year (v1.0.0 on 2025-09-30), maintained by the modelcontextprotocol organization with Google, and covering the protocol revisions from 2024-11-05 to 2026-07-28; `mark3labs/mcp-go` reached v1 only in September 2026 and brings more modules, and `metoro-io/mcp-golang` stopped at v0.16. Its client makes the tests meaningful: they run against an implementation we did not write. The server uses the SDK's untyped `Server.AddTool`, so the result is exactly the bytes of `contract.Marshal`. It adds seven modules to `go.mod`: `google/jsonschema-go`, `segmentio/encoding` and `segmentio/asm`, `yosida95/uritemplate/v3`, `golang.org/x/oauth2`, `golang.org/x/sync` and `golang.org/x/time`. The release binary, built as `.goreleaser.yaml` builds it (`-trimpath -ldflags "-s -w"`, amd64, `CGO_ENABLED=0`), with and without a server of one tool and one prompt:
+
+  | OS | Without | With the SDK | Growth |
+  | --- | --- | --- | --- |
+  | Linux | 5.35 MB | 10.05 MB | +4.70 MB (+88%) |
+  | Windows | 5.60 MB | 10.43 MB | +4.83 MB (+86%) |
+  | macOS | 5.41 MB | 10.27 MB | +4.86 MB (+90%) |
+
+  It grows because the SDK's `mcp` package is one package with every transport: the streamable HTTP and SSE transports and OAuth link `net/http`, `crypto/tls` and `golang.org/x/oauth2`, although the server speaks only stdio and never uses them. The growth was accepted: about 10 MB is a normal size for a Go CLI, and a protocol layer of our own would have to handle both the 2026-07-28 revision, which removed the initialize handshake and sessions, and the older revisions that clients in use still speak, tested only against a client we wrote ourselves. See MCP server.
+- [x] **Vulnerability check**: CI runs govulncheck v1.8.0, pinned like golangci-lint, on the whole module with the Go version in `go.mod`, once for each release OS, and fails when our code calls a known vulnerability, in a dependency or in the standard library; one in a module we require but never call is listed and passes. Added with the MCP SDK and its seven modules. Its first run found GO-2026-6604 in Go 1.27.0, which `internal/generate` calls through `os.Root`, so `go.mod` moved to Go 1.27.2; once the SDK linked `net/http`, it found GO-2026-6809 in `crypto/x509`, reached through `fmt`, so `go.mod` moved again, to Go 1.27.3, which CI and releases use.
+- [x] **Allowed folders for MCP tools**: `--allow` folders, the start folder by default, opened once as `os.Root` and kept open; a project is opened inside one, so links that lead out are refused by the operating system, and folders are compared by file identity rather than spelling. Network, device and drive-relative paths are refused before any file system access. MCP roots are not used, since SEP-2577 deprecates them. See Allowed folders.
+- [x] **MCP tool results**: the bytes of `--json`, as text and as structured content, with the `output.schema.json` definition as output schema; `isError` exactly when `errors` is not empty; no write without `write: true`; unknown arguments are usage errors; writes run one at a time; logs on stderr only. See MCP server.
+- [x] **`propose_rule` after v0.4**: the tool is not registered in v0.4. A queue is worth it only with an approval that is really human, which needs a terminal-only approval command and permission rules checked with enforce-checks.md; it comes with the TUI. See Not in v0.4.
 - [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
 - [x] **Tracked files that should be ignored**: `cyanotype check` reports, as an error, each file git tracks that an `enforce.gitignore` line of a selected entry ignores, such as a committed `.env`. It asks `git ls-files --cached --ignored` with the entry's lines as `--exclude` patterns, names the matching line, and says that `git rm --cached` does not remove the file from the history, so a committed secret must also be rotated. Without git or a repository the check is skipped and says so. See What the tool checks.
 - [x] **Check command**: `cyanotype check` only reads and never reads stdin. Errors: generated files out of sync or edited by hand, hand-written instruction files waiting for a choice, tracked files that should be ignored. Warnings: undeclared detected entries, an older catalog pin with the entries it changed, long main files, pointers to missing files, stale and unrecorded files. Exit codes 0 no errors, 1 cannot run, 2 usage, 3 drift; `--strict` makes warnings fail. Findings are plain data in `internal/check`, with a stable kind each, for the JSON output and MCP tool of v0.4. A hand edit is told apart from a spec change with the hashes in `cyanotype.lock`. cyanotype documents hooks and CI but never installs them. See What the tool checks.
 - [ ] **Silencing undeclared findings**: an `undeclared` finding cannot be silenced, so a project whose files reveal an entry it does not use, such as an `app.json` that is not Expo's, cannot pass `cyanotype check --strict`. A spec field listing the detected entries to ignore would fix it; it is a new optional field, so the spec `version` would stay 1.
 - [x] **Generated-state file**: `cyanotype.lock`, committed and generated on every run, records the catalog version, a hash of each selected entry as the catalog writes it, a hash of the part of each generated file cyanotype owns (Markdown without protected blocks, CRLF read as LF; the `.gitignore` block) and the permission rules cyanotype added. Written sorted, without timestamps, read strictly. Regeneration removes only rules the lock says cyanotype added and no longer generates, never one the user had before. Stale files are deleted only when the lock records them, they keep the header, hold no protected block and match the recorded hash; the others stay with a warning. A project without a lock gets one on its first generation, and none of its existing rules or files is taken for cyanotype's. See The generated-state file.
-- [x] **Catalog version bumps**: the catalog version changes whenever an entry's generated output changes, so a pin keeps meaning which catalog the files came from; `2026.10.1` with v0.3, `2026.10.2` with v0.4. The older-pin warning says how to move the pin by hand until `cyanotype update` exists. See Distribution.
+- [x] **Catalog version bumps**: the catalog version changes whenever an entry's generated output changes, so a pin keeps meaning which catalog the files came from; `2026.10.1` with v0.3, `2026.10.2` and `2026.10.3` with v0.4. The older-pin warning says how to move the pin by hand until `cyanotype update` exists. See Distribution.
 - [ ] **Category metadata**: categories need their own metadata — display name, UI order, whether a choice is required, whether "Not decided yet" is offered — probably in a `catalog/categories.yaml`. Until then a category exists only as a string in its entries.

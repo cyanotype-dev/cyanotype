@@ -50,6 +50,17 @@ type Output interface {
 	diagnostics() *Diagnostics
 }
 
+// ErrorCodes returns the codes of o's errors, in order: empty when the
+// command did its work. The MCP server marks a result with errors as a
+// failed call, and logs the codes.
+func ErrorCodes(o Output) []string {
+	var codes []string
+	for _, d := range o.diagnostics().Errors {
+		codes = append(codes, d.Code)
+	}
+	return codes
+}
+
 // Marshal encodes o as the JSON every interface returns: indented by two
 // spaces, with a final newline, and without HTML escaping, since diffs hold
 // "<!--" and "&". It sets the contract version, and turns nil warnings and

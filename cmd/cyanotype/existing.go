@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"slices"
 	"strings"
 
 	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
-	"github.com/cyanotype-dev/cyanotype/internal/render"
 	"github.com/cyanotype-dev/cyanotype/internal/simple"
 )
 
@@ -138,20 +136,6 @@ func (x existingChooser) missingError(paths []string) error {
 		fmt.Fprintf(&b, "  --existing %-8s %s\n", o.Value, help)
 	}
 	return errors.New(strings.TrimSuffix(b.String(), "\n"))
-}
-
-// handWrittenFiles returns the main instruction files at the root of the
-// project that cyanotype did not generate, for init, which looks for them
-// before asking anything.
-func handWrittenFiles(project fs.FS) []string {
-	var out []string
-	for _, p := range []string{"AGENTS.md", "CLAUDE.md"} {
-		data, err := fs.ReadFile(project, p)
-		if err == nil && !render.HasHeader(data) {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 // printImportPrompt prints the import prompt on stdout and what to do with

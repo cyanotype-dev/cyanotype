@@ -26,7 +26,9 @@ enforce:
     # in accept-edits mode (docs/enforce-checks.md). cyanotype select, under
     # either name of the binary, writes the spec without the Edit tool, so
     # it asks too, also with a flag before the subcommand, which cobra
-    # accepts: "cyanotype --dir app select".
+    # accepts: "cyanotype --dir app select". So does the MCP server's
+    # set_selections tool, under the server name the README recommends,
+    # "cyanotype"; a server added under another name needs its own rule.
     ask:
       - "Edit(/cyanotype.yaml)"
       - "Bash(cyanotype select *)"
@@ -37,3 +39,4 @@ enforce:
       - "PowerShell(cyty select *)"
       - "PowerShell(cyanotype -* select *)"
       - "PowerShell(cyty -* select *)"
+      - "mcp__cyanotype__set_selections"
