@@ -961,7 +961,7 @@ In CI, after installing cyanotype, a step runs `cyanotype check`, and its errors
 - uses: actions/setup-go@v7
   with:
     go-version: stable
-- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.3.0
+- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.4.0
 - run: cyanotype check
 ```
 

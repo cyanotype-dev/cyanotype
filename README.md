@@ -6,13 +6,23 @@ Your choices live in a `cyanotype.yaml` spec in your repo; the agent files are r
 
 ## Status
 
-**Pre-alpha.** v0.3.0 is a pre-release: commands, flags and the `cyanotype.yaml` format may still change. `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset or, in an existing project, from the stack it detects, and `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code permission rules and a `.gitignore` block from it, never replacing instruction files written by hand without your choice. `cyanotype.lock` records what was generated, so regeneration removes its own leftovers, and `cyanotype check` reports drift in a hook or in CI. Files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
+**Pre-alpha.** v0.4.0 is a pre-release: commands, flags and the `cyanotype.yaml` format may still change.
+
+What it does today:
+- `cyanotype init` creates a `cyanotype.yaml` from a few questions and a starter preset or, in an existing project, from the stack it detects.
+- `cyanotype generate` writes AGENTS.md, CLAUDE.md, the Claude Code permission rules and a `.gitignore` block from it. It never replaces instruction files written by hand without your choice.
+- `cyanotype.lock` records what was generated, so regeneration removes its own leftovers.
+- `cyanotype check` reports drift in a hook or in CI.
+- Every command a script needs has `--json`.
+- `cyanotype mcp` serves the same commands to coding agents as an MCP server.
+
+Files for other agents and advanced mode are not there yet. See [docs/DESIGN.md](docs/DESIGN.md) for the design and roadmap.
 
 ## Installation
 
 Cyanotype is a single binary with no runtime dependencies, for Linux, macOS and Windows on x86-64 (amd64) and ARM64. Every channel except `go install` and Scoop also installs `cyty`, a short alias for `cyanotype`.
 
-Release files are on the [v0.3.0 release page](https://github.com/cyanotype-dev/cyanotype/releases/tag/v0.3.0). Since v0.3.0 is a pre-release, GitHub does not list it as the latest release, so the links below name the version.
+Release files are on the [v0.4.0 release page](https://github.com/cyanotype-dev/cyanotype/releases/tag/v0.4.0). Since v0.4.0 is a pre-release, GitHub does not list it as the latest release, so the links below name the version.
 
 ### Homebrew (macOS and Linux)
 
@@ -38,27 +48,27 @@ Set-Alias cyty cyanotype
 Download the package for your architecture and install it with apt:
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.3.0/cyanotype_0.3.0_amd64.deb
-sudo apt install ./cyanotype_0.3.0_amd64.deb
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.4.0/cyanotype_0.4.0_amd64.deb
+sudo apt install ./cyanotype_0.4.0_amd64.deb
 ```
 
-On ARM64, use `cyanotype_0.3.0_arm64.deb`.
+On ARM64, use `cyanotype_0.4.0_arm64.deb`.
 
 ### Fedora, RHEL and openSUSE
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.3.0/cyanotype-0.3.0-1.x86_64.rpm
-sudo dnf install ./cyanotype-0.3.0-1.x86_64.rpm
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.4.0/cyanotype-0.4.0-1.x86_64.rpm
+sudo dnf install ./cyanotype-0.4.0-1.x86_64.rpm
 ```
 
-On ARM64, use `cyanotype-0.3.0-1.aarch64.rpm`; on openSUSE, install it with `sudo zypper install`.
+On ARM64, use `cyanotype-0.4.0-1.aarch64.rpm`; on openSUSE, install it with `sudo zypper install`.
 
 ### Go
 
 With the Go version in [go.mod](go.mod) or newer (Go downloads it for you if needed):
 
 ```sh
-go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.3.0
+go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.4.0
 ```
 
 This installs `cyanotype` only, in `$(go env GOPATH)/bin`. For the alias:
@@ -71,15 +81,15 @@ ln -s cyanotype "$(go env GOPATH)/bin/cyty"
 
 Each archive holds the binary, the `cyty` alias and the licenses.
 
-- Linux: `cyanotype_0.3.0_linux_amd64.tar.gz` or `cyanotype_0.3.0_linux_arm64.tar.gz`
-- macOS: `cyanotype_0.3.0_darwin_arm64.tar.gz` (Apple Silicon) or `cyanotype_0.3.0_darwin_amd64.tar.gz` (Intel)
-- Windows: `cyanotype_0.3.0_windows_amd64.zip` or `cyanotype_0.3.0_windows_arm64.zip`
+- Linux: `cyanotype_0.4.0_linux_amd64.tar.gz` or `cyanotype_0.4.0_linux_arm64.tar.gz`
+- macOS: `cyanotype_0.4.0_darwin_arm64.tar.gz` (Apple Silicon) or `cyanotype_0.4.0_darwin_amd64.tar.gz` (Intel)
+- Windows: `cyanotype_0.4.0_windows_amd64.zip` or `cyanotype_0.4.0_windows_arm64.zip`
 
 On Linux and macOS, `cyty` is a symlink to `cyanotype`; move both into a folder on your `PATH`:
 
 ```sh
-curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.3.0/cyanotype_0.3.0_linux_amd64.tar.gz
-tar -xzf cyanotype_0.3.0_linux_amd64.tar.gz
+curl -LO https://github.com/cyanotype-dev/cyanotype/releases/download/v0.4.0/cyanotype_0.4.0_linux_amd64.tar.gz
+tar -xzf cyanotype_0.4.0_linux_amd64.tar.gz
 sudo mv cyanotype cyty /usr/local/bin/
 ```
 
@@ -108,7 +118,7 @@ Download both files next to your archive or package, then check the signature:
 ```sh
 cosign verify-blob \
   --bundle checksums.txt.sigstore.json \
-  --certificate-identity https://github.com/cyanotype-dev/cyanotype/.github/workflows/release.yml@refs/tags/v0.3.0 \
+  --certificate-identity https://github.com/cyanotype-dev/cyanotype/.github/workflows/release.yml@refs/tags/v0.4.0 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
 ```
@@ -125,8 +135,8 @@ shasum -a 256 --ignore-missing -c checksums.txt
 On Windows, in PowerShell, compare the hash with the file's line in `checksums.txt`:
 
 ```powershell
-(Get-FileHash .\cyanotype_0.3.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
-Select-String cyanotype_0.3.0_windows_amd64.zip checksums.txt
+(Get-FileHash .\cyanotype_0.4.0_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+Select-String cyanotype_0.4.0_windows_amd64.zip checksums.txt
 ```
 
 ## Quick start
@@ -202,7 +212,7 @@ Every generate also writes `cyanotype.lock`, a record of what cyanotype generate
 # It records what cyanotype generated, so it can tell that apart from what
 # people wrote. Commit it, and do not edit it by hand.
 version: 1
-catalog_version: "2026.10.1"
+catalog_version: "2026.10.3"
 entries:
   conventional-commits: sha256:01df90ce7de50a81ced52e8969174b30bf1fa5b051679ab8333aa0e39cc6c3d4
   definition-of-done: sha256:cd605e820f34374c6951c7a846c17f01aee6ded93f8b83d970e57f3ffbd2e27e
@@ -230,9 +240,29 @@ With the lock, regeneration cleans up after itself:
 
 On a merge conflict in `cyanotype.lock`, keep the lines of both sides, then run `cyanotype generate`.
 
+### Upgrading from v0.3
+
+The v0.4 catalog is `2026.10.3`. A spec pinned to `2026.10.1` gets a warning:
+
+```text
+cyanotype.yaml:3: warning: catalog_version: the spec pins 2026.10.1 but this cyanotype's catalog is 2026.10.3, whose entries may have changed; review the changes with cyanotype generate --dry-run, then set catalog_version to "2026.10.3"
+```
+
+With the default rule-maintenance policy, Propose, the regeneration adds permission rules. They make Claude Code ask before `cyanotype select` and before the MCP tool `set_selections`, which both change `cyanotype.yaml`, as an edit of the file already does. `cyanotype generate --dry-run` shows them:
+
+```text
+  modified   .claude/settings.json
+  unchanged  .gitignore
+  unchanged  CLAUDE.md
+  modified   cyanotype.lock
+2 files to write (0 created, 2 modified), 2 unchanged.
+```
+
+Generate, set `catalog_version` to `"2026.10.3"` and commit the result.
+
 ### Upgrading from v0.2
 
-A project generated by v0.1 or v0.2 has no lock. The first generate with v0.3 creates it, and cyanotype never guesses which existing rules or files are its own. The rules already in `.claude/settings.json` count as yours, and that first generate says so:
+A project generated by v0.1 or v0.2 has no lock. The first generate with v0.3 or later creates it, and cyanotype never guesses which existing rules or files are its own. The rules already in `.claude/settings.json` count as yours, and that first generate says so:
 
 ```text
 .claude\settings.json: warning: cyanotype.lock does not exist yet, so cyanotype treats the rules already in this file as yours and never removes them: 31 match rules it generates. If an older cyanotype added them, delete them from the file and run cyanotype generate again; it adds back the ones still generated, and removes them once they are not
@@ -240,7 +270,7 @@ A project generated by v0.1 or v0.2 has no lock. The first generate with v0.3 cr
 
 Topic files left by an earlier split get a warning on every run, and are never deleted, since no recorded hash shows they are unchanged.
 
-The v0.3 catalog is `2026.10.1`. A spec pinned to `2026.10` gets a warning until you review the changes with `cyanotype generate --dry-run` and set `catalog_version` to `"2026.10.1"`. Commit `cyanotype.lock` after this first generate: until then, `cyanotype generate --dry-run` exits with code 3 and `cyanotype check` reports the lock as missing.
+A spec pinned to `2026.10` gets a warning until you review the changes with `cyanotype generate --dry-run` and set `catalog_version` to the version the warning names. Commit `cyanotype.lock` after this first generate: until then, `cyanotype generate --dry-run` exits with code 3 and `cyanotype check` reports the lock as missing.
 
 ## Checking for drift
 
@@ -296,11 +326,147 @@ In CI, install cyanotype and run check; its errors fail the job. In GitHub Actio
 - uses: actions/setup-go@v7
   with:
     go-version: stable
-- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.3.0
+- run: go install github.com/cyanotype-dev/cyanotype/cmd/cyanotype@v0.4.0
 - run: cyanotype check
 ```
 
 cyanotype never installs hooks or workflows itself.
+
+## Commands for scripts and agents
+
+Beside `init`, `generate` and `check`, these commands read the catalog and the project, and change the spec's selections. Each one has a matching tool in the [MCP server](#mcp-server):
+
+| Command | Does |
+| --- | --- |
+| `cyanotype catalog search [terms...]` | Lists catalog entries whose id, name, summary or category holds every term; `--category` keeps one category, `--stack go,sqlite` the entries that fit those ids |
+| `cyanotype spec` | Prints `cyanotype.yaml` with every default applied, as generate reads it |
+| `cyanotype detect` | Shows the stack detected in the project, with the file behind each entry; it needs no spec |
+| `cyanotype validate` | Checks the spec and counts the lines of each generated file, without comparing or writing |
+| `cyanotype select --add <ids> --remove <ids>` | Changes the selections of `cyanotype.yaml`, keeping its comments |
+
+For example:
+
+```text
+$ cyanotype catalog search commit
+conventional-commits: Conventional Commits (git, checkbox). Commit messages with a type, an optional scope and a description.
+secrets-in-env: Secrets only in .env (agent-safety, checkbox). Secrets live in an ignored .env file, never in code or commits.
+small-commits: Small commits (agent-workflow, checkbox). One logical change per commit, each leaving the build green.
+3 entries.
+```
+
+`select` shows the change as a diff and asks before writing, like generate, with `--dry-run` and `--yes`. It moves a spec in simple mode to advanced mode, since simple mode could replace entries chosen one by one:
+
+```text
+$ cyanotype select --add sqlite --dry-run
+--- a/cyanotype.yaml
++++ b/cyanotype.yaml
+@@ -5,7 +5,7 @@
+ targets:
+   - claude
+ 
+-mode: simple
++mode: advanced
+ 
+ project:
+   name: tidy
+@@ -29,3 +29,4 @@
+   - no-duplicate-files
+   - rule-maintenance-propose
+   - dependency-approval
++  - sqlite
+
+Adds sqlite.
+Dry run: nothing was written.
+```
+
+It refuses a change that would leave the spec with errors, and it never removes a locked entry:
+
+```text
+$ cyanotype select --remove go --dry-run
+cyanotype.yaml:20: error: selections[0]: "golangci-lint" requires "go", which is not selected
+1 error; nothing was written.
+```
+
+select changes only `cyanotype.yaml`; run generate afterwards to update the files.
+
+### JSON output
+
+`generate`, `check`, `catalog search`, `spec`, `detect`, `validate` and `select` take `--json`. With it they print one JSON object on stdout, and no other text on stdout or stderr. They never ask, and they keep their exit codes. generate and select write only with `--yes`, so `--json` alone previews:
+
+```text
+$ cyanotype select --add sqlite --dry-run --json
+{
+  "version": 1,
+  "added": [
+    "sqlite"
+  ],
+  "removed": [],
+  "spec_diff": "--- a/cyanotype.yaml\n+++ b/cyanotype.yaml\n@@ -5,7 +5,7 @@\n targets:\n   - claude\n \n-mode: simple\n+mode: advanced\n \n project:\n   name: tidy\n@@ -29,3 +29,4 @@\n   - no-duplicate-files\n   - rule-maintenance-propose\n   - dependency-approval\n+  - sqlite\n",
+  "written": false,
+  "warnings": [],
+  "errors": []
+}
+```
+
+Every object follows the same contract:
+- It starts with `version`, the version of the contract, and ends with `warnings` and `errors`, which are always arrays.
+- When `errors` is not empty, the command could not do its work.
+- Each error and warning has a stable `code`, such as `unknown-entry`, plus a `severity` and a `message`, and the `file`, `line` and `field` when they are known. Messages may change; codes do not.
+- Field names may be added without changing `version`, so ignore fields you do not know.
+
+[schema/output.schema.json](schema/output.schema.json) describes each command's output, and the JSON output section of [docs/DESIGN.md](docs/DESIGN.md) lists every code.
+
+## MCP server
+
+`cyanotype mcp` runs a local MCP server on stdin and stdout, so a coding agent can use cyanotype through tools instead of the shell. The tools may use only the folders you allow, with `--allow`. Without `--allow`, the only allowed folder is the one the server starts in.
+
+To add it to Claude Code, for one project:
+
+```sh
+claude mcp add cyanotype -- cyanotype mcp --allow /path/to/project
+```
+
+Name the server `cyanotype`. With the default rule-maintenance policy, Propose, the generated permission rule `mcp__cyanotype__set_selections` makes Claude Code ask before the agent changes the selections, and a permission rule names the server. If you add it under another name, add the same rule for that name to the `ask` list of `.claude/settings.json`: `mcp__<name>__set_selections`.
+
+Other clients take the same command and arguments. Clients configured with a JSON file usually list them under `mcpServers`; see your client's documentation for where the file lives:
+
+```json
+{
+  "mcpServers": {
+    "cyanotype": {
+      "command": "cyanotype",
+      "args": ["mcp", "--allow", "/path/to/project"]
+    }
+  }
+}
+```
+
+Every tool that works on a project takes a `dir` argument: an allowed folder or a folder inside one. With one allowed folder it can be left out. Repeat `--allow` for more folders; the tools then need `dir`.
+
+| Tool | Does | Command |
+| --- | --- | --- |
+| `search_catalog` | Finds catalog entries | `cyanotype catalog search` |
+| `get_spec` | Returns `cyanotype.yaml` with its defaults | `cyanotype spec` |
+| `detect_stack` | Shows the detected stack | `cyanotype detect` |
+| `validate` | Checks the spec | `cyanotype validate` |
+| `preview` | Shows what generate would change, as diffs | `cyanotype generate --dry-run` |
+| `generate` | Writes the files, only with `write: true` | `cyanotype generate --yes` |
+| `check` | Reports drift | `cyanotype check` |
+| `set_selections` | Changes the selections, only with `write: true` | `cyanotype select` |
+
+Each tool returns the same JSON its command prints with `--json`. The `import_instructions` prompt returns the prompt that turns instruction files written by hand into `cyanotype.yaml`, the one `cyanotype init` and `cyanotype generate --existing import` print.
+
+What the server never does:
+
+- **Read or write outside the allowed folders.**
+  - A folder outside them is refused with the error `outside-allowed-folders`, and so is a link inside them that leads out.
+  - Network paths such as `\\server\share` are refused before anything looks them up.
+  - git still reads the repository's metadata when `.git` is above the folder, for check and for the `replace` choice.
+- **Write without `write: true`.** `generate` without it shows the changes, as `preview` does, and `set_selections` returns the diff of the spec.
+- **Replace an instruction file written by hand without your choice.** `generate` reports such files until it gets `existing`: `import`, `keep`, `move` or `replace`, as `--existing` takes them.
+- **Approve rules, or read `cyanotype.local.yaml`.** `get_spec` returns the team spec only.
+
+It logs to stderr, one line per call with the tool and its error codes, never its arguments. Stdout carries only the protocol.
 
 ## Building
 
