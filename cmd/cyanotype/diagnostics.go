@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/cyanotype-dev/cyanotype/internal/contract"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
@@ -50,6 +52,43 @@ func (d specDiagnostics) report(root *os.Root, err error, outcome string) error 
 	}
 	fmt.Fprintf(d.errOut, "%s; %s.\n", plural(len(errs), "error"), outcome)
 	return &exitError{code: codeError}
+}
+
+// printOutput prints the warnings and errors of an output of
+// internal/contract as report prints the errors the core returns: spec
+// problems at their line, with the lines around an approximate one, other
+// files under the project folder dir. It returns how many errors there
+// were, so the caller can count them in its own words.
+func (d specDiagnostics) printOutput(root *os.Root, dir string, diags contract.Diagnostics) int {
+	for _, w := range diags.Warnings {
+		d.printDiagnostic(root, dir, paint(d.color, yellow, "warning"), w)
+	}
+	for _, e := range diags.Errors {
+		d.printDiagnostic(root, dir, paint(d.color, red, "error"), e)
+	}
+	return len(diags.Errors)
+}
+
+// printDiagnostic prints one diagnostic with its label.
+func (d specDiagnostics) printDiagnostic(root *os.Root, dir, label string, diag contract.Diagnostic) {
+	switch {
+	case diag.File == "":
+		fmt.Fprintf(d.errOut, "%s: %s\n", label, diag.Message)
+	case diag.File != generate.SpecFile:
+		loc := filepath.Join(dir, filepath.FromSlash(diag.File))
+		if diag.Line > 0 {
+			loc += fmt.Sprintf(":%d", diag.Line)
+		}
+		fmt.Fprintf(d.errOut, "%s: %s: %s\n", loc, label, diag.Message)
+	case diag.LineApproximate:
+		msg := fmt.Sprintf("invalid YAML near line %d: %s", diag.Line, strings.TrimPrefix(diag.Message, "invalid YAML: "))
+		d.print(label, 0, "", msg)
+		if root != nil {
+			d.excerpt(root, diag.Line)
+		}
+	default:
+		d.print(label, diag.Line, diag.Field, diag.Message)
+	}
 }
 
 // print prints one problem in the spec.

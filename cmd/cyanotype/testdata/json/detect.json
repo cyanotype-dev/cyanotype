@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "id": "nextjs",
+      "name": "Next.js",
+      "evidence": [
+        {
+          "file": "package.json",
+          "dependency": "next"
+        }
+      ]
+    },
+    {
+      "id": "node",
+      "name": "Node.js",
+      "evidence": [
+        {
+          "file": "package.json"
+        }
+      ]
+    },
+    {
+      "id": "npm",
+      "name": "npm",
+      "evidence": [
+        {
+          "file": "package-lock.json"
+        }
+      ]
+    },
+    {
+      "id": "pnpm",
+      "name": "pnpm",
+      "evidence": [
+        {
+          "file": "pnpm-lock.yaml"
+        }
+      ]
+    }
+  ],
+  "clashes": [
+    {
+      "ids": [
+        "npm",
+        "pnpm"
+      ],
+      "category": "package-manager"
+    }
+  ],
+  "scripts": [
+    "build",
+    "dev"
+  ],
+  "warnings": [],
+  "errors": []
+}

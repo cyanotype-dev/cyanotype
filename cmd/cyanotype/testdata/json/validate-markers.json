@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "valid": false,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "markers",
+      "severity": "error",
+      "file": "AGENTS.md",
+      "line": 19,
+      "message": "<!-- /cyanotype:custom --> without a <!-- cyanotype:custom --> before it"
+    }
+  ]
+}

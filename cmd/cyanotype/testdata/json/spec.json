@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "file": "cyanotype.yaml",
+  "scope": "team",
+  "note": "cyanotype.local.yaml is not supported yet; this is the team spec only",
+  "spec": {
+    "version": 1,
+    "targets": [
+      "agents-md"
+    ],
+    "project": {
+      "name": "tiny",
+      "goal": "A tiny project for tests."
+    },
+    "commands": {
+      "test": "go test ./..."
+    },
+    "selections": [
+      "conventional-commits"
+    ]
+  },
+  "effective": {
+    "version": 1,
+    "targets": [
+      "agents-md"
+    ],
+    "mode": "advanced",
+    "project": {
+      "name": "tiny",
+      "goal": "A tiny project for tests."
+    },
+    "languages": {
+      "code": "english",
+      "comments": "english",
+      "docs": "english",
+      "commits": "english",
+      "agent_replies": "english"
+    },
+    "commands": {
+      "test": "go test ./..."
+    },
+    "selections": [
+      "conventional-commits"
+    ],
+    "output": {
+      "split": "auto",
+      "max_lines": 100,
+      "topic_dir": "docs/agents"
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

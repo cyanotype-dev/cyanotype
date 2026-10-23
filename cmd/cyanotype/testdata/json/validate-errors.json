@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "valid": false,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "missing-requirement",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "line": 6,
+      "field": "selections[1]",
+      "message": "\"pnpm\" requires \"node\", which is not selected"
+    }
+  ]
+}

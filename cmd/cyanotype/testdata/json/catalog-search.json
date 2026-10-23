@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "catalog_version": "2026.10.1",
+  "entries": [
+    {
+      "id": "npm",
+      "name": "npm",
+      "category": "package-manager",
+      "select": "radio",
+      "summary": "The package manager bundled with Node.js",
+      "url": "https://docs.npmjs.com",
+      "topic": "tooling",
+      "level": "beginner",
+      "requires": [
+        "node"
+      ],
+      "rule": "Use npm for every install and script, and commit package-lock.json. Never run pnpm or yarn.",
+      "why": "Mixing package managers creates conflicting lockfiles."
+    },
+    {
+      "id": "pnpm",
+      "name": "pnpm",
+      "category": "package-manager",
+      "select": "radio",
+      "summary": "Fast, disk-efficient package manager for Node.js",
+      "url": "https://pnpm.io",
+      "topic": "tooling",
+      "level": "beginner",
+      "requires": [
+        "node"
+      ],
+      "rule": "Use pnpm for every install and script. Never run npm or yarn.",
+      "why": "Mixing package managers creates conflicting lockfiles."
+    },
+    {
+      "id": "uv",
+      "name": "uv",
+      "category": "python-package-manager",
+      "select": "radio",
+      "summary": "Fast package and project manager for Python",
+      "url": "https://docs.astral.sh/uv/",
+      "topic": "tooling",
+      "level": "beginner",
+      "requires": [
+        "python"
+      ],
+      "rule": "Add dependencies with `uv add` and run scripts and tools with `uv run`. Commit uv.lock and never edit it by hand. Never run pip install.",
+      "why": "pip bypasses uv.lock, so installs stop being reproducible."
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

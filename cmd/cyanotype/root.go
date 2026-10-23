@@ -56,6 +56,10 @@ func newRootCmdWithConsole(version string, detect func() console) *cobra.Command
 	root.AddCommand(newInitCmd(detect))
 	root.AddCommand(newGenerateCmd(detect))
 	root.AddCommand(newCheckCmd(detect))
+	root.AddCommand(newCatalogCmd())
+	root.AddCommand(newSpecCmd(detect))
+	root.AddCommand(newDetectCmd(detect))
+	root.AddCommand(newValidateCmd(detect))
 
 	return root
 }

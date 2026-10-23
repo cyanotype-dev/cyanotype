@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"maps"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -34,6 +35,10 @@ type Node struct {
 	Ref string `json:"$ref"`
 	// Defs holds the definitions a Ref can point to, at the root.
 	Defs map[string]*Node `json:"$defs"`
+
+	// path is the file a root node was loaded from, so a Ref can name
+	// another schema file in the same folder, such as "spec.schema.json".
+	path string
 }
 
 // Load reads and parses the schema file at path, failing the test on error.
@@ -48,6 +53,7 @@ func Load(t testing.TB, path string) *Node {
 	if err := json.Unmarshal(data, &root); err != nil {
 		t.Fatalf("parse %s: %v", path, err)
 	}
+	root.path = path
 	return &root
 }
 
@@ -108,11 +114,15 @@ func (c checker) fields(typ reflect.Type) []field {
 	return out
 }
 
-// resolve follows a $ref to its definition.
+// resolve follows a $ref to its definition, in the same file or in another
+// schema file of the same folder.
 func (c checker) resolve(t testing.TB, path string, node *Node) *Node {
 	t.Helper()
 	if node.Ref == "" {
 		return node
+	}
+	if !strings.HasPrefix(node.Ref, "#") && c.root != nil && c.root.path != "" {
+		return Load(t, filepath.Join(filepath.Dir(c.root.path), filepath.FromSlash(node.Ref)))
 	}
 	name, ok := strings.CutPrefix(node.Ref, "#/$defs/")
 	if !ok || c.root == nil || c.root.Defs[name] == nil {

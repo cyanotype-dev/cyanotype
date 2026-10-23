@@ -534,21 +534,27 @@ func (r *initRun) useDetected() (*simple.Detected, error) {
 
 // printDetected shows what detection found, and why, on stdout.
 func (r *initRun) printDetected() {
-	heading := func(s string) string { return paint(r.console.colorOut, bold, s) }
+	printDetected(r.out, r.console.colorOut, r.opts.dir, r.cat, r.found)
+}
+
+// printDetected shows what detection found in the project folder dir, and
+// why: the block init shows before asking, and cyanotype detect prints.
+func printDetected(w io.Writer, color bool, dir string, c *catalog.Catalog, found detect.Result) {
+	heading := func(s string) string { return paint(color, bold, s) }
 	where := "this project"
-	if r.opts.dir != "." {
-		where = r.opts.dir
+	if dir != "." {
+		where = dir
 	}
-	fmt.Fprintf(r.out, "%s\n", heading("Detected in "+where+":"))
-	for _, f := range r.found.Findings {
-		e, _ := r.cat.Get(f.ID)
-		fmt.Fprintf(r.out, "  - %s (%s)\n", e.Name, evidenceList(f.Evidence))
+	fmt.Fprintf(w, "%s\n", heading("Detected in "+where+":"))
+	for _, f := range found.Findings {
+		e, _ := c.Get(f.ID)
+		fmt.Fprintf(w, "  - %s (%s)\n", e.Name, evidenceList(f.Evidence))
 	}
-	for _, c := range r.found.Clashes {
-		fmt.Fprintf(r.out, "Only one of %s can be selected: the project uses one of them.\n", r.entryNames(c.IDs, "and"))
+	for _, cl := range found.Clashes {
+		fmt.Fprintf(w, "Only one of %s can be selected: the project uses one of them.\n", entryNames(c, cl.IDs, "and"))
 	}
-	if len(r.found.Scripts) > 0 {
-		fmt.Fprintf(r.out, "Scripts in package.json: %s\n", strings.Join(r.found.Scripts, ", "))
+	if len(found.Scripts) > 0 {
+		fmt.Fprintf(w, "Scripts in package.json: %s\n", strings.Join(found.Scripts, ", "))
 	}
 }
 
@@ -563,9 +569,14 @@ func evidenceList(ev []detect.Evidence) string {
 
 // entryNames names entries as an English list: "npm or pnpm".
 func (r *initRun) entryNames(ids []string, conj string) string {
+	return entryNames(r.cat, ids, conj)
+}
+
+// entryNames names the entries of c with the given ids as an English list.
+func entryNames(c *catalog.Catalog, ids []string, conj string) string {
 	names := make([]string, len(ids))
 	for i, id := range ids {
-		e, _ := r.cat.Get(id)
+		e, _ := c.Get(id)
 		names[i] = e.Name
 	}
 	return orList(names, conj)

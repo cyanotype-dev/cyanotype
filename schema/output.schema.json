@@ -167,6 +167,183 @@
           "type": "boolean"
         }
       }
+    },
+    "catalog": {
+      "description": "Output of cyanotype catalog search --json, and of the MCP search_catalog tool.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "catalog_version": {
+          "description": "Version of the bundled catalog searched, such as \"2026.10.1\".",
+          "type": "string"
+        },
+        "entries": {
+          "description": "Entries that match the query, sorted by id; empty when none does.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "entry": {
+      "description": "One catalog entry. Its real constraints and detection rules are left out.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "category", "select", "summary", "rule", "why"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "select": {
+          "description": "radio: at most one entry of the category; checkbox: any number.",
+          "enum": ["radio", "checkbox"]
+        },
+        "summary": { "type": "string" },
+        "url": { "type": "string" },
+        "topic": { "type": "string" },
+        "level": { "enum": ["beginner", "intermediate", "advanced"] },
+        "requires": {
+          "description": "Entries that must all be selected too.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "requires_one_of": {
+          "description": "Groups of alternatives; each needs one selected entry.",
+          "type": "array",
+          "items": { "type": "array", "items": { "type": "string" } }
+        },
+        "conflicts": {
+          "description": "Entries that cannot be selected together with this one.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "rule": {
+          "description": "The rule the entry adds to generated files, placeholders such as {languages} unfilled.",
+          "type": "string"
+        },
+        "why": { "type": "string" }
+      }
+    },
+    "spec": {
+      "description": "Output of cyanotype spec --json, and of the MCP get_spec tool. cyanotype.local.yaml is not supported yet: this is the team spec only.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "file": { "description": "The spec's path, cyanotype.yaml.", "type": "string" },
+        "scope": { "description": "Always \"team\" for now.", "enum": ["team"] },
+        "note": { "type": "string" },
+        "spec": {
+          "description": "cyanotype.yaml as written, with the field names of the file.",
+          "$ref": "spec.schema.json"
+        },
+        "effective": {
+          "description": "The same spec with every default applied, as generate reads it.",
+          "$ref": "spec.schema.json"
+        },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "detect": {
+      "description": "Output of cyanotype detect --json, and of the MCP detect_stack tool. Manifests that cannot be read are warnings with code \"unreadable\".",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "findings": {
+          "description": "Detected entries, in catalog order.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/detected" }
+        },
+        "clashes": {
+          "description": "Detected entries that cannot all be selected; only the user knows which one the project uses.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/clash" }
+        },
+        "scripts": {
+          "description": "Names of the scripts in package.json, sorted.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "detected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "evidence"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "evidence": {
+          "description": "Every reason the entry was detected.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        }
+      }
+    },
+    "evidence": {
+      "description": "A file that exists, or a dependency a manifest lists.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string" },
+        "dependency": { "type": "string" }
+      }
+    },
+    "clash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ids"],
+      "properties": {
+        "ids": { "type": "array", "items": { "type": "string" } },
+        "category": {
+          "description": "The radio category the entries share; absent when they clash through their conflicts.",
+          "type": "string"
+        }
+      }
+    },
+    "validate": {
+      "description": "Output of cyanotype validate --json, and of the MCP validate tool. The one output whose errors are its result: with errors in the spec, valid is false; valid is absent only when no spec could be read.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "valid": {
+          "description": "The spec resolves and the files can be rendered; warnings are allowed.",
+          "type": "boolean"
+        },
+        "files": {
+          "description": "Every generated Markdown file and its length, when the spec is valid.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/file_lines" }
+        },
+        "max_lines": {
+          "description": "output.max_lines: the length above which the main file is split or gets a warning.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "file_lines": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "lines"],
+      "properties": {
+        "path": { "type": "string" },
+        "lines": { "type": "integer", "minimum": 0 }
+      }
     }
   }
 }

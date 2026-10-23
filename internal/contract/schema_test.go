@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cyanotype-dev/cyanotype/internal/adopt"
+	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
 	"github.com/cyanotype-dev/cyanotype/internal/schematest"
 )
@@ -19,6 +20,10 @@ func TestSchemaMatchesContract(t *testing.T) {
 	outputs := map[string]reflect.Type{
 		"generate": reflect.TypeFor[Generate](),
 		"check":    reflect.TypeFor[Check](),
+		"catalog":  reflect.TypeFor[Catalog](),
+		"spec":     reflect.TypeFor[Spec](),
+		"detect":   reflect.TypeFor[Detect](),
+		"validate": reflect.TypeFor[Validate](),
 	}
 	for name, typ := range outputs {
 		schematest.CheckJSONStruct(t, root, name, typ)
@@ -33,6 +38,10 @@ func TestSchemaMatchesContract(t *testing.T) {
 		{"diagnostic.severity", defs["diagnostic"].Properties["severity"].Enum, []string{SeverityError, SeverityWarning}},
 		{"file.status", defs["file"].Properties["status"].Enum, statuses()},
 		{"file.choice", defs["file"].Properties["choice"].Enum, choicesThatWrite()},
+		{"entry.select", defs["entry"].Properties["select"].Enum, schematest.Strings([]catalog.Select{catalog.SelectRadio, catalog.SelectCheckbox})},
+		{"entry.level", defs["entry"].Properties["level"].Enum,
+			schematest.Strings([]catalog.Level{catalog.LevelBeginner, catalog.LevelIntermediate, catalog.LevelAdvanced})},
+		{"spec.scope", defs["spec"].Properties["scope"].Enum, []string{ScopeTeam}},
 	}
 	for _, e := range enums {
 		if !slices.Equal(e.got, e.want) {
