@@ -14,6 +14,7 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - Go, version pinned in `go.mod`. Module path: `github.com/cyanotype-dev/cyanotype`.
 - CLI: `spf13/cobra`.
 - Any other dependency needs approval first. Why: Cyanotype ships as a single binary, and every dependency is supply-chain risk.
+- MCP: `github.com/modelcontextprotocol/go-sdk`, pinned exactly (approved for v0.4).
 
 ## Commands
 
@@ -37,6 +38,9 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - `internal/diff/`: line diff with unified output.
 - `internal/preset/`: loads presets from the catalog and validates them by resolving them against it.
 - `internal/simple/`: simple-mode questions and how their answers become a spec.
+- `internal/contract/`: the JSON output shared by `--json` and the MCP tools; one encoder, `contract.Marshal`.
+- `internal/ops/`: the work each CLI command and its MCP tool share, returned as contract types.
+- `internal/mcpserver/`: the MCP server: tools, the import prompt, and the allowed-folder checks; never writes to stdout.
 - `catalog/`: YAML entries, licensed CC0-1.0 (separate LICENSE). Code is Apache-2.0.
 - `schema/`: JSON Schemas for catalog entries and the spec file.
 - `.goreleaser.yaml`, `packaging/`: release configuration, run by `.github/workflows/release.yml` on v* tags. See docs/RELEASING.md.
