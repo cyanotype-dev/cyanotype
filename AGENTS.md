@@ -32,8 +32,8 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - `internal/detect/`: stack detection in existing repos.
 - `internal/render/`: one renderer per agent format.
 - `internal/generate/`: compares rendered files with the project and writes them safely (atomic, root-confined; deletes only stale files it generated, unchanged since).
-- `internal/lock/`: reads and writes cyanotype.lock, the record of what cyanotype generated.
-- `internal/check/`: drift detection for cyanotype check; findings are plain data, never printed.
+- `internal/lock/`: reads and writes `cyanotype.lock`, the record of what cyanotype generated.
+- `internal/check/`: drift detection for `cyanotype check`; findings are plain data, never printed.
 - `internal/diff/`: line diff with unified output.
 - `internal/preset/`: loads presets from the catalog and validates them by resolving them against it.
 - `internal/simple/`: simple-mode questions and how their answers become a spec.
