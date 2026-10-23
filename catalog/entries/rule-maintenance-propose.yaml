@@ -25,10 +25,15 @@ enforce:
     # approved. An ask rule on Edit prompts for the Edit and Write tools even
     # in accept-edits mode (docs/enforce-checks.md). cyanotype select, under
     # either name of the binary, writes the spec without the Edit tool, so
-    # it asks too.
+    # it asks too, also with a flag before the subcommand, which cobra
+    # accepts: "cyanotype --dir app select".
     ask:
       - "Edit(/cyanotype.yaml)"
       - "Bash(cyanotype select *)"
       - "Bash(cyty select *)"
+      - "Bash(cyanotype -* select *)"
+      - "Bash(cyty -* select *)"
       - "PowerShell(cyanotype select *)"
       - "PowerShell(cyty select *)"
+      - "PowerShell(cyanotype -* select *)"
+      - "PowerShell(cyty -* select *)"
