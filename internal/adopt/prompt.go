@@ -175,7 +175,7 @@ func writeEntries(b *strings.Builder, c *catalog.Catalog, stack []string) {
 	var categories []string
 	byCategory := map[string][]catalog.Entry{}
 	for _, e := range c.Entries() {
-		if len(stack) > 0 && !requirementsMet(e, stack) {
+		if len(stack) > 0 && !e.RequirementsMet(stack) {
 			continue
 		}
 		if _, ok := byCategory[e.Category]; !ok {
@@ -195,22 +195,6 @@ func writeEntries(b *strings.Builder, c *catalog.Catalog, stack []string) {
 			fmt.Fprintf(b, "- `%s`: %s. %s.%s\n", e.ID, e.Name, strings.TrimSuffix(e.Summary, "."), requirementsNote(e))
 		}
 	}
-}
-
-// requirementsMet reports whether stack holds every entry e requires and
-// one alternative of each of its requires_one_of groups.
-func requirementsMet(e catalog.Entry, stack []string) bool {
-	for _, id := range e.Requires {
-		if !slices.Contains(stack, id) {
-			return false
-		}
-	}
-	for _, group := range e.RequiresOneOf {
-		if !slices.ContainsFunc(group, func(id string) bool { return slices.Contains(stack, id) }) {
-			return false
-		}
-	}
-	return true
 }
 
 // requirementsNote says what an entry requires, for the catalog list.
