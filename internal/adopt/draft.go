@@ -3,11 +3,13 @@ package adopt
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"slices"
 
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/detect"
 	"github.com/cyanotype-dev/cyanotype/internal/preset"
+	"github.com/cyanotype-dev/cyanotype/internal/render"
 	"github.com/cyanotype-dev/cyanotype/internal/simple"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
@@ -70,4 +72,19 @@ func Draft(c *catalog.Catalog, in DraftInput) (draft []byte, stack []string, err
 		return nil, nil, fmt.Errorf("write the draft spec: %w", err)
 	}
 	return buf.Bytes(), stack, nil
+}
+
+// HandWrittenFiles returns the main instruction files at the root of
+// project that cyanotype did not generate: AGENTS.md and CLAUDE.md without
+// the cyanotype header. A project without a spec has no list of targets
+// yet, so these are the files an import starts from.
+func HandWrittenFiles(project fs.FS) []string {
+	var out []string
+	for _, p := range []string{"AGENTS.md", "CLAUDE.md"} {
+		data, err := fs.ReadFile(project, p)
+		if err == nil && !render.HasHeader(data) {
+			out = append(out, p)
+		}
+	}
+	return out
 }

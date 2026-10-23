@@ -105,7 +105,7 @@ func (f *Folders) Open(dir string) (*os.Root, error) {
 		if len(f.allowed) > 1 {
 			return nil, ErrDirRequired
 		}
-		return f.allowed[0].OpenRoot(".")
+		return openIn(f.allowed[0], ".", ".")
 	}
 	if err := checkPath(dir); err != nil {
 		return nil, fmt.Errorf("dir %q: %w", dir, err)
@@ -156,7 +156,7 @@ func openIn(r *os.Root, dir, rel string) (*os.Root, error) {
 	}
 	sub, err := r.OpenRoot(rel)
 	if err == nil {
-		return sub, nil
+		return named(r, rel, sub), nil
 	}
 	// Windows reports a file opened as a folder as missing, so the type
 	// is checked first.
@@ -168,6 +168,26 @@ func openIn(r *os.Root, dir, rel string) (*os.Root, error) {
 	}
 	// Anything else, such as a link that leaves the allowed folder.
 	return nil, fmt.Errorf("dir %q: %w", dir, ErrOutside)
+}
+
+// named returns the folder sub, opened as rel inside r, under a clean
+// name. os.Root names a folder opened inside another by joining the two
+// names as they are, "project/." for ".", and that name reaches messages
+// and git. So the clean path is opened too, and used only if it is still
+// the folder r confined, which a link swapped in meanwhile would change.
+func named(r *os.Root, rel string, sub *os.Root) *os.Root {
+	clean, err := os.OpenRoot(filepath.Join(r.Name(), rel))
+	if err != nil {
+		return sub
+	}
+	a, errA := sub.Stat(".")
+	b, errB := clean.Stat(".")
+	if errA != nil || errB != nil || !os.SameFile(a, b) {
+		_ = clean.Close()
+		return sub
+	}
+	_ = sub.Close()
+	return clean
 }
 
 // abs makes path absolute against the folder the server started in.

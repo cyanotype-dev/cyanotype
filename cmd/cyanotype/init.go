@@ -174,7 +174,7 @@ func (r *initRun) run() error {
 	}
 	// Instruction files written by hand come first: importing them with an
 	// agent makes every other question moot.
-	if r.handWritten = handWrittenFiles(root.FS()); len(r.handWritten) > 0 {
+	if r.handWritten = adopt.HandWrittenFiles(root.FS()); len(r.handWritten) > 0 {
 		done, err := r.chooseExisting(root)
 		if err != nil || done {
 			return err

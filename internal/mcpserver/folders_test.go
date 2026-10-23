@@ -105,6 +105,9 @@ func TestOpen(t *testing.T) {
 				}
 				defer r.Close()
 				sameFolder(t, r, tt.want)
+				if base := filepath.Base(r.Name()); base == "." || base == ".." {
+					t.Errorf("Open(%q) named the folder %q, want a clean path", tt.dir, r.Name())
+				}
 				return
 			}
 			if err == nil {

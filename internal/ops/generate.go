@@ -1,8 +1,10 @@
 package ops
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -12,6 +14,7 @@ import (
 	"github.com/cyanotype-dev/cyanotype/internal/contract"
 	"github.com/cyanotype-dev/cyanotype/internal/detect"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
+	"github.com/cyanotype-dev/cyanotype/internal/preset"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
 
@@ -154,6 +157,49 @@ func ImportPrompt(c *catalog.Catalog, root *os.Root, f *spec.File, paths []strin
 		}
 	}
 	return adopt.Prompt(c, adopt.PromptInput{Files: paths, Spec: current, Found: found, Stack: stack}), nil
+}
+
+// ErrNothingToImport is returned by ImportInstructions for a project
+// without hand-written instruction files.
+var ErrNothingToImport = errors.New("no instruction files written by hand to import")
+
+// ImportInstructions returns the prompt that converts the project's
+// hand-written instruction files into cyanotype.yaml, the one init and
+// generate --existing import print. With a spec, the files are those
+// generate would replace, and the agent updates the spec. Without one,
+// they are AGENTS.md and CLAUDE.md, and the agent starts from a draft
+// with the detected stack, as init without flags would fill it in.
+func ImportInstructions(c *catalog.Catalog, presets []preset.Preset, root *os.Root) (string, error) {
+	f, err := generate.LoadSpec(root)
+	switch {
+	case err == nil:
+		changes, _, err := generate.Preview(c, f, root.FS())
+		if err != nil {
+			return "", err
+		}
+		hw := generate.HandWritten(changes)
+		if len(hw) == 0 {
+			return "", ErrNothingToImport
+		}
+		return ImportPrompt(c, root, f, hw)
+	case !errors.Is(err, generate.ErrNoSpec):
+		return "", err
+	}
+	hw := adopt.HandWrittenFiles(root.FS())
+	if len(hw) == 0 {
+		return "", ErrNothingToImport
+	}
+	// The folder's name, unless it has none, like the root of a drive.
+	name := filepath.Base(root.Name())
+	if name == "." || strings.ContainsAny(name, `/\:`) {
+		name = ""
+	}
+	found := detect.Detect(c, root.FS())
+	draft, stack, err := adopt.Draft(c, adopt.DraftInput{HandWritten: hw, Name: name, Found: found, Presets: presets})
+	if err != nil {
+		return "", err
+	}
+	return adopt.Prompt(c, adopt.PromptInput{Files: hw, Draft: draft, Found: found, Stack: stack}), nil
 }
 
 // Check compares the project at root with its spec and reports drift,
