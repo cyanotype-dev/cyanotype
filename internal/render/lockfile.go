@@ -1,6 +1,7 @@
 package render
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -14,6 +15,10 @@ import (
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
 
+// ErrLockCatalogNewer reports a cyanotype.lock written with a newer catalog
+// than the bundled one, which Render refuses; its errors wrap it.
+var ErrLockCatalogNewer = errors.New("newer than this cyanotype's catalog")
+
 // checkLockCatalog refuses a lock written with a newer catalog than the
 // one r was resolved with. Regenerating with an older catalog would undo
 // the newer one's changes, and two people with different versions would
@@ -23,8 +28,8 @@ func checkLockCatalog(prev *lock.Lock, r *resolve.Result) error {
 		return nil
 	}
 	if catalog.CompareVersions(prev.CatalogVersion, r.CatalogVersion) > 0 {
-		return fmt.Errorf("%s was generated with catalog %s, newer than this cyanotype's catalog (%s); upgrade cyanotype",
-			lock.Path, prev.CatalogVersion, r.CatalogVersion)
+		return fmt.Errorf("%s was generated with catalog %s, %w (%s); upgrade cyanotype",
+			lock.Path, prev.CatalogVersion, ErrLockCatalogNewer, r.CatalogVersion)
 	}
 	return nil
 }
