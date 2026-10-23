@@ -17,8 +17,8 @@ import (
 	"github.com/cyanotype-dev/cyanotype/internal/adopt"
 	"github.com/cyanotype-dev/cyanotype/internal/catalog"
 	"github.com/cyanotype-dev/cyanotype/internal/contract"
-	"github.com/cyanotype-dev/cyanotype/internal/detect"
 	"github.com/cyanotype-dev/cyanotype/internal/generate"
+	"github.com/cyanotype-dev/cyanotype/internal/ops"
 	"github.com/cyanotype-dev/cyanotype/internal/resolve"
 	"github.com/cyanotype-dev/cyanotype/internal/spec"
 )
@@ -71,8 +71,8 @@ func newGenerateCmd(detect func() console) *cobra.Command {
 				specPath: filepath.Join(opts.dir, generate.SpecFile),
 			}
 			if opts.json {
-				out := &contract.Generate{}
-				return printJSON(g.out, out, g.runJSON(out))
+				out, code := g.runJSON()
+				return printJSON(g.out, out, code)
 			}
 			return g.run()
 		},
@@ -251,7 +251,7 @@ func (g *generation) chooseExisting(root *os.Root, paths []string, topicDir stri
 // printImport prints the prompt that converts the files at paths into
 // the project's cyanotype.yaml, and writes nothing.
 func (g *generation) printImport(root *os.Root, c *catalog.Catalog, f *spec.File, paths []string) error {
-	prompt, err := importPrompt(root, c, f, paths)
+	prompt, err := ops.ImportPrompt(c, root, f, paths)
 	if err != nil {
 		return err
 	}
@@ -259,98 +259,33 @@ func (g *generation) printImport(root *os.Root, c *catalog.Catalog, f *spec.File
 	return nil
 }
 
-// importPrompt returns the prompt that converts the files at paths into
-// the project's cyanotype.yaml, f, which it gives the agent to update.
-func importPrompt(root *os.Root, c *catalog.Catalog, f *spec.File, paths []string) (string, error) {
-	current, err := root.ReadFile(generate.SpecFile)
+// runJSON is run for --json: it fills nothing on the terminal, never asks,
+// and writes only with --yes. It returns the output and the exit code the
+// same run would end with.
+func (g *generation) runJSON() (*contract.Generate, int) {
+	root, err := openProject(g.opts.dir)
 	if err != nil {
-		return "", fmt.Errorf("read %s: %w", generate.SpecFile, err)
-	}
-	found := detect.Detect(c, root.FS())
-	stack := slices.Clone(f.Spec.Selections)
-	for _, id := range found.IDs() {
-		if !slices.Contains(stack, id) {
-			stack = append(stack, id)
-		}
-	}
-	return adopt.Prompt(c, adopt.PromptInput{Files: paths, Spec: current, Found: found, Stack: stack}), nil
-}
-
-// runJSON is run for --json: it fills out instead of printing, never asks,
-// and writes only with --yes. It returns the exit code, the same run
-// would end with.
-func (g *generation) runJSON(out *contract.Generate) int {
-	fail := func(err error) int {
-		out.Errors = append(out.Errors, contract.Errors(err)...)
-		return codeError
-	}
-	root, err := os.OpenRoot(g.opts.dir)
-	if err != nil {
-		return fail(fmt.Errorf("open the project folder: %w", err))
+		return &contract.Generate{Diagnostics: contract.Diagnostics{Errors: contract.Errors(err)}}, codeError
 	}
 	defer root.Close()
-	f, err := generate.LoadSpec(root)
+	c, err := loadBundled()
 	if err != nil {
-		return fail(err)
+		return &contract.Generate{Diagnostics: contract.Diagnostics{Errors: contract.Errors(err)}}, codeError
 	}
-	c, err := catalog.LoadRoot(bundled.FS())
-	if err != nil {
-		return fail(fmt.Errorf("the bundled catalog is invalid, which is a bug in cyanotype: %w", err))
-	}
+	existing, _ := adopt.ParseChoice(g.opts.existing) // checked when the command started
+	out, outcome := ops.Generate(c, root, ops.GenerateOptions{Existing: existing, DryRun: g.opts.dryRun, Write: g.opts.yes})
+	return out, generateCode(outcome)
+}
 
-	changes, warnings, err := generate.Preview(c, f, root.FS())
-	out.Warnings = contract.Warnings(warnings)
-	if err != nil {
-		return fail(err)
-	}
-	if hw := generate.HandWritten(changes); len(hw) > 0 {
-		x := existingChooser{topicDir: f.Spec.WithDefaults().Output.TopicDir}
-		choice, _ := adopt.ParseChoice(g.opts.existing) // checked when the command started
-		switch choice {
-		case "":
-			*out = *contract.NewGenerate(changes, warnings)
-			if g.opts.dryRun {
-				return codeNotWritten
-			}
-			out.Errors = append(out.Errors, contract.Error(contract.CodeChoiceRequired, x.missingError(hw).Error()))
-			return codeUsage
-		case adopt.Import:
-			prompt, err := importPrompt(root, c, f, hw)
-			if err != nil {
-				return fail(err)
-			}
-			*out = *contract.NewGenerate(changes, warnings)
-			out.Import = &contract.Import{Files: hw, Prompt: prompt}
-			return codeOK
-		}
-		choices := generate.Choices{}
-		for _, p := range hw {
-			if choice == adopt.Replace {
-				if err := x.git.CheckRecoverable(root.Name(), p); err != nil {
-					return fail(fmt.Errorf("refusing to replace %s: %w (--existing keep or --existing move)", p, err))
-				}
-			}
-			choices[p] = choice
-		}
-		if changes, _, err = generate.PreviewChoices(c, f, root.FS(), choices); err != nil {
-			return fail(err)
-		}
-	}
-
-	*out = *contract.NewGenerate(changes, warnings)
-	pending := slices.ContainsFunc(changes, func(ch generate.Change) bool {
-		return ch.Status != generate.Unchanged && (!ch.HandWritten || ch.Choice != "")
-	})
-	switch {
-	case !pending:
-		return codeOK
-	case !g.opts.yes:
+// generateCode is the exit code of a generate outcome.
+func generateCode(o ops.Outcome) int {
+	switch o {
+	case ops.NotWritten:
 		return codeNotWritten
-	}
-	written, err := generate.Write(root, changes)
-	out.Written = append(out.Written, written...)
-	if err != nil {
-		return fail(err)
+	case ops.ChoiceRequired:
+		return codeUsage
+	case ops.Failed:
+		return codeError
 	}
 	return codeOK
 }

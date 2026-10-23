@@ -32,7 +32,7 @@
     {
       "code": "choice-required",
       "severity": "error",
-      "message": "AGENTS.md has no cyanotype header, so it was written by hand, and cyanotype never replaces it without your choice, not even with --yes.\nRun the command again with one of:\n  --existing import   print a prompt that has your agent turn its rules into cyanotype.yaml; nothing is written\n  --existing keep     the whole file goes in a cyanotype:custom block, which regeneration keeps\n  --existing move     its content goes to docs/agents/original-<name>, which the main file tells the agent to read\n  --existing replace  overwrite it with the generated file; only when git has it committed, so it can be recovered"
+      "message": "AGENTS.md has no cyanotype header, so it was written by hand, and cyanotype never replaces it without a choice.\nChoose one with --existing on the command line, or the existing argument of the MCP tools:\n  import   returns a prompt that has your coding agent turn its rules into cyanotype.yaml; nothing is written\n  keep     the whole file goes in a cyanotype:custom block, which regeneration keeps\n  move     its content goes to docs/agents/original-<name>, which the main file tells the agent to read\n  replace  overwrite it with the generated file; only when git has it committed, so it can be recovered"
     }
   ]
 }
