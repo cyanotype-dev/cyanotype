@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -312,44 +311,19 @@ func (r *initRun) usesDetection() bool {
 }
 
 // draft returns the spec cyanotype can fill in for the import prompt
-// before any question: the targets of --agents, or of the hand-written
-// files, the project name, and the detected stack with its commands. It
-// also returns the stack, which decides the entries the prompt lists.
+// before any question, and the stack that decides the entries the prompt
+// lists. See adopt.Draft.
 func (r *initRun) draft() ([]byte, []string, error) {
-	var targets []spec.Target
-	if len(r.opts.agents) > 0 {
-		targets = simple.Targets(agentsOf(r.opts.agents))
-	} else {
-		for _, t := range []struct {
-			file   string
-			target spec.Target
-		}{{"CLAUDE.md", spec.TargetClaude}, {"AGENTS.md", spec.TargetAgentsMD}} {
-			if slices.Contains(r.handWritten, t.file) {
-				targets = append(targets, t.target)
-			}
-		}
-	}
 	name := strings.TrimSpace(r.opts.name)
 	if name == "" {
 		name = folderName(r.opts.dir)
 	}
-	// The goal is required and only the files can tell it, so the draft
-	// holds a placeholder the prompt asks the agent to replace.
-	s := spec.Spec{Version: spec.CurrentVersion, CatalogVersion: r.cat.Version(), Targets: targets,
-		Project: spec.Project{Name: name, Goal: adopt.GoalPlaceholder}}
-	var stack []string
+	in := adopt.DraftInput{HandWritten: r.handWritten, Agents: agentsOf(r.opts.agents), Name: name,
+		Presets: r.presets, With: r.opts.with, Without: r.opts.without}
 	if r.usesDetection() {
-		stack = r.found.IDs()
-		if d, err := simple.DetectStack(r.cat, r.presets, r.found, r.opts.with, r.opts.without); err == nil {
-			stack, s.Commands = d.Selections, d.Commands
-		}
-		s.Selections = stack
+		in.Found = r.found
 	}
-	var buf bytes.Buffer
-	if err := spec.New(s).Save(&buf); err != nil {
-		return nil, nil, fmt.Errorf("write the draft spec: %w", err)
-	}
-	return buf.Bytes(), stack, nil
+	return adopt.Draft(r.cat, in)
 }
 
 // agentsOf turns --agents values into agents.
