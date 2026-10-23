@@ -89,6 +89,29 @@ const (
 	CodeUnownedRules = "unowned-rules"
 )
 
+// Codes of the errors Resolve adds to those of spec.Validate; see
+// spec.ValidationError.Code.
+const (
+	// CodeUnknownEntry: a selection that is not in the catalog.
+	CodeUnknownEntry = "unknown-entry"
+	// CodeRadioClash: two selections of the same radio category.
+	CodeRadioClash = "radio-clash"
+	// CodeMissingRequirement: an entry that a selection requires, directly
+	// or through another entry, is not selected.
+	CodeMissingRequirement = "missing-requirement"
+	// CodeMissingOneOf: a requires_one_of group with no selected
+	// alternative.
+	CodeMissingOneOf = "missing-one-of"
+	// CodeConflict: two selected entries that conflict.
+	CodeConflict = "conflict"
+	// CodeUnfilledPlaceholder: a placeholder the selection cannot fill.
+	CodeUnfilledPlaceholder = "unfilled-placeholder"
+	// CodeUnknownQuestion: an answers key that matches no question.
+	CodeUnknownQuestion = "unknown-question"
+	// CodeCatalogNewer: the spec pins a catalog newer than the loaded one.
+	CodeCatalogNewer = "catalog-newer"
+)
+
 // knownQuestions lists the answer keys a spec may use. Questions are not in
 // the catalog yet; they will move there together with category metadata.
 var knownQuestions = []string{"domain_notes"}
@@ -139,8 +162,8 @@ type resolver struct {
 	warnings []Warning
 }
 
-func (r *resolver) errorf(field, format string, args ...any) {
-	r.errs = append(r.errs, &spec.ValidationError{Field: field, Line: r.file.Line(field), Msg: fmt.Sprintf(format, args...)})
+func (r *resolver) errorf(code, field, format string, args ...any) {
+	r.errs = append(r.errs, &spec.ValidationError{Code: code, Field: field, Line: r.file.Line(field), Msg: fmt.Sprintf(format, args...)})
 }
 
 func (r *resolver) warnf(code, field, format string, args ...any) {
@@ -176,7 +199,7 @@ func (r *resolver) checkCatalogVersion() {
 	}
 	switch catalog.CompareVersions(pin, loaded) {
 	case 1:
-		r.errorf("catalog_version", "%q is newer than this cyanotype's catalog (%s); upgrade cyanotype", pin, loaded)
+		r.errorf(CodeCatalogNewer, "catalog_version", "%q is newer than this cyanotype's catalog (%s); upgrade cyanotype", pin, loaded)
 	case -1:
 		// cyanotype update does not exist yet, so the message says how to
 		// move the pin by hand.
@@ -204,7 +227,7 @@ func (r *resolver) resolveSelections() []Entry {
 	for i, id := range r.spec.Selections {
 		e, ok := r.cat.Get(id)
 		if !ok {
-			r.errorf(selectionField(i), "%s", r.unknownEntry(id))
+			r.errorf(CodeUnknownEntry, selectionField(i), "%s", r.unknownEntry(id))
 			continue
 		}
 		sel = append(sel, selected{index: i, entry: e})
@@ -262,7 +285,7 @@ func (r *resolver) checkRadio(sel []selected) {
 			first[e.Category] = s
 			continue
 		}
-		r.errorf(selectionField(s.index), "%q and %q (%s) are both in radio category %q; keep only one",
+		r.errorf(CodeRadioClash, selectionField(s.index), "%q and %q (%s) are both in radio category %q; keep only one",
 			e.ID, f.entry.ID, selectionField(f.index), e.Category)
 	}
 }
@@ -330,14 +353,14 @@ func (r *resolver) checkRequires(s selected, indexOf map[string]int) {
 		if len(gaps) > 1 {
 			verb = "are"
 		}
-		r.errorf(field, "%q requires %s, which %s not selected", s.entry.ID, joinNames(names), verb)
+		r.errorf(CodeMissingRequirement, field, "%q requires %s, which %s not selected", s.entry.ID, joinNames(names), verb)
 	}
 	for _, g := range groups {
 		names := make([]string, len(g.ids))
 		for i, id := range g.ids {
 			names[i] = fmt.Sprintf("%q", id)
 		}
-		r.errorf(field, "%q requires one of %s%s, but none is selected",
+		r.errorf(CodeMissingOneOf, field, "%q requires one of %s%s, but none is selected",
 			s.entry.ID, joinList(names, "or"), throughSuffix(g.through))
 	}
 }
@@ -373,7 +396,7 @@ func throughSuffix(through string) string {
 func (r *resolver) checkConflicts(s selected, indexOf map[string]int) {
 	for _, id := range s.entry.Conflicts {
 		if j, ok := indexOf[id]; ok && j < s.index {
-			r.errorf(selectionField(s.index), "%q conflicts with %q (%s); keep only one", s.entry.ID, id, selectionField(j))
+			r.errorf(CodeConflict, selectionField(s.index), "%q conflicts with %q (%s); keep only one", s.entry.ID, id, selectionField(j))
 		}
 	}
 }
@@ -424,7 +447,7 @@ func (r *resolver) checkPlaceholders(sel []selected) map[string]string {
 		}
 		for _, name := range used {
 			if _, ok := values[name]; !ok {
-				r.errorf(selectionField(s.index), "%q uses {%s}, but %s", s.entry.ID, name, fillers[name].unfilled)
+				r.errorf(CodeUnfilledPlaceholder, selectionField(s.index), "%q uses {%s}, but %s", s.entry.ID, name, fillers[name].unfilled)
 			}
 		}
 	}
@@ -441,7 +464,7 @@ func (r *resolver) checkAnswers() {
 		if s, ok := suggest(key, knownQuestions); ok {
 			msg += fmt.Sprintf("; did you mean %q?", s)
 		}
-		r.errorf("answers."+key, "%s", msg)
+		r.errorf(CodeUnknownQuestion, "answers."+key, "%s", msg)
 	}
 }
 

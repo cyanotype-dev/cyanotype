@@ -13,6 +13,10 @@ import (
 
 // ValidationError describes one problem in a spec file.
 type ValidationError struct {
+	// Code names the kind of problem, such as CodeRequired, for interfaces
+	// that report errors as data, such as the JSON output. Codes are stable,
+	// while messages may change; "" for an error built without one.
+	Code string
 	// Field is a YAML path such as "project.core_features[1]"; empty for
 	// problems that concern the whole file.
 	Field string
@@ -41,6 +45,42 @@ func (e *ValidationError) Error() string {
 	return b.String()
 }
 
+// Codes of the errors Load and Validate return; see ValidationError.Code.
+// internal/resolve adds codes of its own for the checks that need the
+// catalog.
+const (
+	// CodeYAMLSyntax: the file is not valid YAML. Its line may be one off.
+	CodeYAMLSyntax = "yaml-syntax"
+	// CodeTooLarge: the file is larger than Load reads.
+	CodeTooLarge = "too-large"
+	// CodeEmptyFile: the file holds no YAML document.
+	CodeEmptyFile = "empty-file"
+	// CodeMultipleDocuments: the file holds more than one YAML document.
+	CodeMultipleDocuments = "multiple-documents"
+	// CodeNotMapping: the top level is not a mapping of keys to values.
+	CodeNotMapping = "not-a-mapping"
+	// CodeAlias: an anchor, alias or merge key, which a spec cannot use.
+	CodeAlias = "alias"
+	// CodeUnknownField: a key the spec format does not have.
+	CodeUnknownField = "unknown-field"
+	// CodeWrongType: a value of the wrong YAML type, such as a list where
+	// text belongs.
+	CodeWrongType = "wrong-type"
+	// CodeDuplicate: a key or list item that appears twice.
+	CodeDuplicate = "duplicate"
+	// CodeRequired: a required field that is missing or blank.
+	CodeRequired = "required"
+	// CodeEmpty: an optional value or list item that is set but blank.
+	CodeEmpty = "empty"
+	// CodeInvalidValue: a value outside its allowed values or format, such
+	// as an unknown target or a path outside the project.
+	CodeInvalidValue = "invalid-value"
+	// CodeNotSelected: a locked id that selections does not list.
+	CodeNotSelected = "not-selected"
+	// CodeUnsupportedVersion: a spec version this cyanotype cannot read.
+	CodeUnsupportedVersion = "unsupported-version"
+)
+
 var (
 	syntaxError   = regexp.MustCompile(`^yaml: line (\d+): (.*)$`)
 	typeErrorLine = regexp.MustCompile(`^line (\d+): (.*)$`)
@@ -57,7 +97,7 @@ func syntaxErrors(err error) []error {
 		line, _ = strconv.Atoi(m[1])
 		msg = m[2]
 	}
-	return []error{&ValidationError{Line: line, Msg: "invalid YAML: " + msg, Syntax: true}}
+	return []error{&ValidationError{Code: CodeYAMLSyntax, Line: line, Msg: "invalid YAML: " + msg, Syntax: true}}
 }
 
 // decodeErrors turns the errors of a strict decode into one ValidationError
@@ -70,7 +110,7 @@ func decodeErrors(doc *yaml.Node, err error) []error {
 	}
 	errs := make([]error, 0, len(typeErr.Errors))
 	for _, msg := range typeErr.Errors {
-		ve := &ValidationError{Msg: msg}
+		ve := &ValidationError{Code: CodeWrongType, Msg: msg}
 		if m := typeErrorLine.FindStringSubmatch(msg); m != nil {
 			ve.Line, _ = strconv.Atoi(m[1])
 			ve.Field = fieldAtLine(doc, ve.Line)
@@ -78,7 +118,10 @@ func decodeErrors(doc *yaml.Node, err error) []error {
 		}
 		switch m := unknownField.FindStringSubmatch(ve.Msg); {
 		case m != nil:
+			ve.Code = CodeUnknownField
 			ve.Msg = fmt.Sprintf("unknown field %q; check for a typo, or upgrade cyanotype if a newer version wrote this file", m[1])
+		case strings.Contains(ve.Msg, "already defined"):
+			ve.Code = CodeDuplicate
 		default:
 			if m := cannotDecode.FindStringSubmatch(ve.Msg); m != nil {
 				ve.Msg = fmt.Sprintf("expected %s, got %s", describeGoType(m[3]), describeTag(m[1], m[2]))
