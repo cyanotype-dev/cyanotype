@@ -330,15 +330,15 @@ The agent was asked for one call at a time. After each change to the settings it
 
 | Case | Control: allow only | With the ask rule |
 | --- | --- | --- |
-| `set_selections` with `add`, no `write` | Ran (`written: false`) | Prompt, refused |
-| `set_selections` with `add` and `write: true` | Ran, wrote the dummy spec | Prompt, refused; the spec unchanged |
-| `set_selections` with no arguments | Ran (`usage` error) | Prompt, refused |
-| `search_catalog`, `get_spec`, `validate`, `preview` | Ran | Ran, no prompt, as intended |
-| `generate` without `write` | Ran, wrote nothing | Ran, no prompt, as intended |
+| `set_selections` with `add`, no `write` | Ran, no prompt (`written: false`) | Prompt, refused |
+| `set_selections` with `add` and `write: true` | Ran, no prompt; wrote the dummy spec | Prompt, refused; the spec unchanged |
+| `set_selections` with no arguments | Ran, no prompt (`usage` error) | Prompt, refused |
+| `search_catalog`, `get_spec`, `validate`, `preview` | Ran, no prompt | Ran, no prompt, as intended |
+| `generate` without `write` | Ran, no prompt; wrote nothing | Ran, no prompt, as intended |
 | `set_selections` of the same server added as `cyanotype-other` | | **Ran, no prompt**, as expected |
 | `set_selections` of `cyanotype`, in that same session | | Prompt, refused |
 
-The control column records that every call ran; whether any of them showed a prompt was not reported. In the second column, the prompts the user reported are exactly the four marked "Prompt". Each read "Ask rule mcp__cyanotype__set_selections overrides auto mode for this tool". After the run `cmp` found the dummy spec identical to its copy.
+The user reported every prompt that appeared: none in the control run, and in the second column exactly the four marked "Prompt". Each read "Ask rule mcp__cyanotype__set_selections overrides auto mode for this tool". After the run `cmp` found the dummy spec identical to its copy.
 
 **Findings:**
 
