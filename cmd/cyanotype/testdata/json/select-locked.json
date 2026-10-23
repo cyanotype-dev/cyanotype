@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "warnings": [],
+  "errors": [
+    {
+      "code": "locked",
+      "severity": "error",
+      "file": "cyanotype.yaml",
+      "line": 7,
+      "field": "locked",
+      "message": "\"conventional-commits\" is locked, so it cannot be removed; only a person editing cyanotype.yaml can unlock it"
+    }
+  ]
+}

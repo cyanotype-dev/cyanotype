@@ -148,6 +148,52 @@ func TestJSONGolden(t *testing.T) {
 			code: codeError,
 		},
 		{
+			name: "select-dry-run",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec + "# a comment Save keeps\n"})
+			},
+			args: []string{"select", "--add", "small-commits,branch-per-task", "--remove", "go", "--dry-run"},
+			code: codeNotWritten,
+		},
+		{
+			name: "select-yes",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			},
+			args: []string{"select", "--remove", "conventional-commits", "--add", "small-commits", "--yes"},
+			code: codeOK,
+		},
+		{
+			name: "select-nothing-to-change",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			},
+			args: []string{"select", "--add", "conventional-commits"},
+			code: codeOK,
+		},
+		{
+			name: "select-refused",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			},
+			args: []string{"select", "--add", "pnpm,pnpn"},
+			code: codeError,
+		},
+		{
+			name: "select-locked",
+			setup: func(t *testing.T) string {
+				return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec + "locked: [conventional-commits]\n"})
+			},
+			args: []string{"select", "--remove", "conventional-commits", "--yes"},
+			code: codeError,
+		},
+		{
+			name:  "select-usage",
+			setup: func(t *testing.T) string { return newProject(t, map[string]string{"cyanotype.yaml": minimalSpec}) },
+			args:  []string{"select"},
+			code:  codeUsage,
+		},
+		{
 			name:  "validate-no-spec",
 			setup: func(t *testing.T) string { return newProject(t, nil) },
 			args:  []string{"validate"},

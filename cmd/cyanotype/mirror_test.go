@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -115,6 +116,48 @@ func TestMirrorCommandsText(t *testing.T) {
 			}
 			if tt.noStdout && r.stdout != "" {
 				t.Errorf("stdout is not empty:\n%s", r.stdout)
+			}
+		})
+	}
+}
+
+// TestSelectAsks checks that select shows the diff and writes only after a
+// yes on a terminal, or with --yes, and never reads stdin without one.
+func TestSelectAsks(t *testing.T) {
+	const added = "selections: [conventional-commits, small-commits]"
+	tests := []struct {
+		name    string
+		con     console
+		asks    bool   // select reads the answer from stdin
+		stdin   string // the answer
+		args    []string
+		code    int
+		written bool
+	}{
+		{"yes on a terminal", interactive, true, "y\n", nil, codeOK, true},
+		{"no on a terminal", interactive, true, "n\n", nil, codeNotWritten, false},
+		{"end of input on a terminal", interactive, true, "", nil, codeNotWritten, false},
+		{"no terminal", nonInteractive, false, "", nil, codeNotWritten, false},
+		{"no terminal with --yes", nonInteractive, false, "", []string{"--yes"}, codeOK, true},
+		{"dry run", interactive, false, "", []string{"--dry-run"}, codeNotWritten, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := newProject(t, map[string]string{"cyanotype.yaml": minimalSpec})
+			args := append([]string{"select", "--dir", dir, "--add", "small-commits"}, tt.args...)
+			var stdin io.Reader = failReader{t}
+			if tt.asks {
+				stdin = strings.NewReader(tt.stdin)
+			}
+			r := runCLI(t, tt.con, stdin, args...)
+			if r.code != tt.code {
+				t.Fatalf("exit code %d, want %d\nstdout:\n%s\nstderr:\n%s", r.code, tt.code, r.stdout, r.stderr)
+			}
+			if !strings.Contains(r.stdout, "+"+added) || !strings.Contains(r.stdout, "Adds small-commits.") {
+				t.Errorf("stdout lacks the diff and summary:\n%s", r.stdout)
+			}
+			if got := strings.Contains(readFile(t, dir, "cyanotype.yaml"), added); got != tt.written {
+				t.Errorf("cyanotype.yaml written = %v, want %v:\n%s", got, tt.written, readFile(t, dir, "cyanotype.yaml"))
 			}
 		})
 	}

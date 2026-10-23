@@ -336,6 +336,35 @@
         "errors": { "$ref": "#/$defs/diagnostics" }
       }
     },
+    "select": {
+      "description": "Output of cyanotype select --json, and of the MCP set_selections tool. A change that would leave the spec with errors is refused: errors then say what is wrong, and nothing is written.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "added": {
+          "description": "Entries the change adds to selections, in order; entries already selected are not listed.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "removed": {
+          "description": "Entries the change removes from selections.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "spec_diff": {
+          "description": "The change as a unified diff of cyanotype.yaml; absent when the spec already has those selections.",
+          "type": "string"
+        },
+        "written": {
+          "description": "cyanotype.yaml was written.",
+          "type": "boolean"
+        },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
     "file_lines": {
       "type": "object",
       "additionalProperties": false,

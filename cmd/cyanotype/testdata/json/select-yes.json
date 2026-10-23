@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "added": [
+    "small-commits"
+  ],
+  "removed": [
+    "conventional-commits"
+  ],
+  "spec_diff": "--- a/cyanotype.yaml\n+++ b/cyanotype.yaml\n@@ -1,6 +1,9 @@\n version: 1\n+\n targets: [agents-md]\n+\n project:\n   name: tiny\n   goal: A tiny project for tests.\n-selections: [conventional-commits]\n+\n+selections: [small-commits]\n",
+  "written": true,
+  "warnings": [],
+  "errors": []
+}

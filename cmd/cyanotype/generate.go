@@ -367,13 +367,18 @@ func importPaths(choices generate.Choices) []string {
 	return paths
 }
 
-// confirm asks whether to write and reads one line of answer. Only "y" and
-// "yes" write; anything else, or the end of input, means no.
+// confirm asks whether to write these files.
 func (g *generation) confirm() bool {
-	fmt.Fprint(g.errOut, "Write these files? [y/N] ")
-	answer, err := bufio.NewReader(g.in).ReadString('\n')
+	return confirm(g.in, g.errOut, "Write these files?")
+}
+
+// confirm asks question on errOut and reads one line of answer from in.
+// Only "y" and "yes" say yes; anything else, or the end of input, means no.
+func confirm(in io.Reader, errOut io.Writer, question string) bool {
+	fmt.Fprint(errOut, question+" [y/N] ")
+	answer, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil && answer == "" {
-		fmt.Fprintln(g.errOut)
+		fmt.Fprintln(errOut)
 		return false
 	}
 	answer = strings.TrimSpace(answer)
@@ -430,6 +435,12 @@ func (g *generation) diagnostics() specDiagnostics {
 
 // printDiff prints a unified diff to stdout, colored by line kind.
 func (g *generation) printDiff(d string) {
+	printDiff(g.out, g.console.colorOut, d)
+}
+
+// printDiff prints the unified diff d to w, colored by line kind when
+// colorOn is set.
+func printDiff(w io.Writer, colorOn bool, d string) {
 	for line := range strings.Lines(d) {
 		color := ""
 		switch {
@@ -443,7 +454,7 @@ func (g *generation) printDiff(d string) {
 			color = red
 		}
 		text := strings.TrimSuffix(line, "\n")
-		fmt.Fprintln(g.out, paint(g.console.colorOut, color, text))
+		fmt.Fprintln(w, paint(colorOn, color, text))
 	}
 }
 

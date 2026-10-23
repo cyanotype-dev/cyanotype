@@ -24,6 +24,7 @@ func TestSchemaMatchesContract(t *testing.T) {
 		"spec":     reflect.TypeFor[Spec](),
 		"detect":   reflect.TypeFor[Detect](),
 		"validate": reflect.TypeFor[Validate](),
+		"select":   reflect.TypeFor[Select](),
 	}
 	for name, typ := range outputs {
 		schematest.CheckJSONStruct(t, root, name, typ)
