@@ -389,7 +389,7 @@ output:
 
 Defaults are applied in code and never written to the file, so the spec records only what the user chose. Unknown fields are errors. `schema/spec.schema.json` gives editors autocompletion; as with the catalog, runtime validation is Go code.
 
-Validation is split in two. `internal/spec` checks the file on its own: types, required fields, enums, formats, duplicates, and consistency inside the file, such as `locked` ids being selected. Anything that needs the catalog — whether selections exist, radio exclusivity, `requires`, `conflicts`, known `answers` keys — belongs to `internal/resolve`. Errors name the field and its line.
+Validation is split in two. `internal/spec` checks the file on its own: types, required fields, enums, formats, duplicates, and consistency inside the file, such as `locked` ids being selected. Anything that needs the catalog — whether selections exist, radio exclusivity, `requires`, `conflicts`, known `answers` keys — belongs to `internal/resolve`. Errors name the field and its line, and carry a stable code, such as `required` or `unknown-field`, for the JSON output (see JSON output).
 
 ### Versioning
 
@@ -401,16 +401,16 @@ Validation is split in two. `internal/spec` checks the file on its own: types, r
 
 Problems that would produce wrong or inconsistent files are errors and block generation; the others are warnings. Both name the field and its line, such as `line 9: selections[3]: unknown entry "nextjs"; did you mean "next-js"?`.
 
-| Check | Kind | Example message |
-| --- | --- | --- |
-| Selection not in the catalog, with the closest id when one is close enough | Error | `unknown entry "pnpn"; did you mean "pnpm"?` |
-| Two entries of the same radio category | Error | `"npm" and "pnpm" (selections[1]) are both in radio category "package-manager"; keep only one` |
-| A requirement that is not selected | Error | `"vitest" requires "vite" and "node" (through "vite"), which are not selected` |
-| A `requires_one_of` group with no selected alternative | Error | `"shadcn-ui" requires one of "nextjs" or "vite-react", but none is selected` |
-| Two selected entries that conflict | Error | `"supabase" conflicts with "sqlite" (selections[0]); keep only one` |
-| A placeholder the selection cannot fill | Error | `"learning-guided" uses {languages}, but no entry of category "language" is selected` |
-| An `answers` key that matches no question | Error | `unknown question "domain_note"; did you mean "domain_notes"?` |
-| `catalog_version` newer or older than the catalog | Error or warning | See Distribution |
+| Check | Kind | Code | Example message |
+| --- | --- | --- | --- |
+| Selection not in the catalog, with the closest id when one is close enough | Error | `unknown-entry` | `unknown entry "pnpn"; did you mean "pnpm"?` |
+| Two entries of the same radio category | Error | `radio-clash` | `"npm" and "pnpm" (selections[1]) are both in radio category "package-manager"; keep only one` |
+| A requirement that is not selected | Error | `missing-requirement` | `"vitest" requires "vite" and "node" (through "vite"), which are not selected` |
+| A `requires_one_of` group with no selected alternative | Error | `missing-one-of` | `"shadcn-ui" requires one of "nextjs" or "vite-react", but none is selected` |
+| Two selected entries that conflict | Error | `conflict` | `"supabase" conflicts with "sqlite" (selections[0]); keep only one` |
+| A placeholder the selection cannot fill | Error | `unfilled-placeholder` | `"learning-guided" uses {languages}, but no entry of category "language" is selected` |
+| An `answers` key that matches no question | Error | `unknown-question` | `unknown question "domain_note"; did you mean "domain_notes"?` |
+| `catalog_version` newer or older than the catalog | Error or warning | `catalog-newer`, `catalog-older` | See Distribution |
 
 `requires` is transitive: selecting an entry means needing everything its requirements need. Each selection reports all its missing requirements in one message, following only entries that are not selected, because a selected entry reports its own gaps. `requires_one_of` groups follow the same path, and each unmet group gets a message of its own, with `(through "x")` when it comes from an unselected requirement. The search never goes into the alternatives of an unmet group, because none has been chosen yet. A group counts as met when any alternative is selected, including the entry being checked. That keeps cycles such as Node.js requiring one of npm or pnpm, which both require Node.js, from reporting anything when one package manager and Node.js are selected. The resolver never adds entries by itself: the spec records the user's choices, and the interface offers the fix. An unknown selection is reported once and left out of the other checks, so a typo does not cause a cascade.
 
@@ -699,6 +699,7 @@ Regeneration replaces the block where it is and leaves the rest of the file byte
 | `--dry-run` | Show the diff and write nothing |
 | `--yes`, `-y` | Write without asking. Cannot be combined with `--dry-run`. Never replaces a hand-written file by itself |
 | `--existing` | What to do with hand-written instruction files: `import`, `keep`, `move` or `replace`. See Hand-written instruction files |
+| `--json` | Print the result as JSON on stdout and nothing else, and never ask; writes only with `--yes`. See JSON output |
 
 When stdin is not a terminal and `--yes` is not given, the command never reads stdin: it shows the diff and exits, saying to run it again with `--yes`. A CI job or script waiting for an answer nobody gives would otherwise hang. Git Bash's mintty connects programs through pipes, so there it counts as non-interactive too.
 
@@ -894,7 +895,7 @@ An optional decision log, `docs/agents/decisions.md`, lets the agent record arch
 
 `cyanotype update` will then apply catalog updates, showing a diff before writing anything.
 
-It only reads: it never writes a file and never reads stdin, so it cannot hang in a hook or a CI job. The checks live in `internal/check`, which returns findings as plain data, each with a stable kind, a severity, the file and line it is about and a message; the CLI prints them, and from v0.4 `--json` and the MCP `check` tool encode the same values.
+It only reads: it never writes a file and never reads stdin, so it cannot hang in a hook or a CI job. The checks live in `internal/check`, which returns findings as plain data, each with a stable kind, a severity, the file and line it is about and a message; the CLI prints them, and `--json` and the MCP `check` tool encode the same values.
 
 | Check | Kind | Severity |
 | --- | --- | --- |
@@ -921,6 +922,7 @@ Tracked files come from `git ls-files --cached --ignored` with each `enforce.git
 | --- | --- |
 | `--dir <folder>` | The project folder, as for generate |
 | `--strict` | Warnings fail the check too |
+| `--json` | Print the findings as JSON on stdout and nothing else. See JSON output |
 
 | Exit code | Meaning |
 | --- | --- |
@@ -1006,6 +1008,60 @@ Typical rules this generates:
 Even "later" is useful: it tells the agent to route strings through a single module from day one, so adding languages becomes a configuration change.
 
 Real constraints: a lint rule against hardcoded strings where the stack has one, and a CI check that every locale file has the same keys.
+
+## JSON output
+
+`cyanotype generate` and `cyanotype check` take `--json`. They then print one JSON object on stdout and nothing else, on stdout or stderr, never ask and never read stdin, even on a terminal, and end with the exit codes they have without it. generate writes only with `--yes`, so `--json` alone previews, as a run without a terminal does. The MCP tools return the same objects: the types live in `internal/contract`, built from what the core returns (`generate.Change`, check findings, resolve warnings, errors with their codes), and `contract.Marshal` encodes them for both interfaces, so a script reads the CLI's output and an MCP tool's result the same way. `cyanotype.yaml` and `cyanotype.lock` stay YAML; only command output is JSON.
+
+- Every object starts with `version`, the contract's version, and ends with `warnings` and `errors`, which are always arrays. When `errors` is not empty, the command could not do its work, and the object holds only those three fields.
+- Field names are lowercase snake_case. Codes are kebab-case, like the kinds of `cyanotype check`.
+- `version` changes as the spec's does: adding fields, codes or commands keeps it; renaming or removing a field, or changing what one means, increments it. Readers ignore fields they do not know, and treat a code they do not know as `error`.
+- Paths are relative to the project root, with forward slashes; the output holds no absolute path, so it does not depend on the machine.
+- Left out: the content of generated files, since the diff holds every changed line and all of a created file; colors.
+- Encoded with two-space indentation, a final newline and no HTML escaping, since diffs hold `<!--` and `&`.
+
+Errors, warnings and findings share one shape, a diagnostic:
+
+```json
+{
+  "code": "unknown-entry",
+  "severity": "error",
+  "file": "cyanotype.yaml",
+  "line": 6,
+  "field": "selections[1]",
+  "message": "unknown entry \"pnpn\"; did you mean \"pnpm\"?"
+}
+```
+
+`file`, `line` and `field` are left out when unknown; `"line_approximate": true` marks a YAML syntax error whose line may be one off. Messages may change between versions; codes do not:
+
+| Source | Codes |
+| --- | --- |
+| The spec on its own (`spec.ValidationError.Code`) | `yaml-syntax`, `too-large`, `empty-file`, `multiple-documents`, `not-a-mapping`, `alias`, `unknown-field`, `wrong-type`, `duplicate`, `required`, `empty`, `invalid-value`, `not-selected`, `unsupported-version` |
+| The spec against the catalog | `unknown-entry`, `radio-clash`, `missing-requirement`, `missing-one-of`, `conflict`, `unfilled-placeholder`, `unknown-question`, `catalog-newer` |
+| Warnings (`resolve.Warning.Code`) | `catalog-older`, `unsupported-target`, `too-long`, `stale`, `unrecorded`, `unowned-rules`, and `spec-warning` for one without a code |
+| The project and the files | `no-spec`, `lock-invalid`, `lock-newer`, `lock-catalog-newer`, `markers`, `choice-required`, `hand-written`, `replace-refused`, `keep-refused`, `move-refused`, `unsafe-path`, `changed-since-preview` |
+| The interface | `usage`, and `error` for anything else, such as a file that cannot be read |
+
+Errors outside the spec keep their messages; each wraps a sentinel or a typed error, such as `generate.ErrSymlink` or `render.MarkerError` with its file and line, so `internal/contract` names it without matching text.
+
+The output of generate:
+
+| Field | Holds |
+| --- | --- |
+| `files` | Every generated file, sorted by path: `path`, `status` (`created`, `modified`, `deleted`, `unchanged`), `diff` (the unified diff the CLI prints; left out for an unchanged file and for a hand-written file waiting for a choice), and, when true or set, `crlf_to_lf`, `hand_written`, `choice` and `moved_from` |
+| `summary` | `created`, `modified`, `deleted` and `unchanged` counts |
+| `waiting_for_choice` | Hand-written instruction files nothing replaces until a choice is made |
+| `written` | Files written or deleted, in order; empty when nothing was written, partial when writing failed halfway |
+| `import` | With `--existing import`: `files` and the `prompt` the CLI prints; nothing is written |
+
+Without `--existing`, hand-written files are listed in `waiting_for_choice`; a dry run ends with code 3, any other run with a `choice-required` error, whose message explains the four choices, and code 2, as without `--json`.
+
+The output of check holds `findings`, diagnostics whose code is the finding's kind, `skipped`, the checks that could not run with the reason, and `summary`: `errors`, `warnings`, `strict`, and `drift`, which is true when the exit code is 3. Warnings of the spec are findings there, as in the text output, so `warnings` stays empty when the check ran.
+
+`schema/output.schema.json` describes each output under `$defs`; a test compares it with the json tags of the Go types, and the MCP tools serve the same definitions as their output schemas. Golden files in `cmd/cyanotype/testdata/json` show every case, and a test checks that stdout holds one JSON value and stderr nothing.
+
+One exception: a flag error that cobra finds before reading `--json`, such as an unknown flag before it, is text on stderr with code 2, and stdout stays empty.
 
 ## MCP server
 
@@ -1178,7 +1234,7 @@ Signed catalog updates and additional catalogs come after v0.6.
 - [x] **The `cyty` alias**: never a second copy of the binary. A relative symlink in tar archives and in the `.deb` and `.rpm` packages, `bin.install_symlink` in the Homebrew formula, and `cyty.cmd` next to `cyanotype.exe` in Windows zip archives. Scoop and `go install` install `cyanotype` only: GoReleaser builds Scoop's `bin` list from the binaries alone, and a shim created in `post_install` would survive an uninstall; the README shows a PowerShell alias instead.
 - [x] **Release integrity**: `checksums.txt` lists the SHA-256 of every archive and package and is signed with cosign keyless signing, through the release workflow's GitHub OIDC identity, into `checksums.txt.sigstore.json`. There is no signing key to store or leak, and a signature names the workflow and tag that made it. The README shows how to verify a download.
 - [ ] **Homebrew cask and signed macOS binaries**: the tap uses a formula, which GoReleaser deprecated in v2.10 in favor of casks, because a formula also works on Linux and is not quarantined by Gatekeeper; the release check accepts only this deprecation. Moving to a cask belongs with signing and notarizing the macOS binaries, which removes the need to strip the quarantine attribute that a cask of unsigned binaries would need.
-- [ ] **`--json` output for generate**: the MCP server section says the CLI mirrors every MCP tool with `--json`. The JSON of `generate` is a public contract shared with the MCP tools `preview` and `generate`, so it is designed together with them; `generate.Change` (path, status, old and new content, diff) is the shape it will encode.
+- [x] **JSON contract and `--json` output for generate**: the JSON of `cyanotype generate --json` and `cyanotype check --json` is one public contract with the MCP tools: the types of `internal/contract`, encoded by one function. Every object starts with a `version` and ends with `warnings` and `errors` as arrays of diagnostics (stable code, severity, file, line, field, message); field names are snake_case and codes kebab-case. Generate leaves file contents out, since the diff holds every changed line. Errors in the spec carry a code in `spec.ValidationError`, and other errors wrap sentinels or typed errors, so no code depends on message text. With `--json` nothing else reaches stdout or stderr, nothing is asked, and the exit codes stay the same. `schema/output.schema.json` documents the outputs and is checked against the Go types. See JSON output.
 - [ ] **Pinning `catalog_version` on generate**: a spec without `catalog_version` could get the loaded catalog's version written back on generation, so regeneration is reproducible. `generate` never changes the spec today: writing it is a choice of its own, and would need the spec in the diff too.
 - [x] **Tracked files that should be ignored**: `cyanotype check` reports, as an error, each file git tracks that an `enforce.gitignore` line of a selected entry ignores, such as a committed `.env`. It asks `git ls-files --cached --ignored` with the entry's lines as `--exclude` patterns, names the matching line, and says that `git rm --cached` does not remove the file from the history, so a committed secret must also be rotated. Without git or a repository the check is skipped and says so. See What the tool checks.
 - [x] **Check command**: `cyanotype check` only reads and never reads stdin. Errors: generated files out of sync or edited by hand, hand-written instruction files waiting for a choice, tracked files that should be ignored. Warnings: undeclared detected entries, an older catalog pin with the entries it changed, long main files, pointers to missing files, stale and unrecorded files. Exit codes 0 no errors, 1 cannot run, 2 usage, 3 drift; `--strict` makes warnings fail. Findings are plain data in `internal/check`, with a stable kind each, for the JSON output and MCP tool of v0.4. A hand edit is told apart from a spec change with the hashes in `cyanotype.lock`. cyanotype documents hooks and CI but never installs them. See What the tool checks.
