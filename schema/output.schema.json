@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyanotype.dev/schema/output.schema.json",
+  "title": "Cyanotype JSON output",
+  "description": "What cyanotype prints with --json, and what its MCP tools return: one definition per command under $defs. Every output starts with the contract version and ends with its warnings and errors; when errors is not empty, the command could not do its work and the output holds only version, warnings and errors. Readers ignore fields they do not know. See the JSON output section of docs/DESIGN.md.",
+  "$defs": {
+    "version": {
+      "description": "Version of the contract. Adding fields, codes or commands keeps it; renaming or removing a field, or changing its meaning, increments it.",
+      "type": "integer",
+      "const": 1
+    },
+    "diagnostics": {
+      "description": "Errors or warnings, always an array, empty when there are none.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "diagnostic": {
+      "description": "One error, warning or finding.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": {
+          "description": "Stable kebab-case name of the kind of problem, such as \"unknown-entry\" or \"out-of-sync\". Treat a code you do not know as \"error\".",
+          "type": "string"
+        },
+        "severity": { "enum": ["error", "warning"] },
+        "file": {
+          "description": "File the problem is about, relative to the project root with forward slashes; absent when it is about no file.",
+          "type": "string"
+        },
+        "line": {
+          "description": "1-based line in file; absent when unknown.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_approximate": {
+          "description": "The line may be one off, as for some YAML syntax errors: show the lines around it.",
+          "type": "boolean"
+        },
+        "field": {
+          "description": "Spec field the problem is about, such as \"selections[3]\".",
+          "type": "string"
+        },
+        "message": {
+          "description": "What is wrong and what to do, in English. Messages may change between versions; codes do not.",
+          "type": "string"
+        }
+      }
+    },
+    "generate": {
+      "description": "Output of cyanotype generate --json, and of the MCP tools preview and generate.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "files": {
+          "description": "Every generated file compared with the project, sorted by path, unchanged ones included.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/file" }
+        },
+        "summary": { "$ref": "#/$defs/summary" },
+        "waiting_for_choice": {
+          "description": "Hand-written instruction files that nothing replaces until the user chooses import, keep, move or replace.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "written": {
+          "description": "Files written or deleted, in order; empty when nothing was written, partial when writing failed halfway.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "import": { "$ref": "#/$defs/import" },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "file": {
+      "description": "One generated file compared with the file on disk. Its content is left out: the diff holds every changed line.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "status"],
+      "properties": {
+        "path": { "type": "string" },
+        "status": { "enum": ["created", "modified", "deleted", "unchanged"] },
+        "diff": {
+          "description": "Unified diff, as the CLI prints it; absent for an unchanged file and for a hand-written file waiting for a choice.",
+          "type": "string"
+        },
+        "crlf_to_lf": {
+          "description": "Writing the file turns its CRLF line endings into LF.",
+          "type": "boolean"
+        },
+        "hand_written": {
+          "description": "The file on disk is an instruction file cyanotype did not generate.",
+          "type": "boolean"
+        },
+        "choice": {
+          "description": "What was chosen for a hand-written file.",
+          "enum": ["keep", "move", "replace"]
+        },
+        "moved_from": {
+          "description": "The hand-written file whose content this created file holds.",
+          "type": "string"
+        }
+      }
+    },
+    "summary": {
+      "description": "Generated files counted by status.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created", "modified", "deleted", "unchanged"],
+      "properties": {
+        "created": { "type": "integer", "minimum": 0 },
+        "modified": { "type": "integer", "minimum": 0 },
+        "deleted": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "import": {
+      "description": "The prompt that converts hand-written instruction files into cyanotype.yaml; nothing is written.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "prompt"],
+      "properties": {
+        "files": { "type": "array", "items": { "type": "string" } },
+        "prompt": { "type": "string" }
+      }
+    },
+    "check": {
+      "description": "Output of cyanotype check --json, and of the MCP check tool. Warnings of the spec are findings, so warnings is empty when the check ran.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "warnings", "errors"],
+      "properties": {
+        "version": { "$ref": "#/$defs/version" },
+        "findings": {
+          "description": "Drift found, sorted by file, then line; the code is the finding's kind, such as \"out-of-sync\".",
+          "type": "array",
+          "items": { "$ref": "#/$defs/diagnostic" }
+        },
+        "skipped": {
+          "description": "Checks that could not run, with the reason.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "summary": { "$ref": "#/$defs/check_summary" },
+        "warnings": { "$ref": "#/$defs/diagnostics" },
+        "errors": { "$ref": "#/$defs/diagnostics" }
+      }
+    },
+    "check_summary": {
+      "description": "Findings counted by severity, and whether they fail the check.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["errors", "warnings", "strict", "drift"],
+      "properties": {
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "strict": {
+          "description": "Warnings fail the check too.",
+          "type": "boolean"
+        },
+        "drift": {
+          "description": "The check failed: errors, or warnings with strict. The CLI exits with code 3.",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
