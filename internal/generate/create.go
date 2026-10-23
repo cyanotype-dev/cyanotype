@@ -29,6 +29,30 @@ func CheckNoSpec(root *os.Root) error {
 	}
 }
 
+// WriteSpec replaces cyanotype.yaml at the root of the project with data,
+// the spec a change of choices produced, such as cyanotype select's. It
+// writes only when the file still holds read, the bytes the change started
+// from, so an edit made in between is never lost: otherwise the error
+// wraps ErrChanged. Like Write, it refuses a cyanotype.yaml that is a
+// symbolic link or not a regular file, and replaces the file atomically,
+// keeping its permissions.
+func WriteSpec(root *os.Root, data, read []byte) error {
+	if err := checkTarget(root, SpecFile); err != nil {
+		return err
+	}
+	now, err := root.ReadFile(SpecFile)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", SpecFile, err)
+	}
+	if !bytes.Equal(now, read) {
+		return fmt.Errorf("refusing to write %s: %w; run the command again", SpecFile, ErrChanged)
+	}
+	if err := writeFile(root, SpecFile, data); err != nil {
+		return fmt.Errorf("write %s: %w", SpecFile, err)
+	}
+	return nil
+}
+
 // CreateSpec writes a new cyanotype.yaml at the root of the project, in the
 // canonical layout of spec.Save. It never replaces an existing file: the
 // file is created exclusively, so one that appears between CheckNoSpec and
