@@ -35,6 +35,8 @@ Cyanotype generates instruction files for coding agents (CLAUDE.md, AGENTS.md, C
 - `internal/diff/`: line diff with unified output.
 - `internal/preset/`: loads presets from the catalog and validates them by resolving them against it.
 - `internal/simple/`: simple-mode questions and how their answers become a spec.
+- `internal/lock/`: reads and writes cyanotype.lock, the record of what cyanotype generated.
+- `internal/check/`: drift detection for cyanotype check; findings are plain data, never printed.
 - `catalog/`: YAML entries, licensed CC0-1.0 (separate LICENSE). Code is Apache-2.0.
 - `schema/`: JSON Schemas for catalog entries and the spec file.
 - `.goreleaser.yaml`, `packaging/`: release configuration, run by `.github/workflows/release.yml` on v* tags. See docs/RELEASING.md.
