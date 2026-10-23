@@ -77,7 +77,7 @@ Use the same method for the other entries with permission rules. Choose cases th
 | --- | --- | --- |
 | `secrets-in-env` | `Read` and `Edit` rules on `.env` files | 2026-10-19, see below |
 | `no-destructive-commands` | `Bash` and `PowerShell` command patterns | Not yet |
-| `rule-maintenance-propose` | `Edit` deny rules on generated files; `ask` rules on `cyanotype.yaml`, `cyanotype select` and the `set_selections` MCP tool | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the other deny rules not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20, those on `cyanotype select` on 2026-10-23; the one on `set_selections` not yet |
+| `rule-maintenance-propose` | `Edit` deny rules on generated files; `ask` rules on `cyanotype.yaml`, `cyanotype select` and the `set_selections` MCP tool | `Edit(/cyanotype.lock)` on 2026-10-22, see below; the other deny rules not yet; the `ask` rule on `cyanotype.yaml` on 2026-10-20, those on `cyanotype select` and `set_selections` on 2026-10-23 |
 | `npm`, `pnpm`, `uv` | `Bash` and `PowerShell` rules on the other package managers | 2026-10-20, see below |
 | `npm`, `pnpm`, `uv`, `go`, `expo` | `Bash` and `PowerShell` ask rules on their install commands, under `with.dependency-approval` | 2026-10-20 for `npm install` and `go get` in both shells and `npm i` in Bash; not yet for the others |
 
@@ -316,8 +316,39 @@ After the run `.claude/settings.local.json` was copied back and `cmp` found it i
 - Only flags that take a value work before the subcommand: cyanotype refuses `-y select` and `--yes select` with a usage error, so those need no rule.
 - The first command after the rules were added to `.claude/settings.local.json` ran without a prompt, and the same command asked when run again a few commands later, as did every other case. The settings file seems to be read again shortly after it changes, not at once; a run should leave a command or two between adding rules and the first case, or repeat the first case.
 
+## Run of 2026-10-23: the `set_selections` ask rule
+
+`rule-maintenance-propose` gained the ask rule `mcp__cyanotype__set_selections` with v0.4, which adds the MCP server. This run checks it with the cases under Cases for the `set_selections` MCP tool.
+
+**Environment:**
+- Claude Code 2.1.309, the CLI at `~/.local/bin/claude.exe` (`CLAUDE_CODE_EXECPATH`), on Windows 11.
+- The session was in auto mode.
+- A build of `feat/mcp` (commit `041f42d`) was placed outside the repository and added with `claude mcp add cyanotype -- <binary> mcp --allow <dummy>`, in the local scope of a dummy project folder. That folder held a valid `cyanotype.yaml` and a copy of it to compare against, and the session ran there.
+- The allow rule `mcp__cyanotype__*`, and then the ask rule, were written to the dummy folder's `.claude/settings.local.json`. For the last case the same binary was also added as `cyanotype-other`, and `mcp__cyanotype-other__*` was allowed too.
+
+The agent was asked for one call at a time. After each change to the settings it made a warm-up call first, to allow for the delay before Claude Code reads the file again. The user answered **No** to every prompt.
+
+| Case | Control: allow only | With the ask rule |
+| --- | --- | --- |
+| `set_selections` with `add`, no `write` | Ran (`written: false`) | Prompt, refused |
+| `set_selections` with `add` and `write: true` | Ran, wrote the dummy spec | Prompt, refused; the spec unchanged |
+| `set_selections` with no arguments | Ran (`usage` error) | Prompt, refused |
+| `search_catalog`, `get_spec`, `validate`, `preview` | Ran | Ran, no prompt, as intended |
+| `generate` without `write` | Ran, wrote nothing | Ran, no prompt, as intended |
+| `set_selections` of the same server added as `cyanotype-other` | | **Ran, no prompt**, as expected |
+| `set_selections` of `cyanotype`, in that same session | | Prompt, refused |
+
+The control column records that every call ran; whether any of them showed a prompt was not reported. In the second column, the prompts the user reported are exactly the four marked "Prompt". Each read "Ask rule mcp__cyanotype__set_selections overrides auto mode for this tool". After the run `cmp` found the dummy spec identical to its copy.
+
+**Findings:**
+
+- The ask rule prompts for every call of `set_selections`, with or without `write` and with no arguments. It does so even with an allow rule on all of the server's tools, and in auto mode.
+- The server's other tools do not ask, and `generate` without `write` writes nothing.
+- `mcp__cyanotype__*` in allow covers every tool of the server.
+- The rule names the server as it was added: the same binary under the name `cyanotype-other` changes selections without a prompt. That is why the README recommends the name `cyanotype` and says to write the rule for any other name.
+
 ## Known limits
 
 - Results hold for the Claude Code version recorded with each run. Permission matching changes between releases, so rerun the procedure after upgrading.
-- Deny rules match what a command names. Globs, command substitution, `source`, recursive tools and scripts can reach a file without naming it, and `npm.cmd` or `cyanotype.exe` in Bash or an option before the subcommand of a package manager gets around a command pattern, so deny and ask rules are best effort, as Real constraints in [DESIGN.md](DESIGN.md) says. Repository, pre-commit and CI checks stay the baseline.
+- Deny rules match what a command names. Globs, command substitution, `source`, recursive tools and scripts can reach a file without naming it, and `npm.cmd` or `cyanotype.exe` in Bash or an option before the subcommand of a package manager gets around a command pattern. A rule on an MCP tool names the server, so the same server added under another name is not covered. Deny and ask rules are therefore best effort, as Real constraints in [DESIGN.md](DESIGN.md) says. Repository, pre-commit and CI checks stay the baseline.
 - `no-destructive-commands` and the `Edit` deny rules of `rule-maintenance-propose` other than `Edit(/cyanotype.lock)` have not been checked yet; see the table under Other entries.
